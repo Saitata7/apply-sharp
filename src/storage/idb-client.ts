@@ -3,10 +3,11 @@ import type { ResumeProfile } from '@shared/types/profile.types';
 import type { Job, JobPlatform } from '@shared/types/job.types';
 import type { Application, ApplicationStatus } from '@shared/types/application.types';
 import type { UserSettings } from '@shared/types/settings.types';
+import type { ResumeVersion } from '@shared/types/resume-version.types';
 
 const DB_NAME = 'applysharp-db';
 const OLD_DB_NAME = 'jobs-pilot-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface ApplySharpDB extends DBSchema {
   profiles: {
@@ -41,6 +42,15 @@ export interface ApplySharpDB extends DBSchema {
   settings: {
     key: string;
     value: UserSettings;
+  };
+  'resume-versions': {
+    key: string;
+    value: ResumeVersion;
+    indexes: {
+      'by-profile': string;
+      'by-job': string;
+      'by-created': Date;
+    };
   };
 }
 
@@ -107,6 +117,14 @@ export async function initDB(): Promise<IDBPDatabase<ApplySharpDB>> {
       // Settings store
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });
+      }
+
+      // Resume versions store (added in v2)
+      if (!db.objectStoreNames.contains('resume-versions')) {
+        const rvStore = db.createObjectStore('resume-versions', { keyPath: 'id' });
+        rvStore.createIndex('by-profile', 'profileId');
+        rvStore.createIndex('by-job', 'jobId');
+        rvStore.createIndex('by-created', 'createdAt');
       }
     },
   });

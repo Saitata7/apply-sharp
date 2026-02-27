@@ -45,6 +45,21 @@ export type MessageType =
   | 'SAVE_ANSWER'
   | 'GET_ANSWER_SUGGESTION'
   | 'GENERATE_AI_ANSWER'
+  // Application management messages
+  | 'GET_APPLICATIONS'
+  | 'GET_APPLICATION'
+  | 'GET_APPLICATIONS_WITH_JOBS'
+  | 'CREATE_APPLICATION'
+  | 'UPDATE_APPLICATION_STATUS'
+  | 'UPDATE_APPLICATION'
+  | 'DELETE_APPLICATION'
+  | 'BULK_ARCHIVE_APPLICATIONS'
+  | 'GET_APPLICATION_COUNTS'
+  // Resume version messages
+  | 'SAVE_RESUME_VERSION'
+  | 'GET_RESUME_VERSIONS'
+  | 'GET_RESUME_VERSION'
+  | 'DELETE_RESUME_VERSION'
   // Learning & Self-Improvement messages
   | 'TRACK_APPLICATION'
   | 'RECORD_OUTCOME'
@@ -65,9 +80,7 @@ export interface MessageResponse<T = unknown> {
   error?: string;
 }
 
-export async function sendMessage<T, R>(
-  message: Message<T>
-): Promise<MessageResponse<R>> {
+export async function sendMessage<T, R>(message: Message<T>): Promise<MessageResponse<R>> {
   try {
     const response = await chrome.runtime.sendMessage(message);
     return response as MessageResponse<R>;

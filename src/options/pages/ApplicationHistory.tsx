@@ -1,156 +1,242 @@
-import { useState, useEffect } from 'react';
-import type { Job } from '@shared/types/job.types';
+import { useState, useEffect, useMemo } from 'react';
+import type { ApplicationStatus } from '@shared/types/application.types';
+import { sendMessage } from '@shared/utils/messaging';
+import ApplicationFilters from '../components/applications/ApplicationFilters';
+import ApplicationListView from '../components/applications/ApplicationListView';
+import ApplicationKanbanView from '../components/applications/ApplicationKanbanView';
+import type { ApplicationWithJob } from '../components/applications/ApplicationCard';
+
+type ViewMode = 'list' | 'board';
 
 export default function ApplicationHistory() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'saved' | 'applied'>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('all');
 
   useEffect(() => {
-    loadJobs();
+    loadApplications();
   }, []);
 
-  async function loadJobs() {
-    const stored = await chrome.storage.local.get('jobs');
-    if (stored.jobs) {
-      setJobs(stored.jobs);
+  async function loadApplications() {
+    try {
+      const response = await sendMessage<void, ApplicationWithJob[]>({
+        type: 'GET_APPLICATIONS_WITH_JOBS',
+      });
+      if (response.success && response.data) {
+        setApplications(response.data);
+      }
+    } catch (error) {
+      console.error('[Applications] Failed to load:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  function formatDate(date: Date | string): string {
-    const d = new Date(date);
-    return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+  // Derive counts and platform list
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const app of applications) {
+      c[app.status] = (c[app.status] || 0) + 1;
+    }
+    return c;
+  }, [applications]);
+
+  const platforms = useMemo(() => {
+    const set = new Set<string>();
+    for (const app of applications) {
+      if (app.job?.platform) set.add(app.job.platform);
+    }
+    return Array.from(set).sort();
+  }, [applications]);
+
+  // Filter applications
+  const filtered = useMemo(() => {
+    let result = applications;
+
+    if (statusFilter !== 'all') {
+      result = result.filter((a) => a.status === statusFilter);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((a) => {
+        const title = a.job?.title?.toLowerCase() || '';
+        const company = a.job?.company?.toLowerCase() || '';
+        return title.includes(q) || company.includes(q);
+      });
+    }
+
+    if (platformFilter !== 'all') {
+      result = result.filter((a) => a.job?.platform === platformFilter);
+    }
+
+    // Sort newest first
+    return [...result].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [applications, statusFilter, searchQuery, platformFilter]);
+
+  // Handlers
+  async function handleStatusChange(id: string, status: ApplicationStatus, note?: string) {
+    const response = await sendMessage({
+      type: 'UPDATE_APPLICATION_STATUS',
+      payload: { id, status, note },
     });
+    if (response.success) {
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                status,
+                statusHistory: [
+                  ...a.statusHistory,
+                  { from: a.status, to: status, changedAt: new Date(), note },
+                ],
+                updatedAt: new Date(),
+              }
+            : a
+        )
+      );
+    }
   }
 
-  function getPlatformIcon(platform: string): string {
-    switch (platform) {
-      case 'linkedin':
-        return 'LinkedIn';
-      case 'indeed':
-        return 'Indeed';
-      case 'greenhouse':
-        return 'Greenhouse';
-      case 'lever':
-        return 'Lever';
-      case 'workday':
-        return 'Workday';
-      default:
-        return platform.charAt(0).toUpperCase() + platform.slice(1);
+  async function handleDelete(id: string) {
+    const response = await sendMessage({ type: 'DELETE_APPLICATION', payload: id });
+    if (response.success) {
+      setApplications((prev) => prev.filter((a) => a.id !== id));
+    }
+  }
+
+  // Bulk archive
+  const oldAppsCount = useMemo(() => {
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    return applications.filter(
+      (a) => new Date(a.createdAt).getTime() < cutoff && a.status !== 'expired'
+    ).length;
+  }, [applications]);
+
+  async function handleBulkArchive() {
+    const response = await sendMessage({
+      type: 'BULK_ARCHIVE_APPLICATIONS',
+      payload: { olderThanDays: 90 },
+    });
+    if (response.success) {
+      loadApplications();
     }
   }
 
   if (loading) {
-    return <div className="page-loading">Loading history...</div>;
+    return <div className="page-loading">Loading applications...</div>;
   }
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Application History</h1>
-        <p className="page-description">
-          Track your job applications and their status
-        </p>
-      </div>
-
-      <div className="history-filters">
-        <button
-          className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          All ({jobs.length})
-        </button>
-        <button
-          className={`filter-btn ${filter === 'saved' ? 'active' : ''}`}
-          onClick={() => setFilter('saved')}
-        >
-          Saved
-        </button>
-        <button
-          className={`filter-btn ${filter === 'applied' ? 'active' : ''}`}
-          onClick={() => setFilter('applied')}
-        >
-          Applied
-        </button>
-      </div>
-
-      {jobs.length === 0 ? (
-        <div className="empty-state large">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z"/>
-          </svg>
-          <h3>No jobs saved yet</h3>
-          <p>
-            Visit a job posting on LinkedIn, Indeed, Greenhouse, or Lever
-            and ApplySharp will automatically detect it.
-          </p>
+        <div className="header-with-actions">
+          <div>
+            <h1>Applications</h1>
+            <p className="page-description">Track your job applications and their status</p>
+          </div>
+          <div className="view-toggle">
+            <button
+              className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </button>
+            <button
+              className={`toggle-btn ${viewMode === 'board' ? 'active' : ''}`}
+              onClick={() => setViewMode('board')}
+              title="Board view"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="history-table-container">
-          <table className="history-table">
-            <thead>
-              <tr>
-                <th>Job Title</th>
-                <th>Company</th>
-                <th>Platform</th>
-                <th>Date Saved</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <a href={job.url} target="_blank" rel="noopener noreferrer" className="job-link">
-                      {job.title}
-                    </a>
-                  </td>
-                  <td>{job.company}</td>
-                  <td>
-                    <span className="platform-badge">{getPlatformIcon(job.platform)}</span>
-                  </td>
-                  <td>{formatDate(job.createdAt)}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-secondary"
-                      >
-                        View
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      </div>
+
+      <ApplicationFilters
+        activeStatus={statusFilter}
+        onStatusChange={setStatusFilter}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        platformFilter={platformFilter}
+        onPlatformChange={setPlatformFilter}
+        platforms={platforms}
+        counts={counts}
+      />
+
+      {oldAppsCount > 0 && (
+        <div className="bulk-archive-bar">
+          <span>
+            {oldAppsCount} application{oldAppsCount !== 1 ? 's' : ''} older than 90 days
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={handleBulkArchive}>
+            Archive All
+          </button>
         </div>
       )}
 
-      <div className="history-stats">
-        <div className="stat-card">
-          <div className="stat-value">{jobs.length}</div>
-          <div className="stat-label">Total Jobs Saved</div>
+      {applications.length === 0 ? (
+        <div className="empty-state large">
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
+          </svg>
+          <h3>No applications tracked yet</h3>
+          <p>
+            Visit a job posting and save it, or applications will appear here when you use the
+            autofill feature.
+          </p>
         </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {new Set(jobs.map((j) => j.company)).size}
-          </div>
-          <div className="stat-label">Unique Companies</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {new Set(jobs.map((j) => j.platform)).size}
-          </div>
-          <div className="stat-label">Platforms Used</div>
-        </div>
-      </div>
+      ) : viewMode === 'list' ? (
+        <ApplicationListView
+          applications={filtered}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDelete}
+        />
+      ) : (
+        <ApplicationKanbanView applications={filtered} onStatusChange={handleStatusChange} />
+      )}
     </div>
   );
 }

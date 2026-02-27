@@ -1,5 +1,12 @@
 import type { Message, MessageResponse } from '@shared/utils/messaging';
-import { profileRepo, jobRepo, settingsRepo, masterProfileRepo } from '@storage/index';
+import {
+  profileRepo,
+  jobRepo,
+  settingsRepo,
+  masterProfileRepo,
+  applicationRepo,
+  resumeVersionRepo,
+} from '@storage/index';
 import type { Job, ExtractedJob } from '@shared/types/job.types';
 // Static imports required for service worker (dynamic import() is not allowed)
 import { AIService } from '@/ai';
@@ -9,6 +16,7 @@ import { calculateQuickATSScore, getQuickRecommendations } from '@core/ats/hybri
 import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
+import { extractJSONFromResponse } from '@shared/utils/json-utils';
 import { DEPRECATED_GROQ_MODELS } from '@shared/constants/models';
 
 export async function handleMessage(
@@ -30,7 +38,9 @@ export async function handleMessage(
       return handleCreateProfile(message.payload as Parameters<typeof profileRepo.create>[0]);
 
     case 'UPDATE_PROFILE':
-      return handleUpdateProfile(message.payload as { id: string; updates: Parameters<typeof profileRepo.update>[1] });
+      return handleUpdateProfile(
+        message.payload as { id: string; updates: Parameters<typeof profileRepo.update>[1] }
+      );
 
     case 'DELETE_PROFILE':
       return handleDeleteProfile(message.payload as string);
@@ -55,11 +65,29 @@ export async function handleMessage(
 
     case 'JOB_DETECTED':
       // Log job detection, could trigger auto-save or notifications
-      console.log('[ApplySharp] Job detected:', (message.payload as { title?: string } | undefined)?.title);
+      console.log(
+        '[ApplySharp] Job detected:',
+        (message.payload as { title?: string } | undefined)?.title
+      );
       return { success: true };
 
     case 'ANALYZE_JOB':
-      return handleAnalyzeJob(message.payload as { job: ExtractedJob; platform?: string; useAI?: boolean });
+      return handleAnalyzeJob(
+        message.payload as { job: ExtractedJob; platform?: string; useAI?: boolean }
+      );
+
+    case 'SCORE_JOB':
+      return handleScoreJob(
+        message.payload as {
+          jobDescription: string;
+          roleProfile: {
+            id: string;
+            targetRole?: string;
+            highlightedSkills?: string[];
+            atsKeywords?: string[];
+          };
+        }
+      );
 
     case 'START_AUTOFILL':
       return handleStartAutofill(_sender.tab?.id);
@@ -67,21 +95,33 @@ export async function handleMessage(
     case 'OPTIMIZE_RESUME':
       return handleOptimizeResume(message.payload as { job: ExtractedJob });
 
+    case 'GENERATE_COVER_LETTER':
+      return handleGenerateCoverLetter(
+        message.payload as {
+          jobDescription: string;
+          companyName: string;
+          jobTitle: string;
+          tone?: 'professional' | 'conversational' | 'formal';
+        }
+      );
+
     // Master Profile handlers
     case 'ANALYZE_RESUME':
-      return handleAnalyzeResume(message.payload as {
-        fileName: string;
-        rawText: string;
-        basicInfo: {
-          email?: string;
-          phone?: string;
-          linkedIn?: string;
-          github?: string;
-          name?: string;
-          skills: string[];
-        };
-        confidence: number;
-      });
+      return handleAnalyzeResume(
+        message.payload as {
+          fileName: string;
+          rawText: string;
+          basicInfo: {
+            email?: string;
+            phone?: string;
+            linkedIn?: string;
+            github?: string;
+            name?: string;
+            skills: string[];
+          };
+          confidence: number;
+        }
+      );
 
     case 'GET_MASTER_PROFILES':
       return handleGetMasterProfiles();
@@ -96,74 +136,106 @@ export async function handleMessage(
       return handleDeleteMasterProfile(message.payload as string);
 
     case 'UPDATE_MASTER_PROFILE':
-      return handleUpdateMasterProfile(message.payload as { id: string; updates: Partial<import('@shared/types/master-profile.types').MasterProfile> });
+      return handleUpdateMasterProfile(
+        message.payload as {
+          id: string;
+          updates: Partial<import('@shared/types/master-profile.types').MasterProfile>;
+        }
+      );
 
     case 'PROCESS_PROFILE_UPDATE':
-      return handleProcessProfileUpdate(message.payload as { profileId: string; context: string; updateType?: string });
+      return handleProcessProfileUpdate(
+        message.payload as { profileId: string; context: string; updateType?: string }
+      );
 
     case 'APPLY_PROFILE_UPDATE':
       return handleApplyProfileUpdate(message.payload as { profileId: string; context: string });
 
     case 'GENERATE_ROLE_PROFILE':
-      return handleGenerateRoleProfile(message.payload as { masterProfileId: string; targetRole: string });
+      return handleGenerateRoleProfile(
+        message.payload as { masterProfileId: string; targetRole: string }
+      );
 
     case 'DELETE_ROLE_PROFILE':
-      return handleDeleteRoleProfile(message.payload as { masterProfileId: string; roleProfileId: string });
+      return handleDeleteRoleProfile(
+        message.payload as { masterProfileId: string; roleProfileId: string }
+      );
 
     case 'SET_ACTIVE_ROLE_PROFILE':
-      return handleSetActiveRoleProfile(message.payload as { masterProfileId: string; roleProfileId: string });
+      return handleSetActiveRoleProfile(
+        message.payload as { masterProfileId: string; roleProfileId: string }
+      );
 
     case 'ANALYZE_JD_FOR_RESUME':
-      return handleAnalyzeJDForResume(message.payload as {
-        masterProfileId: string;
-        jobDescription: string;
-      });
+      return handleAnalyzeJDForResume(
+        message.payload as {
+          masterProfileId: string;
+          jobDescription: string;
+        }
+      );
 
     case 'UPDATE_ANSWER_BANK':
-      return handleUpdateAnswerBank(message.payload as {
-        masterProfileId: string;
-        keywords: string[];
-        context: string;
-      });
+      return handleUpdateAnswerBank(
+        message.payload as {
+          masterProfileId: string;
+          keywords: string[];
+          context: string;
+        }
+      );
 
     case 'SAVE_ANSWER':
-      return handleSaveAnswer(message.payload as {
-        questionText: string;
-        answer: string;
-      });
+      return handleSaveAnswer(
+        message.payload as {
+          questionText: string;
+          answer: string;
+        }
+      );
 
     case 'GET_ANSWER_SUGGESTION':
-      return handleGetAnswerSuggestion(message.payload as {
-        questionText: string;
-        companyName?: string;
-        jobTitle?: string;
-      });
+      return handleGetAnswerSuggestion(
+        message.payload as {
+          questionText: string;
+          companyName?: string;
+          jobTitle?: string;
+        }
+      );
 
     case 'GENERATE_AI_ANSWER':
-      return handleGenerateAIAnswer(message.payload as {
-        questionText: string;
-        companyName?: string;
-        jobTitle?: string;
-        jobDescription?: string;
-      });
+      return handleGenerateAIAnswer(
+        message.payload as {
+          questionText: string;
+          companyName?: string;
+          jobTitle?: string;
+          jobDescription?: string;
+        }
+      );
 
     case 'OPTIMIZE_RESUME_FOR_JD':
-      return handleOptimizeResumeForJD(message.payload as {
-        masterProfileId: string;
-        roleId: string;
-        jobDescription: string;
-        missingKeywords: string[];
-        strengthKeywords?: Array<{ keyword: string; count: number }>;
-        currentSummary: string;
-        keyBulletPoints: Array<{ expId: string; bullets: string[]; expectedCount?: number; durationMonths?: number }>;
-      });
+      return handleOptimizeResumeForJD(
+        message.payload as {
+          masterProfileId: string;
+          roleId: string;
+          jobDescription: string;
+          missingKeywords: string[];
+          strengthKeywords?: Array<{ keyword: string; count: number }>;
+          currentSummary: string;
+          keyBulletPoints: Array<{
+            expId: string;
+            bullets: string[];
+            expectedCount?: number;
+            durationMonths?: number;
+          }>;
+        }
+      );
 
     // Learning & Self-Improvement handlers
     case 'TRACK_APPLICATION':
       return handleTrackApplication(message.payload as TrackApplicationPayload);
 
     case 'RECORD_OUTCOME':
-      return handleRecordOutcome(message.payload as { applicationId: string; status: string; notes?: string });
+      return handleRecordOutcome(
+        message.payload as { applicationId: string; status: string; notes?: string }
+      );
 
     case 'GET_LEARNING_INSIGHTS':
       return handleGetLearningInsights();
@@ -175,14 +247,72 @@ export async function handleMessage(
       return handleGetImprovements();
 
     case 'GET_KEYWORD_RECOMMENDATIONS':
-      return handleGetKeywordRecommendations(message.payload as {
-        jobKeywords: string[];
-        resumeKeywords: string[];
-        platform: string;
-      });
+      return handleGetKeywordRecommendations(
+        message.payload as {
+          jobKeywords: string[];
+          resumeKeywords: string[];
+          platform: string;
+        }
+      );
 
     case 'RUN_LEARNING_ANALYSIS':
       return handleRunLearningAnalysis();
+
+    // Application management handlers
+    case 'GET_APPLICATIONS':
+      return handleGetApplications();
+
+    case 'GET_APPLICATION':
+      return handleGetApplication(message.payload as string);
+
+    case 'GET_APPLICATIONS_WITH_JOBS':
+      return handleGetApplicationsWithJobs();
+
+    case 'CREATE_APPLICATION':
+      return handleCreateApplication(
+        message.payload as Parameters<typeof applicationRepo.create>[0]
+      );
+
+    case 'UPDATE_APPLICATION_STATUS':
+      return handleUpdateApplicationStatus(
+        message.payload as {
+          id: string;
+          status: import('@shared/types/application.types').ApplicationStatus;
+          note?: string;
+        }
+      );
+
+    case 'UPDATE_APPLICATION':
+      return handleUpdateApplication(
+        message.payload as {
+          id: string;
+          updates: Partial<import('@shared/types/application.types').Application>;
+        }
+      );
+
+    case 'DELETE_APPLICATION':
+      return handleDeleteApplication(message.payload as string);
+
+    case 'BULK_ARCHIVE_APPLICATIONS':
+      return handleBulkArchiveApplications(message.payload as { olderThanDays: number });
+
+    case 'GET_APPLICATION_COUNTS':
+      return handleGetApplicationCounts();
+
+    // Resume version handlers
+    case 'SAVE_RESUME_VERSION':
+      return handleSaveResumeVersion(
+        message.payload as Parameters<typeof resumeVersionRepo.create>[0]
+      );
+
+    case 'GET_RESUME_VERSIONS':
+      return handleGetResumeVersions(message.payload as { profileId?: string } | undefined);
+
+    case 'GET_RESUME_VERSION':
+      return handleGetResumeVersion(message.payload as string);
+
+    case 'DELETE_RESUME_VERSION':
+      return handleDeleteResumeVersion(message.payload as string);
 
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
@@ -219,7 +349,9 @@ async function handleGetCurrentProfile(): Promise<MessageResponse> {
 /**
  * Convert MasterProfile to ResumeProfile format for autofill compatibility
  */
-function convertMasterToResumeProfile(master: import('@shared/types/master-profile.types').MasterProfile): import('@shared/types/profile.types').ResumeProfile {
+function convertMasterToResumeProfile(
+  master: import('@shared/types/master-profile.types').MasterProfile
+): import('@shared/types/profile.types').ResumeProfile {
   return {
     id: master.id,
     name: master.personal?.fullName || 'Profile',
@@ -240,46 +372,49 @@ function convertMasterToResumeProfile(master: import('@shared/types/master-profi
     summary: master.careerContext?.summary || '',
 
     skills: {
-      technical: master.skills?.technical?.map(s => s.name) || [],
-      soft: master.skills?.soft?.map(s => s.name) || [],
-      tools: master.skills?.tools?.map(s => s.name) || [],
-      certifications: master.certifications?.map(c => c.name) || [],
+      technical: master.skills?.technical?.map((s) => s.name) || [],
+      soft: master.skills?.soft?.map((s) => s.name) || [],
+      tools: master.skills?.tools?.map((s) => s.name) || [],
+      certifications: master.certifications?.map((c) => c.name) || [],
     },
 
-    experience: master.experience?.map(exp => ({
-      id: exp.id,
-      company: exp.company,
-      title: exp.title,
-      location: exp.location || '',
-      startDate: exp.startDate,
-      endDate: exp.endDate,
-      isCurrent: exp.isCurrent,
-      description: exp.description || '',
-      achievements: exp.achievements?.map(a => a.statement) || [],
-      technologies: exp.technologiesUsed?.map(t => t.skill) || [],
-    })) || [],
+    experience:
+      master.experience?.map((exp) => ({
+        id: exp.id,
+        company: exp.company,
+        title: exp.title,
+        location: exp.location || '',
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        isCurrent: exp.isCurrent,
+        description: exp.description || '',
+        achievements: exp.achievements?.map((a) => a.statement) || [],
+        technologies: exp.technologiesUsed?.map((t) => t.skill) || [],
+      })) || [],
 
-    education: master.education?.map(edu => ({
-      id: edu.id,
-      institution: edu.institution,
-      degree: edu.degree,
-      field: edu.field,
-      startDate: edu.startDate || '',
-      endDate: edu.endDate || '',
-      gpa: edu.gpa,
-      honors: edu.honors || [],
-    })) || [],
+    education:
+      master.education?.map((edu) => ({
+        id: edu.id,
+        institution: edu.institution,
+        degree: edu.degree,
+        field: edu.field,
+        startDate: edu.startDate || '',
+        endDate: edu.endDate || '',
+        gpa: edu.gpa,
+        honors: edu.honors || [],
+      })) || [],
 
-    projects: master.projects?.map(proj => ({
-      id: proj.id,
-      name: proj.name,
-      description: proj.description || '',
-      technologies: proj.technologies || [],
-      url: proj.url,
-      highlights: proj.highlights || [],
-    })) || [],
+    projects:
+      master.projects?.map((proj) => ({
+        id: proj.id,
+        name: proj.name,
+        description: proj.description || '',
+        technologies: proj.technologies || [],
+        url: proj.url,
+        highlights: proj.highlights || [],
+      })) || [],
 
-    targetRoles: master.careerContext?.bestFitRoles?.map(r => r.title) || [],
+    targetRoles: master.careerContext?.bestFitRoles?.map((r) => r.title) || [],
 
     autofillData: {
       workAuthorization: master.autofillData?.workAuthorization || 'other',
@@ -290,7 +425,10 @@ function convertMasterToResumeProfile(master: import('@shared/types/master-profi
       willingToRelocate: master.autofillData?.willingToRelocate || false,
       relocationPreferences: master.autofillData?.relocationPreferences,
       remotePreference: master.autofillData?.remotePreference || 'flexible',
-      workPreference: master.autofillData?.remotePreference === 'flexible' ? 'hybrid' : master.autofillData?.remotePreference,
+      workPreference:
+        master.autofillData?.remotePreference === 'flexible'
+          ? 'hybrid'
+          : master.autofillData?.remotePreference,
       travelWillingness: master.autofillData?.travelWillingness,
       demographics: master.autofillData?.demographics,
       customAnswers: {},
@@ -400,7 +538,9 @@ async function getSettingsWithMigrations() {
   // Migrate deprecated Groq models
   if (settings?.ai?.groq?.model && DEPRECATED_GROQ_MODELS[settings.ai.groq.model]) {
     const newModel = DEPRECATED_GROQ_MODELS[settings.ai.groq.model];
-    console.log(`[ApplySharp] Migrating deprecated Groq model: ${settings.ai.groq.model} -> ${newModel}`);
+    console.log(
+      `[ApplySharp] Migrating deprecated Groq model: ${settings.ai.groq.model} -> ${newModel}`
+    );
     settings = await settingsRepo.update({
       ai: {
         ...settings.ai,
@@ -426,7 +566,9 @@ async function handleGetSettings(): Promise<MessageResponse> {
 
 async function handleUpdateSettings(updates: unknown): Promise<MessageResponse> {
   try {
-    const settings = await settingsRepo.update(updates as Parameters<typeof settingsRepo.update>[0]);
+    const settings = await settingsRepo.update(
+      updates as Parameters<typeof settingsRepo.update>[0]
+    );
     return { success: true, data: settings };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -512,7 +654,10 @@ async function handleAnalyzeResume(payload: {
     // Get settings for AI provider (with migrations applied)
     const settings = await getSettingsWithMigrations();
     if (!settings?.ai?.provider) {
-      return { success: false, error: 'AI provider not configured. Please configure AI settings first.' };
+      return {
+        success: false,
+        error: 'AI provider not configured. Please configure AI settings first.',
+      };
     }
 
     // Initialize AI service (static import)
@@ -549,9 +694,12 @@ async function handleAnalyzeResume(payload: {
     const isFirstProfile = existingProfiles.length === 0;
 
     // Build location string from MasterProfile location object
-    const locationStr = masterProfile.personal?.location?.formatted ||
+    const locationStr =
+      masterProfile.personal?.location?.formatted ||
       [masterProfile.personal?.location?.city, masterProfile.personal?.location?.state]
-        .filter(Boolean).join(', ') || '';
+        .filter(Boolean)
+        .join(', ') ||
+      '';
 
     const resumeProfile = {
       name: masterProfile.personal?.fullName || payload.fileName.replace(/\.[^/.]+$/, ''),
@@ -567,34 +715,39 @@ async function handleAnalyzeResume(payload: {
       },
       summary: masterProfile.careerContext?.summary || '',
       skills: {
-        technical: masterProfile.skills?.technical?.map((s: { name: string }) => s.name) || payload.basicInfo.skills || [],
+        technical:
+          masterProfile.skills?.technical?.map((s: { name: string }) => s.name) ||
+          payload.basicInfo.skills ||
+          [],
         soft: masterProfile.skills?.soft?.map((s: { name: string }) => s.name) || [],
         tools: masterProfile.skills?.tools?.map((s: { name: string }) => s.name) || [],
         certifications: masterProfile.certifications?.map((c: { name: string }) => c.name) || [],
       },
-      experience: masterProfile.experience?.map(exp => ({
-        id: exp.id || crypto.randomUUID(),
-        company: exp.company || '',
-        title: exp.title || '',
-        location: exp.location || '',
-        startDate: exp.startDate || '',
-        endDate: exp.endDate,
-        isCurrent: exp.isCurrent || false,
-        description: exp.description || '',
-        achievements: exp.achievements?.map(a => a.statement) || [],
-        technologies: exp.technologiesUsed?.map(t => t.skill) || [],
-      })) || [],
-      education: masterProfile.education?.map(edu => ({
-        id: edu.id || crypto.randomUUID(),
-        institution: edu.institution || '',
-        degree: edu.degree || '',
-        field: edu.field || '',
-        startDate: edu.startDate || '',
-        endDate: edu.endDate || '',
-        gpa: edu.gpa,
-        honors: edu.honors || [],
-      })) || [],
-      targetRoles: masterProfile.careerContext?.bestFitRoles?.map(r => r.title) || [],
+      experience:
+        masterProfile.experience?.map((exp) => ({
+          id: exp.id || crypto.randomUUID(),
+          company: exp.company || '',
+          title: exp.title || '',
+          location: exp.location || '',
+          startDate: exp.startDate || '',
+          endDate: exp.endDate,
+          isCurrent: exp.isCurrent || false,
+          description: exp.description || '',
+          achievements: exp.achievements?.map((a) => a.statement) || [],
+          technologies: exp.technologiesUsed?.map((t) => t.skill) || [],
+        })) || [],
+      education:
+        masterProfile.education?.map((edu) => ({
+          id: edu.id || crypto.randomUUID(),
+          institution: edu.institution || '',
+          degree: edu.degree || '',
+          field: edu.field || '',
+          startDate: edu.startDate || '',
+          endDate: edu.endDate || '',
+          gpa: edu.gpa,
+          honors: edu.honors || [],
+        })) || [],
+      targetRoles: masterProfile.careerContext?.bestFitRoles?.map((r) => r.title) || [],
       autofillData: {
         workAuthorization: 'citizen' as const,
         requiresSponsorship: false,
@@ -615,7 +768,11 @@ async function handleAnalyzeResume(payload: {
   }
 }
 
-async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string; useAI?: boolean }): Promise<MessageResponse> {
+async function handleAnalyzeJob(payload: {
+  job: ExtractedJob;
+  platform?: string;
+  useAI?: boolean;
+}): Promise<MessageResponse> {
   try {
     const { job, useAI = false } = payload; // Default to predefined keywords, AI only when explicitly requested
 
@@ -625,14 +782,14 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
     if (!profile) {
       return {
         success: false,
-        error: 'No active profile. Please upload a resume first.'
+        error: 'No active profile. Please upload a resume first.',
       };
     }
 
     if (!job.description) {
       return {
         success: false,
-        error: 'No job description available to analyze.'
+        error: 'No job description available to analyze.',
       };
     }
 
@@ -667,7 +824,11 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
         const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown error';
         if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
           console.warn('[MessageHandler] AI rate limited, using fallback scoring');
-        } else if (errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        } else if (
+          errorMessage.includes('API key') ||
+          errorMessage.includes('401') ||
+          errorMessage.includes('403')
+        ) {
           console.warn('[MessageHandler] AI authentication failed, check API key');
         } else if (errorMessage.includes('timeout') || errorMessage.includes('ECONNREFUSED')) {
           console.warn('[MessageHandler] AI service unreachable, using fallback scoring');
@@ -691,10 +852,10 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
     // Determine matched/missing keywords
     let matchedKeywords: string[] = [];
     let missingKeywords: string[] = [];
-    let highPriorityMatched: string[] = [];
-    let highPriorityMissing: string[] = [];
-    let lowPriorityMatched: string[] = [];
-    let lowPriorityMissing: string[] = [];
+    const highPriorityMatched: string[] = [];
+    const highPriorityMissing: string[] = [];
+    const lowPriorityMatched: string[] = [];
+    const lowPriorityMissing: string[] = [];
 
     if (aiKeywords) {
       // Use AI-extracted keywords
@@ -735,12 +896,14 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
       const totalKeywords = aiKeywords.highPriority.length + aiKeywords.lowPriority.length;
       if (totalKeywords > 0) {
         // Weight high priority more
-        const highPriorityScore = aiKeywords.highPriority.length > 0
-          ? (highPriorityMatched.length / aiKeywords.highPriority.length) * 70
-          : 35;
-        const lowPriorityScore = aiKeywords.lowPriority.length > 0
-          ? (lowPriorityMatched.length / aiKeywords.lowPriority.length) * 30
-          : 15;
+        const highPriorityScore =
+          aiKeywords.highPriority.length > 0
+            ? (highPriorityMatched.length / aiKeywords.highPriority.length) * 70
+            : 35;
+        const lowPriorityScore =
+          aiKeywords.lowPriority.length > 0
+            ? (lowPriorityMatched.length / aiKeywords.lowPriority.length) * 30
+            : 15;
         overallScore = Math.round(highPriorityScore + lowPriorityScore);
       }
     }
@@ -757,19 +920,26 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
       criticalMissing: layeredScore.criticalMissing,
 
       // NEW: High/Low priority breakdown (only if AI was used)
-      highPriority: aiKeywords ? {
-        matched: highPriorityMatched,
-        missing: highPriorityMissing,
-      } : undefined,
-      lowPriority: aiKeywords ? {
-        matched: lowPriorityMatched,
-        missing: lowPriorityMissing,
-      } : undefined,
+      highPriority: aiKeywords
+        ? {
+            matched: highPriorityMatched,
+            missing: highPriorityMissing,
+          }
+        : undefined,
+      lowPriority: aiKeywords
+        ? {
+            matched: lowPriorityMatched,
+            missing: lowPriorityMissing,
+          }
+        : undefined,
 
       // Recommendations
-      suggestions: [...layeredScore.recommendations, ...recommendations.filter(r =>
-        !layeredScore.recommendations.some(lr => lr.includes(r.substring(0, 20)))
-      )].slice(0, 5),
+      suggestions: [
+        ...layeredScore.recommendations,
+        ...recommendations.filter(
+          (r) => !layeredScore.recommendations.some((lr) => lr.includes(r.substring(0, 20)))
+        ),
+      ].slice(0, 5),
 
       // Tier and seniority
       tier: getTierFromScore(overallScore),
@@ -783,7 +953,7 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
       layeredAnalysis: {
         background: layeredScore.backgroundMatch,
         role: layeredScore.roleMatch,
-        skillAreas: layeredScore.skillAreaScores.map(area => ({
+        skillAreas: layeredScore.skillAreaScores.map((area) => ({
           name: area.areaName,
           jdWeight: area.jdWeight,
           matchScore: area.matchScore,
@@ -810,6 +980,60 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob; platform?: string;
     return { success: true, data: atsScore };
   } catch (error) {
     console.error('[MessageHandler] Job analysis failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Quick score a job description against a specific role profile (for comparison view)
+ */
+async function handleScoreJob(payload: {
+  jobDescription: string;
+  roleProfile: {
+    id: string;
+    targetRole?: string;
+    highlightedSkills?: string[];
+    atsKeywords?: string[];
+  };
+}): Promise<MessageResponse> {
+  try {
+    const { jobDescription, roleProfile } = payload;
+
+    if (!jobDescription) {
+      return { success: false, error: 'No job description provided' };
+    }
+
+    // Build a minimal skill set from the role profile for quick matching
+    const profileSkills = new Set<string>();
+    for (const skill of roleProfile.highlightedSkills || []) {
+      profileSkills.add(skill.toLowerCase());
+    }
+    for (const kw of roleProfile.atsKeywords || []) {
+      profileSkills.add(kw.toLowerCase());
+    }
+
+    // Simple keyword match score
+    const jdLower = jobDescription.toLowerCase();
+    const jdWords = jdLower.split(/[\s,;:.()[\]{}|/\\]+/).filter((w) => w.length > 2);
+    const jdWordSet = new Set(jdWords);
+
+    let matched = 0;
+    const total = profileSkills.size || 1;
+
+    for (const skill of profileSkills) {
+      // Check if the skill appears in the JD
+      if (jdLower.includes(skill) || jdWordSet.has(skill)) {
+        matched++;
+      }
+    }
+
+    const overallScore = Math.min(100, Math.round((matched / total) * 100));
+
+    return {
+      success: true,
+      data: { overallScore, matched, total },
+    };
+  } catch (error) {
     return { success: false, error: (error as Error).message };
   }
 }
@@ -848,10 +1072,10 @@ Return ONLY valid JSON:
   "lowPriority": ["Docker", "Kubernetes", "Jenkins"]
 }`;
 
-  const response = await aiService.chat(
-    [{ role: 'user', content: prompt }],
-    { temperature: 0.2, maxTokens: 500 }
-  );
+  const response = await aiService.chat([{ role: 'user', content: prompt }], {
+    temperature: 0.2,
+    maxTokens: 500,
+  });
 
   try {
     const jsonMatch = response.content.match(/\{[\s\S]*\}/);
@@ -872,7 +1096,9 @@ Return ONLY valid JSON:
 /**
  * Extract profile skills as a Set for matching
  */
-function extractProfileSkillsAsSet(profile: import('@shared/types/master-profile.types').MasterProfile): Set<string> {
+function extractProfileSkillsAsSet(
+  profile: import('@shared/types/master-profile.types').MasterProfile
+): Set<string> {
   const skills = new Set<string>();
 
   if (profile.skills) {
@@ -939,9 +1165,13 @@ function matchesProfileSkill(keyword: string, profileSkills: Set<string>): boole
       return true;
     }
     // Handle variations (e.g., "Spring Boot" vs "SpringBoot")
-    const normalizedKw = kwLower.replace(/[\s\-\/]/g, '');
-    const normalizedSkill = skill.replace(/[\s\-\/]/g, '');
-    if (normalizedKw === normalizedSkill || normalizedSkill.includes(normalizedKw) || normalizedKw.includes(normalizedSkill)) {
+    const normalizedKw = kwLower.replace(/[\s\-/]/g, '');
+    const normalizedSkill = skill.replace(/[\s\-/]/g, '');
+    if (
+      normalizedKw === normalizedSkill ||
+      normalizedSkill.includes(normalizedKw) ||
+      normalizedKw.includes(normalizedSkill)
+    ) {
       return true;
     }
   }
@@ -1059,38 +1289,41 @@ async function handleProcessProfileUpdate(payload: {
 
     const settings = await getSettingsWithMigrations();
     if (!settings?.ai?.provider) {
-      return { success: false, error: 'AI provider not configured. Please configure AI settings first.' };
+      return {
+        success: false,
+        error: 'AI provider not configured. Please configure AI settings first.',
+      };
     }
 
     const aiService = new AIService(settings.ai);
 
     // Define required fields and validation rules per update type
     const updateTypeRequirements: Record<string, { required: string[]; hint: string }> = {
-      'company': {
+      company: {
         required: ['company name', 'job title', 'start date', 'what you do'],
         hint: 'Please include: Company Name, Job Title, Start Date, and what you do (domain/tech/responsibilities)',
       },
-      'timeline': {
+      timeline: {
         required: ['company name', 'what to fix'],
         hint: 'Please specify: Company Name and what to fix (e.g., "TeamCal AI ended Dec 2024" or "Remove duplicate Kroger entry")',
       },
-      'achievement': {
+      achievement: {
         required: ['which company/role', 'achievement description', 'impact'],
         hint: 'Please mention which company, what you achieved, and the impact (e.g., "At Kroger: Reduced API latency by 60%")',
       },
-      'skills': {
+      skills: {
         required: ['skill or technology names'],
         hint: 'Please list the skills you want to add (e.g., "Rust, WebAssembly, gRPC")',
       },
-      'certification': {
+      certification: {
         required: ['certification name', 'issuing organization'],
         hint: 'Please include: Certification Name and Issuing Organization (e.g., "AWS Solutions Architect Professional from Amazon")',
       },
-      'links': {
+      links: {
         required: ['type of link', 'URL'],
         hint: 'Please specify the link type and URL (e.g., "LinkedIn: linkedin.com/in/myname")',
       },
-      'project': {
+      project: {
         required: ['project name', 'description', 'technologies'],
         hint: 'Please include: Project Name, Description, and Technologies used',
       },
@@ -1100,25 +1333,38 @@ async function handleProcessProfileUpdate(payload: {
     const requirements = updateTypeRequirements[updateType];
 
     // Get existing companies for context
-    const existingCompanies = profile.experience?.map(e => ({
-      company: e.company,
-      title: e.title || '(no title)',
-      startDate: e.startDate || '(no date)',
-      isCurrent: e.isCurrent,
-      hasAchievements: (e.achievements?.length || 0) > 0,
-    })) || [];
+    const existingCompanies =
+      profile.experience?.map((e) => ({
+        company: e.company,
+        title: e.title || '(no title)',
+        startDate: e.startDate || '(no date)',
+        isCurrent: e.isCurrent,
+        hasAchievements: (e.achievements?.length || 0) > 0,
+      })) || [];
 
-    let prompt = `You are a profile update assistant. Analyze the user's request for a "${updateType}" update.
+    const prompt = `You are a profile update assistant. Analyze the user's request for a "${updateType}" update.
 
 EXISTING WORK EXPERIENCE (IMPORTANT - check if user is updating an existing entry):
-${existingCompanies.length > 0
-  ? existingCompanies.map(c => `- ${c.company}: ${c.title}, ${c.startDate}${c.isCurrent ? ' (Current)' : ''}, ${c.hasAchievements ? 'has achievements' : 'NO achievements yet'}`).join('\n')
-  : '- No work experience entries yet'}
+${
+  existingCompanies.length > 0
+    ? existingCompanies
+        .map(
+          (c) =>
+            `- ${c.company}: ${c.title}, ${c.startDate}${c.isCurrent ? ' (Current)' : ''}, ${c.hasAchievements ? 'has achievements' : 'NO achievements yet'}`
+        )
+        .join('\n')
+    : '- No work experience entries yet'
+}
 
 Current Profile:
 - Name: ${profile.personal?.fullName || 'Unknown'}
 - Years of Experience: ${profile.careerContext?.yearsOfExperience || 0}
-- Skills: ${profile.skills?.technical?.slice(0, 10).map(s => s.name).join(', ') || 'None'}
+- Skills: ${
+      profile.skills?.technical
+        ?.slice(0, 10)
+        .map((s) => s.name)
+        .join(', ') || 'None'
+    }
 
 User's Input:
 "${payload.context}"
@@ -1148,10 +1394,10 @@ If ALL required information is present:
 
 Return ONLY valid JSON.`;
 
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.3, maxTokens: 600 }
-    );
+    const response = await aiService.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.3,
+      maxTokens: 600,
+    });
 
     // Parse the AI response
     try {
@@ -1162,13 +1408,16 @@ Return ONLY valid JSON.`;
       }
     } catch (error) {
       // If JSON parsing fails, treat the raw AI response as a preview
-      console.debug('[MessageHandler] AI response JSON parse failed, using as preview:', (error as Error).message);
+      console.debug(
+        '[MessageHandler] AI response JSON parse failed, using as preview:',
+        (error as Error).message
+      );
       return {
         success: true,
         data: {
           status: 'ready',
-          preview: response.content.trim()
-        }
+          preview: response.content.trim(),
+        },
       };
     }
 
@@ -1176,8 +1425,8 @@ Return ONLY valid JSON.`;
       success: true,
       data: {
         status: 'error',
-        error: 'Could not process your request. Please try again with more details.'
-      }
+        error: 'Could not process your request. Please try again with more details.',
+      },
     };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -1203,26 +1452,39 @@ async function handleApplyProfileUpdate(payload: {
     const aiService = new AIService(settings.ai);
 
     // Get existing companies for context
-    const existingCompanies = profile.experience?.map((e, idx) => ({
-      index: idx,
-      company: e.company,
-      title: e.title || '',
-      startDate: e.startDate || '',
-      isCurrent: e.isCurrent,
-      achievementCount: e.achievements?.length || 0,
-    })) || [];
+    const existingCompanies =
+      profile.experience?.map((e, idx) => ({
+        index: idx,
+        company: e.company,
+        title: e.title || '',
+        startDate: e.startDate || '',
+        isCurrent: e.isCurrent,
+        achievementCount: e.achievements?.length || 0,
+      })) || [];
 
     const prompt = `You are a profile update assistant. Parse the user's update request and return a JSON object with the changes to apply.
 
 EXISTING WORK EXPERIENCE (check if user is updating one of these):
-${existingCompanies.length > 0
-  ? existingCompanies.map(c => `[${c.index}] ${c.company}: ${c.title || '(no title)'}, ${c.startDate || '(no date)'}${c.isCurrent ? ' (Current)' : ''}, ${c.achievementCount} achievements`).join('\n')
-  : 'None'}
+${
+  existingCompanies.length > 0
+    ? existingCompanies
+        .map(
+          (c) =>
+            `[${c.index}] ${c.company}: ${c.title || '(no title)'}, ${c.startDate || '(no date)'}${c.isCurrent ? ' (Current)' : ''}, ${c.achievementCount} achievements`
+        )
+        .join('\n')
+    : 'None'
+}
 
 Current Profile Summary:
-- Skills: ${profile.skills?.technical?.slice(0, 10).map(s => s.name).join(', ') || 'None'}
-- Certifications: ${profile.certifications?.map(c => c.name).join(', ') || 'None'}
-- Projects: ${profile.projects?.map(p => p.name).join(', ') || 'None'}
+- Skills: ${
+      profile.skills?.technical
+        ?.slice(0, 10)
+        .map((s) => s.name)
+        .join(', ') || 'None'
+    }
+- Certifications: ${profile.certifications?.map((c) => c.name).join(', ') || 'None'}
+- Projects: ${profile.projects?.map((p) => p.name).join(', ') || 'None'}
 
 User's Update Request:
 "${payload.context}"
@@ -1299,10 +1561,10 @@ For timeline fixes:
 Only include fields that apply. Omit categories with no changes.
 Return ONLY valid JSON, no explanations.`;
 
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.1, maxTokens: 2000 }
-    );
+    const response = await aiService.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.1,
+      maxTokens: 2000,
+    });
 
     // Parse the AI response
     let updates;
@@ -1325,7 +1587,7 @@ Return ONLY valid JSON, no explanations.`;
     if (updates.updateExistingExperience) {
       const companyToUpdate = updates.updateExistingExperience.companyName?.toLowerCase();
       const existingIndex = profile.experience?.findIndex(
-        e => e.company?.toLowerCase() === companyToUpdate
+        (e) => e.company?.toLowerCase() === companyToUpdate
       );
 
       if (existingIndex !== undefined && existingIndex >= 0 && updatedProfile.experience) {
@@ -1357,16 +1619,18 @@ Return ONLY valid JSON, no explanations.`;
     if (updates.addAchievementsToCompany) {
       const companyToUpdate = updates.addAchievementsToCompany.companyName?.toLowerCase();
       const existingIndex = profile.experience?.findIndex(
-        e => e.company?.toLowerCase() === companyToUpdate
+        (e) => e.company?.toLowerCase() === companyToUpdate
       );
 
       if (existingIndex !== undefined && existingIndex >= 0 && updatedProfile.experience) {
         const existing = updatedProfile.experience[existingIndex];
-        const newAchievements = (updates.addAchievementsToCompany.achievements || []).map((a: string) => ({
-          statement: a,
-          isQuantified: /\d/.test(a),
-          keywords: [],
-        }));
+        const newAchievements = (updates.addAchievementsToCompany.achievements || []).map(
+          (a: string) => ({
+            statement: a,
+            isQuantified: /\d/.test(a),
+            keywords: [],
+          })
+        );
 
         updatedProfile.experience[existingIndex] = {
           ...existing,
@@ -1381,7 +1645,7 @@ Return ONLY valid JSON, no explanations.`;
     if (updates.setEndDate) {
       const companyToUpdate = updates.setEndDate.companyName?.toLowerCase();
       const existingIndex = updatedProfile.experience?.findIndex(
-        e => e.company?.toLowerCase() === companyToUpdate
+        (e) => e.company?.toLowerCase() === companyToUpdate
       );
 
       if (existingIndex !== undefined && existingIndex >= 0 && updatedProfile.experience) {
@@ -1390,7 +1654,12 @@ Return ONLY valid JSON, no explanations.`;
           endDate: updates.setEndDate.endDate,
           isCurrent: false,
         };
-        console.log('[ProfileUpdate] Set end date for:', companyToUpdate, 'to', updates.setEndDate.endDate);
+        console.log(
+          '[ProfileUpdate] Set end date for:',
+          companyToUpdate,
+          'to',
+          updates.setEndDate.endDate
+        );
       }
     }
 
@@ -1414,7 +1683,12 @@ Return ONLY valid JSON, no explanations.`;
           if (idx === indexToKeep) return true; // Keep this one
           return !duplicateIndices.includes(idx); // Remove other duplicates
         });
-        console.log('[ProfileUpdate] Removed duplicate entries for:', companyToFix, 'kept index:', keepIndex);
+        console.log(
+          '[ProfileUpdate] Removed duplicate entries for:',
+          companyToFix,
+          'kept index:',
+          keepIndex
+        );
       }
     }
 
@@ -1448,7 +1722,10 @@ Return ONLY valid JSON, no explanations.`;
           i === 0 ? { ...exp, isCurrent: false, endDate: newExp.startDate } : exp
         );
       }
-      updatedProfile.experience = [newExp, ...(updatedProfile.experience || profile.experience || [])];
+      updatedProfile.experience = [
+        newExp,
+        ...(updatedProfile.experience || profile.experience || []),
+      ];
     }
 
     // Add achievements to current job
@@ -1470,7 +1747,7 @@ Return ONLY valid JSON, no explanations.`;
     // Add new skills
     if (updates.newSkills && updates.newSkills.length > 0) {
       const existingSkillNames = new Set(
-        (profile.skills?.technical || []).map(s => s.name.toLowerCase())
+        (profile.skills?.technical || []).map((s) => s.name.toLowerCase())
       );
       const newTechnicalSkills = updates.newSkills
         .filter((s: string) => !existingSkillNames.has(s.toLowerCase()))
@@ -1547,10 +1824,16 @@ Return ONLY valid JSON, no explanations.`;
         ...profile.careerContext,
         yearsOfExperience: yearsOfExp,
         // Update seniority level based on years
-        seniorityLevel: yearsOfExp > 12 ? 'principal' :
-                        yearsOfExp > 8 ? 'lead' :
-                        yearsOfExp > 5 ? 'senior' :
-                        yearsOfExp > 2 ? 'mid' : 'entry',
+        seniorityLevel:
+          yearsOfExp > 12
+            ? 'principal'
+            : yearsOfExp > 8
+              ? 'lead'
+              : yearsOfExp > 5
+                ? 'senior'
+                : yearsOfExp > 2
+                  ? 'mid'
+                  : 'entry',
       };
     }
 
@@ -1562,17 +1845,39 @@ Return ONLY valid JSON, no explanations.`;
 }
 
 // Calculate years of experience from experience array
-function calculateYearsFromExperience(experiences: any[]): number {
+function calculateYearsFromExperience(
+  experiences: { startDate?: string; endDate?: string }[]
+): number {
   if (!experiences || experiences.length === 0) return 0;
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
   const monthMap: Record<string, number> = {
-    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-    apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-    aug: 8, august: 8, sep: 9, sept: 9, september: 9,
-    oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
+    may: 5,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12,
   };
 
   const parseDate = (dateStr: string | undefined): { year: number; month: number } | null => {
@@ -1604,14 +1909,15 @@ function calculateYearsFromExperience(experiences: any[]): number {
     return null;
   };
 
-  interface DateRange { startMonths: number; endMonths: number; }
+  interface DateRange {
+    startMonths: number;
+    endMonths: number;
+  }
   const ranges: DateRange[] = [];
 
   for (const exp of experiences) {
     const start = parseDate(exp.startDate);
-    const end = exp.isCurrent
-      ? { year: currentYear, month: currentMonth }
-      : parseDate(exp.endDate);
+    const end = exp.isCurrent ? { year: currentYear, month: currentMonth } : parseDate(exp.endDate);
 
     if (start && end) {
       ranges.push({
@@ -1712,10 +2018,11 @@ async function handleSetActiveRoleProfile(payload: {
     }
 
     // Update all generated profiles, setting only the selected one as active
-    const updatedProfiles = profile.generatedProfiles?.map(gp => ({
-      ...gp,
-      isActive: gp.id === payload.roleProfileId,
-    })) || [];
+    const updatedProfiles =
+      profile.generatedProfiles?.map((gp) => ({
+        ...gp,
+        isActive: gp.id === payload.roleProfileId,
+      })) || [];
 
     const updated = await masterProfileRepo.update(payload.masterProfileId, {
       generatedProfiles: updatedProfiles,
@@ -1817,7 +2124,12 @@ Return ONLY valid JSON.`;
         riskOfBadHire: '',
         urgencyLevel: 'normal' as string,
       },
-      mustHaves: [] as Array<{ skill: string; context: string; yearsRequired?: number; isNegotiable?: boolean }>,
+      mustHaves: [] as Array<{
+        skill: string;
+        context: string;
+        yearsRequired?: number;
+        isNegotiable?: boolean;
+      }>,
       niceToHaves: [] as Array<{ skill: string; context: string }>,
       hiddenRequirements: [] as string[],
       senioritySignals: {
@@ -1841,17 +2153,18 @@ Return ONLY valid JSON.`;
     };
 
     try {
-      const response = await aiService.chat(
-        [{ role: 'user', content: analysisPrompt }],
-        { temperature: 0.2, maxTokens: 1500 }
-      );
+      const response = await aiService.chat([{ role: 'user', content: analysisPrompt }], {
+        temperature: 0.2,
+        maxTokens: 1500,
+      });
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         jdAnalysis = { ...jdAnalysis, ...parsed };
         // Map to legacy fields for backwards compatibility
         jdAnalysis.requiredSkills = parsed.mustHaves?.map((m: { skill: string }) => m.skill) || [];
-        jdAnalysis.preferredSkills = parsed.niceToHaves?.map((n: { skill: string }) => n.skill) || [];
+        jdAnalysis.preferredSkills =
+          parsed.niceToHaves?.map((n: { skill: string }) => n.skill) || [];
         jdAnalysis.seniorityLevel = parsed.senioritySignals?.level || 'mid';
       }
     } catch (parseError) {
@@ -1865,48 +2178,99 @@ Return ONLY valid JSON.`;
 
     // Programming Languages
     const languagePatterns = [
-      /\bjava\b/gi, /\bjavascript\b/gi, /\btypescript\b/gi, /\bpython\b/gi,
-      /\bc#\b/gi, /\bc\+\+/gi, /\bgolang\b/gi, /\bgo\b(?!\s+to)/gi, /\brust\b/gi,
-      /\bscala\b/gi, /\bruby\b/gi, /\bphp\b/gi, /\bswift\b/gi, /\bkotlin\b/gi,
-      /\bhtml\b/gi, /\bcss\b/gi, /\bsql\b/gi, /\bbash\b/gi,
+      /\bjava\b/gi,
+      /\bjavascript\b/gi,
+      /\btypescript\b/gi,
+      /\bpython\b/gi,
+      /\bc#\b/gi,
+      /\bc\+\+/gi,
+      /\bgolang\b/gi,
+      /\bgo\b(?!\s+to)/gi,
+      /\brust\b/gi,
+      /\bscala\b/gi,
+      /\bruby\b/gi,
+      /\bphp\b/gi,
+      /\bswift\b/gi,
+      /\bkotlin\b/gi,
+      /\bhtml\b/gi,
+      /\bcss\b/gi,
+      /\bsql\b/gi,
+      /\bbash\b/gi,
     ];
 
     // Frameworks & Libraries
     const frameworkPatterns = [
-      /\breact\b/gi, /\bangular\b/gi, /\bvue\.?js?\b/gi, /\bsvelte\b/gi,
-      /\bnode\.?js?\b/gi, /\bexpress\.?js?\b/gi, /\bnext\.?js?\b/gi,
-      /\bspring\b/gi, /\bspring\s*boot\b/gi, /\b\.net\b/gi, /\bdjango\b/gi,
-      /\bflask\b/gi, /\bfastapi\b/gi, /\bgraphql\b/gi, /\brest\s*api\b/gi,
+      /\breact\b/gi,
+      /\bangular\b/gi,
+      /\bvue\.?js?\b/gi,
+      /\bsvelte\b/gi,
+      /\bnode\.?js?\b/gi,
+      /\bexpress\.?js?\b/gi,
+      /\bnext\.?js?\b/gi,
+      /\bspring\b/gi,
+      /\bspring\s*boot\b/gi,
+      /\b\.net\b/gi,
+      /\bdjango\b/gi,
+      /\bflask\b/gi,
+      /\bfastapi\b/gi,
+      /\bgraphql\b/gi,
+      /\brest\s*api\b/gi,
     ];
 
     // Cloud & DevOps
     const cloudPatterns = [
-      /\baws\b/gi, /\bazure\b/gi, /\bgcp\b/gi, /\bdocker\b/gi, /\bkubernetes\b/gi,
-      /\bterraform\b/gi, /\bjenkins\b/gi, /\bci\/cd\b/gi, /\bdevops\b/gi,
-      /\bcloud\b/gi, /\bmicroservices\b/gi, /\bgit\b/gi, /\blinux\b/gi,
+      /\baws\b/gi,
+      /\bazure\b/gi,
+      /\bgcp\b/gi,
+      /\bdocker\b/gi,
+      /\bkubernetes\b/gi,
+      /\bterraform\b/gi,
+      /\bjenkins\b/gi,
+      /\bci\/cd\b/gi,
+      /\bdevops\b/gi,
+      /\bcloud\b/gi,
+      /\bmicroservices\b/gi,
+      /\bgit\b/gi,
+      /\blinux\b/gi,
     ];
 
     // Databases
     const dbPatterns = [
-      /\bmongodb\b/gi, /\bpostgresql\b/gi, /\bmysql\b/gi, /\bredis\b/gi,
-      /\bnosql\b/gi, /\boracle\b/gi, /\bfirebase\b/gi, /\belasticsearch\b/gi,
+      /\bmongodb\b/gi,
+      /\bpostgresql\b/gi,
+      /\bmysql\b/gi,
+      /\bredis\b/gi,
+      /\bnosql\b/gi,
+      /\boracle\b/gi,
+      /\bfirebase\b/gi,
+      /\belasticsearch\b/gi,
     ];
 
     // AI/ML Keywords
     const aiPatterns = [
-      /\bgen\s*ai\b/gi, /\bmachine\s*learning\b/gi, /\bml\b/gi, /\bdeep\s*learning\b/gi,
-      /\bai\b/gi, /\bllm\b/gi, /\bnlp\b/gi, /\btensorflow\b/gi, /\bpytorch\b/gi,
+      /\bgen\s*ai\b/gi,
+      /\bmachine\s*learning\b/gi,
+      /\bml\b/gi,
+      /\bdeep\s*learning\b/gi,
+      /\bai\b/gi,
+      /\bllm\b/gi,
+      /\bnlp\b/gi,
+      /\btensorflow\b/gi,
+      /\bpytorch\b/gi,
     ];
 
     const allPatterns = [
-      ...languagePatterns, ...frameworkPatterns, ...cloudPatterns,
-      ...dbPatterns, ...aiPatterns,
+      ...languagePatterns,
+      ...frameworkPatterns,
+      ...cloudPatterns,
+      ...dbPatterns,
+      ...aiPatterns,
     ];
 
-    allPatterns.forEach(pattern => {
+    allPatterns.forEach((pattern) => {
       const matches = jdLower.match(pattern);
       if (matches) {
-        matches.forEach(match => {
+        matches.forEach((match) => {
           const normalized = match.toLowerCase().trim().replace(/\s+/g, ' ');
           if (normalized && normalized.length > 1) {
             keywordFrequency.set(normalized, (keywordFrequency.get(normalized) || 0) + 1);
@@ -1916,7 +2280,7 @@ Return ONLY valid JSON.`;
     });
 
     // Add AI-extracted skills to keywords
-    [...jdAnalysis.requiredSkills, ...jdAnalysis.preferredSkills].forEach(skill => {
+    [...jdAnalysis.requiredSkills, ...jdAnalysis.preferredSkills].forEach((skill) => {
       const normalized = skill.toLowerCase();
       if (!keywordFrequency.has(normalized)) {
         keywordFrequency.set(normalized, 1);
@@ -1934,27 +2298,31 @@ Return ONLY valid JSON.`;
     const profileKeywords: string[] = [];
 
     // Collect all profile keywords
-    generatedProfiles.forEach(role => {
+    generatedProfiles.forEach((role) => {
       if (role.highlightedSkills) profileKeywords.push(...role.highlightedSkills);
       if (role.atsKeywords) profileKeywords.push(...role.atsKeywords);
     });
 
     if (masterProfile.skills) {
-      if (masterProfile.skills.technical) profileKeywords.push(...masterProfile.skills.technical.map(s => s.name));
-      if (masterProfile.skills.frameworks) profileKeywords.push(...masterProfile.skills.frameworks.map(s => s.name));
-      if (masterProfile.skills.tools) profileKeywords.push(...masterProfile.skills.tools.map(s => s.name));
-      if (masterProfile.skills.programmingLanguages) profileKeywords.push(...masterProfile.skills.programmingLanguages.map(s => s.name));
+      if (masterProfile.skills.technical)
+        profileKeywords.push(...masterProfile.skills.technical.map((s) => s.name));
+      if (masterProfile.skills.frameworks)
+        profileKeywords.push(...masterProfile.skills.frameworks.map((s) => s.name));
+      if (masterProfile.skills.tools)
+        profileKeywords.push(...masterProfile.skills.tools.map((s) => s.name));
+      if (masterProfile.skills.programmingLanguages)
+        profileKeywords.push(...masterProfile.skills.programmingLanguages.map((s) => s.name));
     }
 
     if (masterProfile.experience) {
-      masterProfile.experience.forEach(exp => {
+      masterProfile.experience.forEach((exp) => {
         if (exp.technologiesUsed) {
-          profileKeywords.push(...exp.technologiesUsed.map(t => t.skill));
+          profileKeywords.push(...exp.technologiesUsed.map((t) => t.skill));
         }
       });
     }
 
-    const profileKeywordsLower = profileKeywords.map(k => k.toLowerCase());
+    const profileKeywordsLower = profileKeywords.map((k) => k.toLowerCase());
 
     // =========================================================================
     // STEP 4: Weighted Multi-Dimension Scoring
@@ -1965,9 +2333,9 @@ Return ONLY valid JSON.`;
     const matchedKeywords: Array<{ keyword: string; count: number }> = [];
     const missingKeywords: Array<{ keyword: string; count: number }> = [];
 
-    allJdKeywords.forEach(jdKwObj => {
-      const isMatched = profileKeywordsLower.some(pKw =>
-        pKw.includes(jdKwObj.keyword) || jdKwObj.keyword.includes(pKw)
+    allJdKeywords.forEach((jdKwObj) => {
+      const isMatched = profileKeywordsLower.some(
+        (pKw) => pKw.includes(jdKwObj.keyword) || jdKwObj.keyword.includes(pKw)
       );
       if (isMatched) {
         matchedKeywords.push(jdKwObj);
@@ -1988,46 +2356,65 @@ Return ONLY valid JSON.`;
     const experienceScore = Math.round(Math.min(yearsMatch * 100, 100));
 
     // SENIORITY ALIGNMENT (20% weight)
-    const seniorityMap: Record<string, number> = { entry: 1, junior: 1, mid: 2, senior: 3, lead: 4, principal: 5, staff: 5 };
-    const jdSeniority = seniorityMap[jdAnalysis.senioritySignals?.level?.toLowerCase() || 'mid'] || 2;
-    const profileSeniority = seniorityMap[masterProfile.careerContext?.seniorityLevel?.toLowerCase() || 'mid'] || 2;
+    const seniorityMap: Record<string, number> = {
+      entry: 1,
+      junior: 1,
+      mid: 2,
+      senior: 3,
+      lead: 4,
+      principal: 5,
+      staff: 5,
+    };
+    const jdSeniority =
+      seniorityMap[jdAnalysis.senioritySignals?.level?.toLowerCase() || 'mid'] || 2;
+    const profileSeniority =
+      seniorityMap[masterProfile.careerContext?.seniorityLevel?.toLowerCase() || 'mid'] || 2;
     const seniorityDiff = Math.abs(jdSeniority - profileSeniority);
-    const seniorityScore = seniorityDiff === 0 ? 100 : seniorityDiff === 1 ? 75 : seniorityDiff === 2 ? 40 : 20;
+    const seniorityScore =
+      seniorityDiff === 0 ? 100 : seniorityDiff === 1 ? 75 : seniorityDiff === 2 ? 40 : 20;
 
     // CULTURE FIT (10% weight) - industry overlap, company stage match
-    const profileIndustries = masterProfile.careerContext?.industryExperience?.map(i => i.toLowerCase()) || [];
+    const profileIndustries =
+      masterProfile.careerContext?.industryExperience?.map((i) => i.toLowerCase()) || [];
     const hasIndustryMatch = profileIndustries.length > 0; // Simplified - could be enhanced
     const cultureScore = hasIndustryMatch ? 80 : 60;
 
     // WEIGHTED TOTAL SCORE
     const matchScore = Math.round(
-      (skillScore * 0.40) +
-      (experienceScore * 0.30) +
-      (seniorityScore * 0.20) +
-      (cultureScore * 0.10)
+      skillScore * 0.4 + experienceScore * 0.3 + seniorityScore * 0.2 + cultureScore * 0.1
     );
 
     // =========================================================================
     // STEP 5: Gap Severity Analysis
     // Following chrome-agent.md: Critical, Addressable, Minor
     // =========================================================================
-    const mustHaveSkills = jdAnalysis.mustHaves?.map(m => m.skill.toLowerCase()) || jdAnalysis.requiredSkills?.map(s => s.toLowerCase()) || [];
-    const niceToHaveSkills = jdAnalysis.niceToHaves?.map(n => n.skill.toLowerCase()) || jdAnalysis.preferredSkills?.map(s => s.toLowerCase()) || [];
+    const mustHaveSkills =
+      jdAnalysis.mustHaves?.map((m) => m.skill.toLowerCase()) ||
+      jdAnalysis.requiredSkills?.map((s) => s.toLowerCase()) ||
+      [];
+    const niceToHaveSkills =
+      jdAnalysis.niceToHaves?.map((n) => n.skill.toLowerCase()) ||
+      jdAnalysis.preferredSkills?.map((s) => s.toLowerCase()) ||
+      [];
 
     const gapAnalysis = {
-      critical: [] as string[],      // Missing must-haves with no transferable experience
-      addressable: [] as string[],   // Skills present but not highlighted, or concepts exist
-      minor: [] as string[],         // Nice-to-haves, slight years gap
+      critical: [] as string[], // Missing must-haves with no transferable experience
+      addressable: [] as string[], // Skills present but not highlighted, or concepts exist
+      minor: [] as string[], // Nice-to-haves, slight years gap
     };
 
-    missingKeywords.forEach(kw => {
-      const isMustHave = mustHaveSkills.some(mh => mh.includes(kw.keyword) || kw.keyword.includes(mh));
-      const isNiceToHave = niceToHaveSkills.some(nth => nth.includes(kw.keyword) || kw.keyword.includes(nth));
+    missingKeywords.forEach((kw) => {
+      const isMustHave = mustHaveSkills.some(
+        (mh) => mh.includes(kw.keyword) || kw.keyword.includes(mh)
+      );
+      const isNiceToHave = niceToHaveSkills.some(
+        (nth) => nth.includes(kw.keyword) || kw.keyword.includes(nth)
+      );
 
       if (isMustHave) {
         // Check if there's related/transferable experience
-        const hasRelated = profileKeywordsLower.some(pk =>
-          pk.split(' ').some(word => kw.keyword.includes(word) || word.includes(kw.keyword))
+        const hasRelated = profileKeywordsLower.some((pk) =>
+          pk.split(' ').some((word) => kw.keyword.includes(word) || word.includes(kw.keyword))
         );
         if (hasRelated) {
           gapAnalysis.addressable.push(kw.keyword);
@@ -2045,14 +2432,13 @@ Return ONLY valid JSON.`;
     let bestRole = generatedProfiles[0] || null;
     let bestRoleScore = 0;
 
-    generatedProfiles.forEach(role => {
-      const roleKeywords = [
-        ...(role.highlightedSkills || []),
-        ...(role.atsKeywords || []),
-      ].map(k => k.toLowerCase());
+    generatedProfiles.forEach((role) => {
+      const roleKeywords = [...(role.highlightedSkills || []), ...(role.atsKeywords || [])].map(
+        (k) => k.toLowerCase()
+      );
 
-      const roleMatches = allJdKeywords.filter(jdKwObj =>
-        roleKeywords.some(rKw => rKw.includes(jdKwObj.keyword) || jdKwObj.keyword.includes(rKw))
+      const roleMatches = allJdKeywords.filter((jdKwObj) =>
+        roleKeywords.some((rKw) => rKw.includes(jdKwObj.keyword) || jdKwObj.keyword.includes(rKw))
       ).length;
 
       if (roleMatches > bestRoleScore) {
@@ -2071,7 +2457,9 @@ Return ONLY valid JSON.`;
 
     // Seniority alignment
     if (seniorityDiff > 1) {
-      suggestions.push(`⚠️ Seniority gap: JD seeks ${jdAnalysis.senioritySignals?.level || 'unknown'}, profile shows ${masterProfile.careerContext?.seniorityLevel || 'unknown'}`);
+      suggestions.push(
+        `⚠️ Seniority gap: JD seeks ${jdAnalysis.senioritySignals?.level || 'unknown'}, profile shows ${masterProfile.careerContext?.seniorityLevel || 'unknown'}`
+      );
     }
 
     // Critical gaps
@@ -2090,7 +2478,9 @@ Return ONLY valid JSON.`;
     }
 
     // Match summary
-    suggestions.push(`📊 Match: Skills ${skillScore}%, Experience ${experienceScore}%, Seniority ${seniorityScore}%`);
+    suggestions.push(
+      `📊 Match: Skills ${skillScore}%, Experience ${experienceScore}%, Seniority ${seniorityScore}%`
+    );
 
     console.log('[AnalyzeJD] Deep Analysis complete:', {
       totalKeywords: totalJdKeywords,
@@ -2147,12 +2537,14 @@ async function handleUpdateAnswerBank(payload: {
     const addedToAtsKeywords: string[] = [];
 
     // Filter valid keywords
-    const validKeywords = payload.keywords.filter(kw => {
+    const validKeywords = payload.keywords.filter((kw) => {
       const kwLower = kw.toLowerCase();
-      return /^[a-z0-9#+.\-/\s]+$/i.test(kw) &&
-             kw.length >= 2 &&
-             kw.length <= 30 &&
-             !['the', 'and', 'or', 'for', 'with', 'you', 'will', 'can', 'are'].includes(kwLower);
+      return (
+        /^[a-z0-9#+.\-/\s]+$/i.test(kw) &&
+        kw.length >= 2 &&
+        kw.length <= 30 &&
+        !['the', 'and', 'or', 'for', 'with', 'you', 'will', 'can', 'are'].includes(kwLower)
+      );
     });
 
     if (validKeywords.length === 0) {
@@ -2163,21 +2555,24 @@ async function handleUpdateAnswerBank(payload: {
     }
 
     // Get the active generated profile
-    const activeProfile = masterProfile.generatedProfiles?.find(p => p.isActive) ||
-                          masterProfile.generatedProfiles?.[0];
+    const activeProfile =
+      masterProfile.generatedProfiles?.find((p) => p.isActive) ||
+      masterProfile.generatedProfiles?.[0];
 
     if (activeProfile) {
       // Add keywords to the active profile's ATS keywords
-      const existingAtsKeywords = new Set(activeProfile.atsKeywords?.map(k => k.toLowerCase()) || []);
+      const existingAtsKeywords = new Set(
+        activeProfile.atsKeywords?.map((k) => k.toLowerCase()) || []
+      );
 
-      validKeywords.forEach(kw => {
+      validKeywords.forEach((kw) => {
         if (!existingAtsKeywords.has(kw.toLowerCase())) {
           addedToAtsKeywords.push(kw);
         }
       });
 
       if (addedToAtsKeywords.length > 0) {
-        const updatedProfiles = masterProfile.generatedProfiles?.map(p => {
+        const updatedProfiles = masterProfile.generatedProfiles?.map((p) => {
           if (p.id === activeProfile.id) {
             return {
               ...p,
@@ -2204,9 +2599,10 @@ async function handleUpdateAnswerBank(payload: {
       data: {
         addedToSkills,
         addedToAtsKeywords,
-        suggestions: addedToAtsKeywords.length > 0
-          ? [`Added ${addedToAtsKeywords.length} keywords to your profile`]
-          : [],
+        suggestions:
+          addedToAtsKeywords.length > 0
+            ? [`Added ${addedToAtsKeywords.length} keywords to your profile`]
+            : [],
       },
     };
   } catch (error) {
@@ -2222,7 +2618,12 @@ async function handleOptimizeResumeForJD(payload: {
   missingKeywords: string[];
   strengthKeywords?: Array<{ keyword: string; count: number }>;
   currentSummary: string;
-  keyBulletPoints: Array<{ expId: string; bullets: string[]; expectedCount?: number; durationMonths?: number }>;
+  keyBulletPoints: Array<{
+    expId: string;
+    bullets: string[];
+    expectedCount?: number;
+    durationMonths?: number;
+  }>;
 }): Promise<MessageResponse> {
   try {
     // Get settings for AI provider (with migrations applied)
@@ -2269,10 +2670,10 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
     };
 
     try {
-      const jdResponse = await aiService.chat(
-        [{ role: 'user', content: jdAnalysisPrompt }],
-        { temperature: 0.3, maxTokens: 800 }
-      );
+      const jdResponse = await aiService.chat([{ role: 'user', content: jdAnalysisPrompt }], {
+        temperature: 0.3,
+        maxTokens: 800,
+      });
       const jsonMatch = jdResponse.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jdAnalysis = JSON.parse(jsonMatch[0]);
@@ -2285,16 +2686,21 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
     // STEP 2: Strategic Summary - Tell a story that matches their needs
     // =========================================================================
     // Format strength keywords for the prompt
-    const strengthKeywordsText = payload.strengthKeywords && payload.strengthKeywords.length > 0
-      ? payload.strengthKeywords
-          .slice(0, 6)
-          .map(k => `${k.keyword} (${k.count}x in profile)`)
-          .join(', ')
-      : 'Technical skills from experience';
+    const strengthKeywordsText =
+      payload.strengthKeywords && payload.strengthKeywords.length > 0
+        ? payload.strengthKeywords
+            .slice(0, 6)
+            .map((k) => `${k.keyword} (${k.count}x in profile)`)
+            .join(', ')
+        : 'Technical skills from experience';
 
-    const topStrengths = payload.strengthKeywords && payload.strengthKeywords.length > 0
-      ? payload.strengthKeywords.slice(0, 3).map(k => k.keyword).join(', ')
-      : '';
+    const topStrengths =
+      payload.strengthKeywords && payload.strengthKeywords.length > 0
+        ? payload.strengthKeywords
+            .slice(0, 3)
+            .map((k) => k.keyword)
+            .join(', ')
+        : '';
 
     const summaryPrompt = `${PROMPT_SAFETY_PREAMBLE}
 
@@ -2345,22 +2751,31 @@ Return ONLY the rewritten summary, no explanation.`;
     // STEP 3: Intelligent Bullet Enhancement - Add context, scale, impact
     // =========================================================================
     // Format strength keywords for bullets prompt
-    const bulletStrengthKeywords = payload.strengthKeywords && payload.strengthKeywords.length > 0
-      ? payload.strengthKeywords
-          .slice(0, 8)
-          .map(k => `${k.keyword} (${k.count}x)`)
-          .join(', ')
-      : '';
+    const bulletStrengthKeywords =
+      payload.strengthKeywords && payload.strengthKeywords.length > 0
+        ? payload.strengthKeywords
+            .slice(0, 8)
+            .map((k) => `${k.keyword} (${k.count}x)`)
+            .join(', ')
+        : '';
 
     // Format bullets with expected counts based on tenure duration
-    const bulletsWithCounts = payload.keyBulletPoints.map(exp => {
-      const duration = exp.durationMonths || 12;
-      const durationLabel = duration <= 6 ? '~6 months' :
-                           duration <= 12 ? '~1 year' :
-                           duration <= 24 ? '~2 years' :
-                           duration <= 36 ? '~3 years' : `${Math.round(duration / 12)}+ years`;
-      return `[${exp.expId}] (${durationLabel} tenure → Generate ${exp.expectedCount || 5} bullets)\nExisting bullets:\n${exp.bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}`;
-    }).join('\n\n');
+    const bulletsWithCounts = payload.keyBulletPoints
+      .map((exp) => {
+        const duration = exp.durationMonths || 12;
+        const durationLabel =
+          duration <= 6
+            ? '~6 months'
+            : duration <= 12
+              ? '~1 year'
+              : duration <= 24
+                ? '~2 years'
+                : duration <= 36
+                  ? '~3 years'
+                  : `${Math.round(duration / 12)}+ years`;
+        return `[${exp.expId}] (${durationLabel} tenure → Generate ${exp.expectedCount || 5} bullets)\nExisting bullets:\n${exp.bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}`;
+      })
+      .join('\n\n');
 
     const bulletsPrompt = `${PROMPT_SAFETY_PREAMBLE}
 
@@ -2420,7 +2835,10 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         // Validate structure before using
-        if (Array.isArray(parsed) && parsed.every(item => item.expId && Array.isArray(item.bullets))) {
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((item) => item.expId && Array.isArray(item.bullets))
+        ) {
           enhancedBullets = parsed;
         }
       }
@@ -2437,12 +2855,13 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
 
     // Calculate new score - REAL recalculation based on actual keyword presence
     const optimizedContent = (
-      optimizedSummary + ' ' +
-      enhancedBullets.flatMap(eb => eb.bullets).join(' ')
+      optimizedSummary +
+      ' ' +
+      enhancedBullets.flatMap((eb) => eb.bullets).join(' ')
     ).toLowerCase();
 
     // Count which missing keywords are now present in optimized content
-    const addedKeywords = payload.missingKeywords.filter(kw =>
+    const addedKeywords = payload.missingKeywords.filter((kw) =>
       optimizedContent.includes(kw.toLowerCase())
     );
 
@@ -2451,66 +2870,135 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
 
     // Programming Languages
     const languagePatterns = [
-      /\bjava\b/gi, /\bjavascript\b/gi, /\btypescript\b/gi, /\bpython\b/gi,
-      /\bc#\b/gi, /\bc\+\+/gi, /\bgolang\b/gi, /\brust\b/gi, /\bscala\b/gi,
-      /\bruby\b/gi, /\bphp\b/gi, /\bswift\b/gi, /\bkotlin\b/gi, /\bhtml\b/gi,
-      /\bcss\b/gi, /\bsql\b/gi, /\bplsql\b/gi, /\bt-sql\b/gi, /\bbash\b/gi,
+      /\bjava\b/gi,
+      /\bjavascript\b/gi,
+      /\btypescript\b/gi,
+      /\bpython\b/gi,
+      /\bc#\b/gi,
+      /\bc\+\+/gi,
+      /\bgolang\b/gi,
+      /\brust\b/gi,
+      /\bscala\b/gi,
+      /\bruby\b/gi,
+      /\bphp\b/gi,
+      /\bswift\b/gi,
+      /\bkotlin\b/gi,
+      /\bhtml\b/gi,
+      /\bcss\b/gi,
+      /\bsql\b/gi,
+      /\bplsql\b/gi,
+      /\bt-sql\b/gi,
+      /\bbash\b/gi,
     ];
 
     // Frameworks & Tools
     const frameworkPatterns = [
-      /\breact\b/gi, /\bangular\b/gi, /\bvue\.?js?\b/gi, /\bnode\.?js?\b/gi,
-      /\bspring\b/gi, /\b\.net\b/gi, /\basp\.net\b/gi, /\bdjango\b/gi,
-      /\bflask\b/gi, /\bfastapi\b/gi, /\bgraphql\b/gi, /\brest\s*api\b/gi,
-      /\bapi\s*development\b/gi, /\bapi\b/gi, /\bweb\s*api\b/gi,
+      /\breact\b/gi,
+      /\bangular\b/gi,
+      /\bvue\.?js?\b/gi,
+      /\bnode\.?js?\b/gi,
+      /\bspring\b/gi,
+      /\b\.net\b/gi,
+      /\basp\.net\b/gi,
+      /\bdjango\b/gi,
+      /\bflask\b/gi,
+      /\bfastapi\b/gi,
+      /\bgraphql\b/gi,
+      /\brest\s*api\b/gi,
+      /\bapi\s*development\b/gi,
+      /\bapi\b/gi,
+      /\bweb\s*api\b/gi,
     ];
 
     // Cloud & DevOps
     const cloudPatterns = [
-      /\baws\b/gi, /\bazure\b/gi, /\bgcp\b/gi, /\bdocker\b/gi, /\bkubernetes\b/gi,
-      /\bterraform\b/gi, /\bjenkins\b/gi, /\bci\/cd\b/gi, /\bdevops\b/gi,
-      /\bcloud\b/gi, /\bmicroservices\b/gi, /\bgit\b/gi, /\blinux\b/gi,
+      /\baws\b/gi,
+      /\bazure\b/gi,
+      /\bgcp\b/gi,
+      /\bdocker\b/gi,
+      /\bkubernetes\b/gi,
+      /\bterraform\b/gi,
+      /\bjenkins\b/gi,
+      /\bci\/cd\b/gi,
+      /\bdevops\b/gi,
+      /\bcloud\b/gi,
+      /\bmicroservices\b/gi,
+      /\bgit\b/gi,
+      /\blinux\b/gi,
     ];
 
     // Databases
     const dbPatterns = [
-      /\bmongodb\b/gi, /\bpostgresql\b/gi, /\bmysql\b/gi, /\bredis\b/gi,
-      /\bnosql\b/gi, /\boracle\b/gi, /\bsql\s*server\b/gi, /\bfirebase\b/gi,
+      /\bmongodb\b/gi,
+      /\bpostgresql\b/gi,
+      /\bmysql\b/gi,
+      /\bredis\b/gi,
+      /\bnosql\b/gi,
+      /\boracle\b/gi,
+      /\bsql\s*server\b/gi,
+      /\bfirebase\b/gi,
     ];
 
     // AI/ML Keywords
     const aiPatterns = [
-      /\bgen\s*ai\b/gi, /\bgenerative\s*ai\b/gi, /\bmachine\s*learning\b/gi,
-      /\bml\b/gi, /\bdeep\s*learning\b/gi, /\bai\b/gi, /\bllm\b/gi,
-      /\bnlp\b/gi, /\btensorflow\b/gi, /\bpytorch\b/gi, /\bopenai\b/gi,
+      /\bgen\s*ai\b/gi,
+      /\bgenerative\s*ai\b/gi,
+      /\bmachine\s*learning\b/gi,
+      /\bml\b/gi,
+      /\bdeep\s*learning\b/gi,
+      /\bai\b/gi,
+      /\bllm\b/gi,
+      /\bnlp\b/gi,
+      /\btensorflow\b/gi,
+      /\bpytorch\b/gi,
+      /\bopenai\b/gi,
     ];
 
     // Soft Skills
     const softSkillPatterns = [
-      /\bproblem[\s-]*solving\b/gi, /\bcommunication\s*skills?\b/gi,
-      /\bcollaborat(ion|ive)\b/gi, /\bteamwork\b/gi, /\bleadership\b/gi,
-      /\banalytical\b/gi, /\bagile\b/gi, /\bscrum\b/gi, /\bsoftware\s*engineering\b/gi,
-      /\bdeductive\s*reasoning\b/gi, /\bunit\s*test/gi,
+      /\bproblem[\s-]*solving\b/gi,
+      /\bcommunication\s*skills?\b/gi,
+      /\bcollaborat(ion|ive)\b/gi,
+      /\bteamwork\b/gi,
+      /\bleadership\b/gi,
+      /\banalytical\b/gi,
+      /\bagile\b/gi,
+      /\bscrum\b/gi,
+      /\bsoftware\s*engineering\b/gi,
+      /\bdeductive\s*reasoning\b/gi,
+      /\bunit\s*test/gi,
     ];
 
     // Other
     const otherPatterns = [
-      /\bfrontend\b/gi, /\bbackend\b/gi, /\bfull[\s-]*stack\b/gi,
-      /\bscripting\b/gi, /\bautomation\b/gi, /\bweb[\s-]*based\b/gi,
-      /\boop\b/gi, /\bdesign\s*patterns\b/gi, /\brestful\b/gi, /\bjson\b/gi,
+      /\bfrontend\b/gi,
+      /\bbackend\b/gi,
+      /\bfull[\s-]*stack\b/gi,
+      /\bscripting\b/gi,
+      /\bautomation\b/gi,
+      /\bweb[\s-]*based\b/gi,
+      /\boop\b/gi,
+      /\bdesign\s*patterns\b/gi,
+      /\brestful\b/gi,
+      /\bjson\b/gi,
     ];
 
     const allPatterns = [
-      ...languagePatterns, ...frameworkPatterns, ...cloudPatterns,
-      ...dbPatterns, ...aiPatterns, ...softSkillPatterns, ...otherPatterns,
+      ...languagePatterns,
+      ...frameworkPatterns,
+      ...cloudPatterns,
+      ...dbPatterns,
+      ...aiPatterns,
+      ...softSkillPatterns,
+      ...otherPatterns,
     ];
 
     // Count total JD keywords and matched keywords
     const jdKeywords: string[] = [];
-    allPatterns.forEach(pattern => {
+    allPatterns.forEach((pattern) => {
       const matches = jdLower.match(pattern);
       if (matches) {
-        matches.forEach(m => {
+        matches.forEach((m) => {
           const normalized = m.toLowerCase().trim().replace(/\s+/g, ' ');
           if (normalized && normalized.length > 1 && !jdKeywords.includes(normalized)) {
             jdKeywords.push(normalized);
@@ -2520,16 +3008,14 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
     });
 
     // Add the explicitly identified missing keywords
-    payload.missingKeywords.forEach(kw => {
+    payload.missingKeywords.forEach((kw) => {
       if (!jdKeywords.includes(kw.toLowerCase())) {
         jdKeywords.push(kw.toLowerCase());
       }
     });
 
     // Count how many JD keywords are now in optimized content
-    const matchedInOptimized = jdKeywords.filter(kw =>
-      optimizedContent.includes(kw)
-    ).length;
+    const matchedInOptimized = jdKeywords.filter((kw) => optimizedContent.includes(kw)).length;
 
     // Calculate REAL score - no artificial inflation
     const totalJdKeywords = Math.max(jdKeywords.length, 1);
@@ -2594,7 +3080,7 @@ async function handleRecordOutcome(payload: {
 }): Promise<MessageResponse> {
   try {
     const validStatuses = ['viewed', 'rejected', 'interview', 'offer', 'no_response'] as const;
-    type ValidStatus = typeof validStatuses[number];
+    type ValidStatus = (typeof validStatuses)[number];
 
     if (!validStatuses.includes(payload.status as ValidStatus)) {
       return { success: false, error: `Invalid status: ${payload.status}` };
@@ -2736,7 +3222,7 @@ async function handleGetAnswerSuggestion(payload: {
         name: masterProfile.personal?.fullName || 'Professional',
         title: masterProfile.careerContext?.primaryDomain || 'Software Engineer',
         yearsExperience: masterProfile.careerContext?.yearsOfExperience || 5,
-        skills: masterProfile.skills?.technical?.map(s => s.name) || [],
+        skills: masterProfile.skills?.technical?.map((s) => s.name) || [],
         summary: masterProfile.careerContext?.summary,
       });
 
@@ -2795,7 +3281,11 @@ async function handleGenerateAIAnswer(payload: {
       name: masterProfile.personal?.fullName || 'the candidate',
       title: masterProfile.experience?.[0]?.title || 'Software Professional',
       yearsExperience: masterProfile.careerContext?.yearsOfExperience || 5,
-      skills: masterProfile.skills?.technical?.map(s => s.name).slice(0, 10).join(', ') || '',
+      skills:
+        masterProfile.skills?.technical
+          ?.map((s) => s.name)
+          .slice(0, 10)
+          .join(', ') || '',
       summary: masterProfile.careerContext?.summary || '',
       recentCompany: masterProfile.experience?.[0]?.company || '',
     };
@@ -2834,10 +3324,10 @@ INSTRUCTIONS:
 
 Write ONLY the answer, no explanations or formatting:`;
 
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.6, maxTokens: 500 }
-    );
+    const response = await aiService.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.6,
+      maxTokens: 500,
+    });
 
     if (!response?.content) {
       return { success: false, error: 'Failed to generate answer' };
@@ -2864,6 +3354,382 @@ Write ONLY the answer, no explanations or formatting:`;
     };
   } catch (error) {
     console.error('[MessageHandler] Error generating AI answer:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ============================================================================
+// Cover Letter Generation Handler
+// ============================================================================
+
+async function handleGenerateCoverLetter(payload: {
+  jobDescription: string;
+  companyName: string;
+  jobTitle: string;
+  tone?: 'professional' | 'conversational' | 'formal';
+}): Promise<MessageResponse> {
+  try {
+    const tone = payload.tone || 'professional';
+
+    // Get settings for AI provider (with migrations applied)
+    const settings = await getSettingsWithMigrations();
+    if (!settings?.ai?.provider) {
+      return { success: false, error: 'AI provider not configured' };
+    }
+
+    // Initialize AI service
+    const aiService = new AIService(settings.ai);
+    const isAvailable = await aiService.isAvailable();
+    if (!isAvailable) {
+      return { success: false, error: 'AI provider is not available' };
+    }
+
+    // Get active master profile for candidate info
+    const masterProfile = await masterProfileRepo.getActive();
+    if (!masterProfile) {
+      return {
+        success: false,
+        error: 'No active master profile found. Please upload your resume first.',
+      };
+    }
+
+    // =========================================================================
+    // STEP 1: Deep JD Analysis - Understand what they REALLY need
+    // =========================================================================
+    const jdAnalysisPrompt = `${PROMPT_SAFETY_PREAMBLE}
+
+You are a senior hiring manager reviewing this job description. Analyze it deeply.
+
+${sanitizePromptInput(payload.jobDescription, 'job_description')}
+
+Analyze and return a JSON object with:
+{
+  "coreNeed": "What is the PRIMARY business problem they're trying to solve? (1 sentence)",
+  "companyMission": "What is the company's mission or what do they do? (1 sentence)",
+  "teamContext": "What can you infer about the team size, stage, culture?",
+  "impactExpected": "What kind of impact will this person need to deliver?"
+}
+
+Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
+
+    let jdAnalysis = {
+      coreNeed: '',
+      companyMission: '',
+      teamContext: '',
+      impactExpected: '',
+    };
+
+    try {
+      const jdResponse = await aiService.chat([{ role: 'user', content: jdAnalysisPrompt }], {
+        temperature: 0.3,
+        maxTokens: 600,
+      });
+      const parsed = extractJSONFromResponse<typeof jdAnalysis>(jdResponse.content);
+      if (parsed) {
+        jdAnalysis = parsed;
+      }
+    } catch (parseError) {
+      console.warn('[CoverLetter] JD analysis parse failed, continuing with basic approach');
+    }
+
+    // =========================================================================
+    // STEP 2: Cover Letter Generation - Problem-Solution format
+    // =========================================================================
+    const candidateName = masterProfile.personal?.fullName || '';
+    const candidateSummary = masterProfile.careerContext?.summary || '';
+    const topSkills =
+      masterProfile.skills?.technical
+        ?.map((s) => s.name)
+        .slice(0, 10)
+        .join(', ') || '';
+    const recentExperience = masterProfile.experience?.[0]
+      ? `${masterProfile.experience[0].title} at ${masterProfile.experience[0].company}`
+      : '';
+
+    const coverLetterPrompt = `${PROMPT_SAFETY_PREAMBLE}
+
+You are an expert career coach writing a cover letter.
+
+COMPANY: ${sanitizePromptInput(payload.companyName, 'company_name')}
+ROLE: ${sanitizePromptInput(payload.jobTitle, 'job_title')}
+TONE: ${tone}
+
+EMPLOYER'S CORE NEED: ${jdAnalysis.coreNeed || 'Based on the job description'}
+COMPANY CONTEXT: ${jdAnalysis.companyMission || jdAnalysis.teamContext || 'Not specified'}
+IMPACT EXPECTED: ${jdAnalysis.impactExpected || 'Measurable business results'}
+
+CANDIDATE'S BACKGROUND:
+${candidateSummary || 'Experienced professional'}
+Key skills: ${topSkills || 'Not specified'}
+Recent experience: ${recentExperience || 'Not specified'}
+
+Write a cover letter using the Problem-Solution format:
+1. HOOK (1-2 sentences): Reference something specific about the company/role that excites you
+2. VALUE (2-3 sentences): Map your most relevant achievement to their core need. Use specific numbers.
+3. FIT (1-2 sentences): Connect to their culture/mission/team context
+4. CLOSE (1 sentence): Confident call to action
+
+Rules:
+- 150-300 words total
+- ${tone} tone
+- Weave in 3-5 relevant skills naturally
+- Reference specific company details (never generic)
+- Start with "Dear Hiring Manager,"${candidateName ? ` and sign off with "${candidateName}"` : ''}
+- NEVER fabricate achievements
+- Make it feel human-written, not AI-generated
+- Avoid clichés: "I am writing to express my interest", "I believe I would be a great fit"
+
+Return ONLY the cover letter text, no explanation.`;
+
+    const coverLetterResponse = await aiService.chat(
+      [{ role: 'user', content: coverLetterPrompt }],
+      { temperature: 0.65, maxTokens: 1000 }
+    );
+
+    if (!coverLetterResponse?.content) {
+      return { success: false, error: 'Cover letter generation failed: empty response from AI' };
+    }
+
+    const generatedText = coverLetterResponse.content.trim();
+    const wordCount = generatedText.split(/\s+/).length;
+
+    console.log('[CoverLetter] Generated successfully:', {
+      wordCount,
+      tone,
+      companyName: payload.companyName,
+      jobTitle: payload.jobTitle,
+      hadJdAnalysis: !!jdAnalysis.coreNeed,
+    });
+
+    return {
+      success: true,
+      data: {
+        coverLetter: generatedText,
+        wordCount,
+        tone,
+      },
+    };
+  } catch (error) {
+    console.error('[CoverLetter] Error:', error);
+    return { success: false, error: `Cover letter generation failed: ${(error as Error).message}` };
+  }
+}
+
+// ============================================================================
+// APPLICATION MANAGEMENT HANDLERS
+// ============================================================================
+
+async function handleGetApplications(): Promise<MessageResponse> {
+  try {
+    const applications = await applicationRepo.getAll();
+    return { success: true, data: applications };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleGetApplication(id: string): Promise<MessageResponse> {
+  try {
+    const application = await applicationRepo.getById(id);
+    if (!application) {
+      return { success: false, error: 'Application not found' };
+    }
+    return { success: true, data: application };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleGetApplicationsWithJobs(): Promise<MessageResponse> {
+  try {
+    const applications = await applicationRepo.getAll();
+    const enriched = await Promise.all(
+      applications.map(async (app) => {
+        const job = await jobRepo.getById(app.jobId).catch(() => undefined);
+        return { ...app, job: job || null };
+      })
+    );
+    return { success: true, data: enriched };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleCreateApplication(
+  payload: Parameters<typeof applicationRepo.create>[0]
+): Promise<MessageResponse> {
+  try {
+    const application = await applicationRepo.create(payload);
+    return { success: true, data: application };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// Status mapping from applicationRepo statuses to OutcomeTracker statuses
+const STATUS_TO_OUTCOME_MAP: Record<string, string> = {
+  saved: 'applied',
+  in_progress: 'applied',
+  submitted: 'applied',
+  under_review: 'under_review',
+  interview: 'interview',
+  offer: 'offer',
+  rejected: 'rejected',
+  withdrawn: 'withdrawn',
+  expired: 'no_response',
+};
+
+async function handleUpdateApplicationStatus(payload: {
+  id: string;
+  status: import('@shared/types/application.types').ApplicationStatus;
+  note?: string;
+}): Promise<MessageResponse> {
+  try {
+    const updated = await applicationRepo.updateStatus(payload.id, payload.status, payload.note);
+    if (!updated) {
+      return { success: false, error: 'Application not found' };
+    }
+
+    // Propagate to OutcomeTracker (best-effort, non-blocking)
+    try {
+      const outcomeStatus = STATUS_TO_OUTCOME_MAP[payload.status] as
+        | 'viewed'
+        | 'rejected'
+        | 'interview'
+        | 'offer'
+        | 'no_response'
+        | undefined;
+      if (
+        outcomeStatus &&
+        ['viewed', 'rejected', 'interview', 'offer', 'no_response'].includes(outcomeStatus)
+      ) {
+        await learningService.recordOutcome(
+          payload.id,
+          outcomeStatus as 'viewed' | 'rejected' | 'interview' | 'offer' | 'no_response',
+          payload.note
+        );
+      }
+    } catch {
+      // Non-blocking: learning system failure shouldn't break status update
+    }
+
+    return { success: true, data: updated };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleUpdateApplication(payload: {
+  id: string;
+  updates: Partial<import('@shared/types/application.types').Application>;
+}): Promise<MessageResponse> {
+  try {
+    const updated = await applicationRepo.update(payload.id, payload.updates);
+    if (!updated) {
+      return { success: false, error: 'Application not found' };
+    }
+    return { success: true, data: updated };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleDeleteApplication(id: string): Promise<MessageResponse> {
+  try {
+    const deleted = await applicationRepo.delete(id);
+    if (!deleted) {
+      return { success: false, error: 'Application not found' };
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleBulkArchiveApplications(payload: {
+  olderThanDays: number;
+}): Promise<MessageResponse> {
+  try {
+    const all = await applicationRepo.getAll();
+    const cutoff = Date.now() - payload.olderThanDays * 24 * 60 * 60 * 1000;
+    const toArchive = all.filter(
+      (app) => new Date(app.createdAt).getTime() < cutoff && app.status !== 'expired'
+    );
+
+    let archived = 0;
+    for (const app of toArchive) {
+      await applicationRepo.updateStatus(
+        app.id,
+        'expired',
+        `Bulk archived (older than ${payload.olderThanDays} days)`
+      );
+      archived++;
+    }
+
+    return { success: true, data: { archived } };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleGetApplicationCounts(): Promise<MessageResponse> {
+  try {
+    const counts = await applicationRepo.countByStatus();
+    return { success: true, data: counts };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ============================================================================
+// RESUME VERSION HANDLERS
+// ============================================================================
+
+async function handleSaveResumeVersion(
+  payload: Parameters<typeof resumeVersionRepo.create>[0]
+): Promise<MessageResponse> {
+  try {
+    const version = await resumeVersionRepo.create(payload);
+    return { success: true, data: version };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleGetResumeVersions(payload?: { profileId?: string }): Promise<MessageResponse> {
+  try {
+    let versions;
+    if (payload?.profileId) {
+      versions = await resumeVersionRepo.getByProfileId(payload.profileId);
+    } else {
+      versions = await resumeVersionRepo.getAll();
+    }
+    return { success: true, data: versions };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleGetResumeVersion(id: string): Promise<MessageResponse> {
+  try {
+    const version = await resumeVersionRepo.getById(id);
+    if (!version) {
+      return { success: false, error: 'Resume version not found' };
+    }
+    return { success: true, data: version };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleDeleteResumeVersion(id: string): Promise<MessageResponse> {
+  try {
+    const deleted = await resumeVersionRepo.delete(id);
+    if (!deleted) {
+      return { success: false, error: 'Resume version not found' };
+    }
+    return { success: true };
+  } catch (error) {
     return { success: false, error: (error as Error).message };
   }
 }

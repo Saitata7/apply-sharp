@@ -1,0 +1,950 @@
+# ============================================================================
+# ApplySharp — MVP Implementation Plan
+# ============================================================================
+# This plan is the single source of truth for development priorities.
+# Claude Code should follow this plan phase-by-phase, task-by-task.
+# Status: "pending" | "in-progress" | "done" | "blocked" | "cut"
+# Priority: "p0-critical" | "p1-high" | "p2-medium" | "p3-low"
+# ============================================================================
+
+[meta]
+project          = "ApplySharp"
+version          = "2.0.0"
+updated          = "2026-02-27"
+architecture     = "Chrome Extension (Manifest V3), Local-first, No backend"
+stack            = "TypeScript, React 18, Vite 5, Tailwind CSS, Zustand, IndexedDB, Chrome Storage"
+ai_providers     = ["Ollama (local)", "OpenAI", "Groq", "Anthropic"]
+total_phases     = 7
+mvp_target       = "Phase 1-1b-2-3 (core value delivery)"
+
+# ============================================================================
+# RESEARCH FINDINGS SUMMARY — What this plan is based on
+# ============================================================================
+
+[research]
+description = """
+Deep research conducted 2026-02-27, updated with comprehensive Chrome extension
+competitor analysis covering Simplify, JobRight, Teal, Huntr, Careerflow, Swooped,
+LazyApply, LoopCV, Massive, Sonara (shut down), and AutoApply.
+Also covers ATS rules, resume formatting, hiring manager behavior, and codebase gaps.
+"""
+
+[research.key_statistics]
+ats_rejection_rate              = "~75% of resumes filtered before human review"
+recruiter_scan_time             = "6-8 seconds initial scan, 30-60 seconds deep read"
+tailored_resume_callback_boost  = "3x higher callback rate vs generic"
+quantified_bullets_boost        = "40% more interview chances"
+cover_letter_read_rate          = "83% of hiring managers read them"
+cover_letter_influence          = "94% say cover letters influence interview decisions"
+keyword_density_target          = "2-3% of total word count"
+ats_score_target                = "75-85% match rate for callbacks"
+two_page_resume_boost           = "2.9x callback rate for 10+ years experience"
+linkedin_cross_reference        = "47% of recruiters reject for LinkedIn inconsistencies"
+typo_rejection_rate             = "77% of hiring managers reject for spelling errors"
+avg_apps_per_offer              = "32-200+ applications to get 1 offer"
+time_per_application_manual     = "30-60 minutes without tools"
+time_per_application_autofill   = "< 5 minutes with autofill (Simplify claims)"
+job_seeker_mental_health_impact = "72% report negative mental health impact"
+companies_using_ats             = "98-99% of Fortune 500"
+
+[research.competitor_landscape]
+description = "Three categories of competitors in the job application tool market"
+
+# Category A: Chrome Extension Job Assistants (Primary Competitors)
+[research.competitor_landscape.chrome_extensions]
+simplify      = { users = "2M+", price = "Free + $40/mo premium", trustpilot = "3.0/5", strengths = "Free autofill, huge adoption, curated job lists", weaknesses = "AI content 'absolutely terrible', cloud data, privacy incident, keyword-stuffing approach" }
+jobright      = { users = "100K+", price = "~$30/mo (opaque)", trustpilot = "2.9/5", strengths = "Insider Connections, H1B filter, Orion AI coach, job matching", weaknesses = "Auto-apply is vaporware, AI fabricates credentials, opaque pricing, US-only" }
+teal          = { users = "N/A", price = "$29/mo", trustpilot = "Mixed", strengths = "15+ ATS checks, good free tier, CRM tracker", weaknesses = "Extension breaks often, Workday incompatible, billing issues" }
+huntr         = { users = "N/A", price = "$40/mo", trustpilot = "4.9 CWS", strengths = "Best-in-class tracking UX, map view, contact CRM", weaknesses = "$40/mo expensive, autofill only with their resume builder" }
+swooped       = { users = "630K+ claimed", price = "$12-39/mo", trustpilot = "Mixed", strengths = "Broadest ATS support, networking features, no auto-renew", weaknesses = "Fake job postings reported, companies don't respond" }
+careerflow    = { users = "N/A", price = "Free + $24/mo", trustpilot = "Mixed", strengths = "LinkedIn optimizer (unique), profile scoring", weaknesses = "Extension stops working silently, AI adds incorrect info" }
+
+# Category B: Auto-Apply Bots (Avoid this approach)
+[research.competitor_landscape.auto_apply_bots]
+lazyapply     = { price = "$99-249 lifetime", trustpilot = "2.1/5", status = "Active but terrible reviews", lesson = "Automation without quality = disaster" }
+loopcv        = { price = "€10-30/mo", trustpilot = "2.0/5 ProductHunt", status = "Active", lesson = "Takes over browser, emails wrong people" }
+massive       = { price = "~$39/mo", trustpilot = "2.1/5", status = "Active", lesson = "Proxy emails miss interview invites, AI fabricates skills" }
+sonara        = { price = "Was $6-24/mo", trustpilot = "3.2/5", status = "SHUT DOWN Feb 2024", lesson = "Pure auto-apply without quality = business failure" }
+
+# Category C: Resume-Only Tools (No Chrome Extension)
+[research.competitor_landscape.resume_tools]
+jobscan       = { price = "$49.95/mo", strengths = "Detailed keyword matching", weaknesses = "No extension, no autofill, keyword-stuffing" }
+resume_worded = { price = "$19-49/mo", strengths = "Line-by-line feedback", weaknesses = "No extension, no tracking" }
+skillsyncer   = { price = "$9-19/mo", strengths = "Cheap", weaknesses = "Very basic" }
+
+[research.competitor_gaps]
+description = "What ALL competitors are missing — our opportunity"
+gaps = [
+    "100% local-first privacy (EVERY competitor uploads to cloud — wide open lane)",
+    "Strategic AI resume tailoring (all use keyword matching; users complain about 'heavy editing needed')",
+    "Background-aware 4-layer ATS scoring (no competitor has 11-background detection)",
+    "Reliable autofill on all ATS (the #1 complaint across ALL tools — especially Workday, Taleo, iCIMS)",
+    "Learning system that improves with outcome tracking (no competitor adapts based on results)",
+    "Quality-first philosophy (auto-apply bots imploding — Sonara shut down, 2.1/5 ratings across bots)",
+    "Transparent pricing (JobRight opaque, Simplify no refunds, LazyApply renamed Trustpilot page)",
+    "AI that never fabricates (JobRight, Massive, Careerflow all reported fabricating credentials/skills)",
+    "Resume version A/B testing with outcome tracking",
+    "Complete pipeline in one tool (users need Jobscan + Teal + Resume Worded = $70-130/mo)",
+]
+
+[research.most_requested_features]
+description = "Top features job seekers want (Reddit, ProductHunt, Trustpilot, industry research)"
+features = [
+    "1. Reliable autofill that works on all ATS platforms (especially Workday)",
+    "2. Quality over quantity in applications (anti-spray-and-pray)",
+    "3. Resume tailoring per JD (strategic, not just keywords)",
+    "4. Privacy and data control (zero cloud uploads)",
+    "5. Interview preparation tied to JD + resume",
+    "6. Networking/recruiter outreach tools",
+    "7. Application status intelligence with analytics",
+    "8. Cross-platform consistency across all job boards",
+    "9. Transparency and trust (no fake metrics, no opaque pricing)",
+    "10. Mental health / burnout management (pacing, encouragement)",
+]
+
+[research.competitor_pricing]
+simplify       = "Free core + $19.99/week or $39.99/month premium"
+jobright       = "~$19.99-29.99/month (pricing not transparent)"
+teal           = "$13/week or $29/month (free tier available)"
+huntr          = "$40/month ($26.66/mo if biannual)"
+swooped        = "$12-39/month (no auto-renew)"
+careerflow     = "Free + $23.99/month premium"
+lazyapply      = "$99-249 one-time (no free tier, 2.1/5 rating)"
+jobscan        = "$49.95/month (5 free scans)"
+resume_worded  = "$19-49/month"
+
+[research.our_advantages]
+description = "What makes ApplySharp categorically different from ALL competitors"
+advantages = [
+    "Privacy: Zero data leaves the machine — the ONLY local-first job tool in existence",
+    "AI Quality: Hiring manager mindset with multi-temperature pipeline — not keyword stuffing",
+    "Intelligence: 11-background detection + 4-layer scoring — no competitor has this depth",
+    "Reliability: Per-platform detectors with SPA-aware extraction — addresses the #1 user complaint",
+    "Completeness: Detection + Scoring + Tailoring + Generation + Autofill + Tracking + Learning in ONE tool",
+    "Trust: AI never fabricates credentials or skills — unlike JobRight, Massive, Careerflow",
+    "Cost: BYOK (bring your own key) — no subscription, no free-tier bait-and-switch",
+    "Platform coverage: 22+ platforms with dedicated detectors (7 job boards + 17 ATS systems)",
+    "Quality: Quality-first philosophy — not auto-apply bots that spray irrelevant applications",
+]
+
+# ============================================================================
+# ATS FORMATTING RULES — Strict standards our resume generator MUST follow
+# ============================================================================
+
+[ats_rules]
+description = "Research-backed ATS formatting rules that must be enforced in resume generation"
+
+[ats_rules.file_format]
+preferred        = "DOCX (highest parsing success across all ATS)"
+acceptable       = "Text-based PDF (not image-based)"
+prohibited       = [".pages", ".odt", "Canva PDFs", "image-based PDFs"]
+
+[ats_rules.fonts]
+safe_fonts       = ["Calibri", "Arial", "Times New Roman", "Verdana", "Georgia", "Helvetica"]
+prohibited_fonts = ["Comic Sans", "Courier", "custom fonts", "script fonts"]
+body_size_pt     = "10-12"
+header_size_pt   = "14-16"
+name_size_pt     = "18-22"
+
+[ats_rules.layout]
+structure           = "Single-column (safest; simple 2-column acceptable in modern ATS)"
+margins_inches      = "0.75 to 1.0 (never below 0.5)"
+line_spacing         = "1.0 to 1.15"
+text_alignment       = "Left-aligned (center only for name/contact)"
+bullet_symbols       = ["•", "–"]
+prohibited_elements  = [
+    "Tables for layout (data tables OK for skills)",
+    "Text boxes",
+    "Graphics / logos / icons",
+    "Skill bars / progress bars / charts",
+    "Headers and footers (for critical info)",
+    "Multi-column layouts via text boxes",
+    "Photos / headshots",
+    "Special symbols (☑, ➤, ★)",
+]
+
+[ats_rules.section_headers]
+required_names = [
+    "Summary | Profile | Professional Summary",
+    "Work Experience | Professional Experience | Experience",
+    "Education | Academic Background",
+    "Skills | Technical Skills | Core Competencies",
+    "Certifications",
+    "Projects | Academic Projects | Personal Projects",
+]
+prohibited_names = [
+    "My Story", "Bio", "Where I've Been", "Gigs",
+    "Alma Mater", "Learning", "Toolbox", "What I Know",
+]
+
+[ats_rules.dates]
+safe_formats   = ["MM/YYYY", "Month YYYY", "MMM YYYY"]
+dangerous      = ["'23–Present", "Summer 2023", "Ongoing", "just years (2022-2023)"]
+current_job    = "Use 'Present' or 'Current'"
+placement      = "Right-aligned, separate from job title"
+
+[ats_rules.keywords]
+density_target         = "2-3% of total word count (10-15 instances in 500-word resume)"
+placement_priority     = "Summary > Skills > Recent Experience > Earlier Experience"
+include_both_forms     = "Always include acronym AND full term (e.g., 'AWS (Amazon Web Services)')"
+exact_match_priority   = "ATS still prioritizes exact matches over semantic"
+context_matters        = "Keywords in context score higher than keyword lists"
+natural_weaving        = "Keywords should be invisible — woven into achievements"
+
+[ats_rules.page_count]
+entry_level    = "1 page (0-5 years experience)"
+mid_level      = "1-2 pages (5-10 years)"
+senior_level   = "2 pages (10+ years; 2.9x callback boost)"
+executive      = "2-3 pages"
+academic_cv    = "No limit"
+federal        = "2-5 pages"
+
+[ats_rules.bullets]
+entry_per_role     = "3-5 bullets"
+mid_per_role       = "5-7 bullets"
+senior_per_role    = "5-8 bullets (recent roles more, older roles fewer)"
+formula            = "XYZ: 'Accomplished [X] as measured by [Y], by doing [Z]'"
+alt_formula        = "CAR: Challenge → Action → Result"
+max_length_chars   = "150-200 characters per bullet"
+start_with         = "Strong action verb (Architected, Spearheaded, Delivered, etc.)"
+never_start_with   = ["Responsible for", "Helped", "Assisted", "Worked on", "Participated in", "Utilized"]
+quantification     = "Required where possible; if no metrics, describe scope/complexity"
+
+# ============================================================================
+# COVER LETTER RULES — New feature requirements
+# ============================================================================
+
+[cover_letter_rules]
+read_rate           = "83% of hiring managers read cover letters"
+ideal_length_words  = "150-300"
+max_pages           = 1
+structure           = ["Hook (why THIS company + role)", "Value (achievement mapped to their need)", "Fit (culture/mission alignment)", "Close (call to action)"]
+format              = "Problem-Solution format outperforms all others"
+personalization     = "Must reference specific company details, not generic"
+ai_detection_risk   = "Growing; ensure output has specificity, not generic polish"
+
+# ============================================================================
+# PHASE 1: Fix Critical Gaps (Foundation)
+# ============================================================================
+# These are blocking issues — features that exist partially or have
+# message types defined but no implementation.
+# ============================================================================
+
+[phases.phase1]
+name        = "Fix Critical Gaps"
+description = "Complete half-built features, fix broken detectors, enforce ATS rules"
+target      = "Week 1-2"
+goal        = "Core features work reliably end-to-end"
+
+[[phases.phase1.tasks]]
+id          = "1.1"
+title       = "Enforce ATS-safe resume formatting"
+description = """
+Update ResumeGenerator.tsx to enforce strict ATS formatting rules:
+- DOCX: Calibri font, 10pt body, 12pt headers, 18pt name, 0.75" margins, single-column
+- PDF: Same rules, ensure text-based output (not image)
+- Validate section headers match ATS-safe names
+- Simple bullet symbols only (•)
+"""
+files       = ["src/options/components/ResumeGenerator.tsx"]
+priority    = "p0-critical"
+status      = "done"
+
+[[phases.phase1.tasks]]
+id          = "1.2"
+title       = "Add resume page count control"
+description = """
+Implement intelligent page count management based on yearsOfExperience:
+- 0-5yrs → 1 page, 5-10yrs → 1-2 pages, 10+ yrs → 2 pages
+- Bullet limiting per role based on target pages
+- Page count selector UI with override option
+"""
+files       = ["src/options/components/ResumeGenerator.tsx"]
+priority    = "p0-critical"
+status      = "done"
+depends_on  = ["1.1"]
+
+[[phases.phase1.tasks]]
+id          = "1.3"
+title       = "Implement cover letter generation"
+description = """
+GENERATE_COVER_LETTER handler in message-handler.ts:
+- 2-step AI pipeline: JD Analysis (temp 0.3) → Generation (temp 0.65)
+- Problem-Solution format, 150-300 words
+- 3 tones: professional / conversational / formal
+- Uses active master profile for candidate context
+"""
+files       = [
+    "src/background/message-handler.ts",
+    "src/shared/utils/messaging.ts",
+    "src/options/components/CoverLetterGenerator.tsx",
+]
+priority    = "p0-critical"
+status      = "done"
+
+[[phases.phase1.tasks]]
+id          = "1.4"
+title       = "Fix Workday detector (currently fallback to generic)"
+description = """
+Implemented WorkdayDetector with SPA-aware extraction:
+- MutationObserver with 8s timeout for React content
+- JSON-LD extraction first, DOM fallback with Workday selectors
+- Salary parsing, employment type detection, company from subdomain
+"""
+files       = [
+    "src/content/detectors/workday.ts",
+    "src/content/detectors/index.ts",
+]
+priority    = "p1-high"
+status      = "done"
+
+[[phases.phase1.tasks]]
+id          = "1.5"
+title       = "Add ATS formatting validator"
+description = """
+Pre-generation validation: section headers, dates, keyword density,
+bullet quality, page count vs experience, acronym coverage.
+Weighted score (0-100) with passesMinimum threshold.
+"""
+files       = ["src/core/ats/format-validator.ts"]
+priority    = "p1-high"
+status      = "done"
+
+[[phases.phase1.tasks]]
+id          = "1.6"
+title       = "Add bullet point quality enforcer"
+description = """
+5-tier action verb detection (75 verbs), weak verb detection (13 phrases),
+quantification check, generic language scanner.
+Per-bullet scoring (0-100), per-role validation by seniority.
+"""
+files       = [
+    "src/core/resume/bullet-validator.ts",
+    "src/core/ats/format-validator.ts",
+]
+priority    = "p1-high"
+status      = "done"
+
+# ============================================================================
+# PHASE 1B: Chrome Extension UX (Competitor-Driven)
+# ============================================================================
+# Inspired by what Simplify, JobRight, Huntr, and Teal do well.
+# These features make the extension feel like a real job search companion,
+# not just a resume tool.
+# ============================================================================
+
+[phases.phase1b]
+name        = "Chrome Extension UX"
+description = "Make the extension a proper job search companion (not just resume tool)"
+target      = "Week 2-3"
+goal        = "Extension works seamlessly on job pages with autofill, tracking, and quick actions"
+
+[[phases.phase1b.tasks]]
+id          = "1b.1"
+title       = "Build Cover Letter Generator UI component"
+description = """
+Created CoverLetterGenerator.tsx component:
+- Split-panel modal: inputs on left, output on right
+- JD textarea, company name, job title inputs
+- Tone selector: Professional / Conversational / Formal
+- Calls GENERATE_COVER_LETTER message handler (2-step AI pipeline)
+- Generated cover letter displayed with edit capability (toggle textarea)
+- Download as DOCX (Calibri 11pt, 1" margins) or copy to clipboard
+- Word count indicator with color coding (yellow <150, green 150-300, red >300)
+- Accessible from ProfileManager page via "Cover Letter" button
+"""
+files       = [
+    "src/options/components/CoverLetterGenerator.tsx",
+    "src/options/pages/ProfileManager.tsx",
+]
+priority    = "p0-critical"
+status      = "done"
+depends_on  = ["1.3"]
+
+[[phases.phase1b.tasks]]
+id          = "1b.2"
+title       = "Improve autofill reliability across ATS platforms"
+description = """
+Implemented key autofill reliability improvements:
+- SPA-aware form detection: waitForFormFields() with MutationObserver + retry
+  polling (500ms intervals, configurable timeout) for React/Angular/Workday forms
+- React-compatible field filling: uses native HTMLInputElement value setter to
+  bypass React's synthetic event system (Object.getOwnPropertyDescriptor trick)
+- Enhanced select/dropdown filling: exact match first, then partial, React-compatible
+- Visual feedback: green outline highlight on filled fields (2s duration)
+- Error recovery: retry failed fields once after 200ms delay, skip and continue
+- Exported waitForFormFields from autofill/index.ts
+"""
+files       = [
+    "src/content/autofill/form-detector.ts",
+    "src/content/autofill/filler.ts",
+    "src/content/autofill/index.ts",
+]
+priority    = "p0-critical"
+status      = "done"
+
+[[phases.phase1b.tasks]]
+id          = "1b.3"
+title       = "Add job save/bookmark from extension sidebar"
+description = """
+Enhanced sidebar Save Job with:
+- Status selector dropdown (Saved / Interested / Applied) alongside Save button
+- Auto-check if job URL already saved on sidebar load (checkIfJobSaved)
+- Visual indicator: button turns green with "Saved" text when already bookmarked
+- Status passed as payload to SAVE_JOB message for application tracking
+"""
+files       = [
+    "src/content/ui/sidebar.ts",
+]
+priority    = "p1-high"
+status      = "done"
+
+[[phases.phase1b.tasks]]
+id          = "1b.4"
+title       = "Add quick ATS score comparison view"
+description = """
+Added profile comparison section to sidebar:
+- Shows when user has 2+ GeneratedProfiles (role profiles)
+- Scores each profile against current JD using SCORE_JOB handler
+- Sorted by score descending, best match highlighted with green "Best" badge
+- Active profile has blue border indicator
+- Click any profile to switch active role and re-analyze ATS score
+- New SCORE_JOB handler in message-handler.ts for quick keyword matching
+- Full CSS styling: comparison items, badges, hover/active states
+"""
+files       = [
+    "src/content/ui/sidebar.ts",
+    "src/background/message-handler.ts",
+    "src/shared/utils/messaging.ts",
+]
+priority    = "p2-medium"
+status      = "done"
+
+# ============================================================================
+# PHASE 2: Analytics & Status Management (User Intelligence)
+# ============================================================================
+# Backend data structures exist (OutcomeTracker, OutcomeStats) but have
+# ZERO UI. Users can't see their application pipeline or outcomes.
+# Competitor benchmark: Huntr has best-in-class Kanban tracking (4.9★).
+# ============================================================================
+
+[phases.phase2]
+name        = "Analytics & Status Management"
+description = "Build the UI for data that already exists in the backend"
+target      = "Week 4-5"
+goal        = "Users can track, visualize, and learn from their applications"
+
+[[phases.phase2.tasks]]
+id          = "2.1"
+title       = "Build application status management UI"
+description = """
+OutcomeTracker.ts defines status tracking but there's NO UI to update statuses.
+Create ApplicationStatusManager component:
+- Kanban board view: Saved → In Progress → Submitted → Under Review → Interview → Offer/Rejected
+- Quick status update (drag-and-drop or dropdown)
+- Add notes to each status transition
+- Date tracking for each transition
+- Filter by: status, company, platform, date range
+- Bulk actions (archive old applications)
+- Status history timeline view per application
+"""
+files       = [
+    "src/options/pages/ApplicationHistory.tsx",
+    "src/options/components/ApplicationStatusManager.tsx",
+]
+priority    = "p0-critical"
+status      = "done"
+
+[[phases.phase2.tasks]]
+id          = "2.2"
+title       = "Build analytics dashboard"
+description = """
+OutcomeStats interface exists with: platform response rates, weekly trends,
+interview rates, offer rates. But NO page displays this data.
+
+Create Analytics page:
+- Application pipeline funnel (submitted → reviewed → interview → offer)
+- Response rate by platform (which platforms work best)
+- Response rate by ATS score range (does higher score = more interviews?)
+- Weekly/monthly application volume trends
+- Average time-to-response by company size
+- Keyword performance (which keywords correlate with callbacks)
+- Profile variant performance (which GeneratedProfile gets most interviews)
+- Company response heatmap
+- Success rate over time (are recommendations improving?)
+"""
+files       = [
+    "src/options/pages/Analytics.tsx",
+    "src/options/components/AnalyticsDashboard.tsx",
+]
+priority    = "p1-high"
+status      = "done"
+depends_on  = ["2.1"]
+
+[[phases.phase2.tasks]]
+id          = "2.3"
+title       = "Add resume version management"
+description = """
+Currently resumes are generated on-the-fly with no persistence.
+Add version management:
+- Save generated resume as a version (snapshot of tailored content)
+- Link versions to specific jobs/applications
+- Compare versions side-by-side (diff view)
+- Track which version was used for which application
+- Show performance per version (callback rate)
+- Quick re-generate from a previous version's settings
+- Max 10 versions per GeneratedProfile to manage storage
+"""
+files       = [
+    "src/storage/repositories/resume-version.repo.ts",
+    "src/shared/types/resume-version.types.ts",
+    "src/options/components/ResumeVersionManager.tsx",
+]
+priority    = "p2-medium"
+status      = "done"
+
+# ============================================================================
+# PHASE 3: Intelligence Upgrades (Competitive Edge)
+# ============================================================================
+# Features that make ApplySharp categorically better than competitors.
+# These are the features NO competitor offers today.
+# ============================================================================
+
+[phases.phase3]
+name        = "Intelligence Upgrades"
+description = "Features no competitor has — our competitive moat. Inspired by gaps in Simplify, JobRight, Teal."
+target      = "Week 6-8"
+goal        = "ApplySharp becomes the smartest job application tool available"
+
+[[phases.phase3.tasks]]
+id          = "3.1"
+title       = "Skills gap analysis with learning recommendations"
+description = """
+ATS scoring identifies missing keywords but doesn't help users close gaps.
+Add intelligent gap analysis:
+- Categorize gaps: Critical (dealbreaker) vs Addressable (can learn) vs Minor (nice-to-have)
+- For each addressable gap:
+  - Estimated learning time
+  - Suggested free resources (Coursera, YouTube, docs)
+  - Transferable skills that partially cover the gap
+  - How to frame existing experience to minimize the gap
+- Show gap trends across multiple JDs (recurring missing skills = priority to learn)
+- Generate a personalized learning roadmap ranked by job market demand
+"""
+files       = [
+    "src/core/ats/gap-analyzer.ts",
+    "src/options/components/SkillsGapAnalysis.tsx",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase3.tasks]]
+id          = "3.2"
+title       = "Red flag scanner"
+description = """
+Research shows: 77% reject for typos, 47% reject for LinkedIn inconsistencies.
+Implement pre-submission red flag scanner:
+- Spelling/grammar check on resume content
+- Employment gap detection with explanation prompts
+- Job hopping pattern detection (multiple roles < 1 year)
+- Weak verb detection ('Responsible for', 'Helped', etc.)
+- Missing quantification in bullets
+- Overqualification warning (senior applying to junior)
+- Underqualification warning (junior applying to senior)
+- Contact info completeness check
+- Date consistency validation
+- Generic language detection ('results-driven professional')
+- LinkedIn URL validation (is it accessible?)
+Return: RedFlagReport with severity levels and fix suggestions
+"""
+files       = ["src/core/resume/red-flag-scanner.ts"]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase3.tasks]]
+id          = "3.3"
+title       = "LinkedIn profile consistency checker"
+description = """
+87% of recruiters use LinkedIn to vet candidates.
+47% reject for inconsistencies between resume and LinkedIn.
+Add LinkedIn consistency checking:
+- Compare job titles between resume and LinkedIn
+- Compare employment dates
+- Compare company names
+- Check skills alignment
+- Verify education matches
+- Flag any discrepancies with severity level
+- Suggest which to update (resume or LinkedIn)
+Input: LinkedIn profile URL → scrape public data or use user-provided data
+"""
+files       = [
+    "src/core/profile/linkedin-checker.ts",
+    "src/options/components/LinkedInChecker.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase3.tasks]]
+id          = "3.4"
+title       = "AI content authenticity guard"
+description = """
+Growing trend: employers using AI detection on application materials.
+Ensure our AI-generated content passes authenticity checks:
+- Add specificity scoring (vague language = AI flag)
+- Inject candidate-specific details (company names, project names, team sizes)
+- Vary sentence structure and length (AI tends to be uniform)
+- Avoid overused AI phrases ('leverage', 'synergy', 'cutting-edge', 'spearheaded')
+- Add a 'human voice' pass that introduces natural variation
+- Score output on AI detection likelihood before presenting to user
+- Temperature variations per section to increase naturalness
+"""
+files       = [
+    "src/core/resume/authenticity-guard.ts",
+    "src/background/message-handler.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+# ============================================================================
+# PHASE 4: User Experience (Onboarding & Polish)
+# ============================================================================
+
+[phases.phase4]
+name        = "User Experience Polish"
+description = "Onboarding, accessibility, and UX improvements"
+target      = "Week 8-9"
+goal        = "First-time users can succeed without documentation"
+
+[[phases.phase4.tasks]]
+id          = "4.1"
+title       = "Add onboarding wizard"
+description = """
+Currently no onboarding — extension loads directly into features.
+Create a guided setup flow:
+1. Welcome screen: what ApplySharp does (30 second overview)
+2. Resume upload: drag-drop with progress indicator
+3. AI setup: choose provider, enter API key, test connection
+4. Background config: select career background, roles, skill areas
+5. Quick tour: highlight key features (overlay sidebar, ATS score, resume gen)
+6. First action: detect a job from current tab
+Show progress bar, allow skip, remember completion state.
+"""
+files       = [
+    "src/options/pages/Onboarding.tsx",
+    "src/options/components/OnboardingWizard.tsx",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase4.tasks]]
+id          = "4.2"
+title       = "Add accessibility (ARIA labels, keyboard nav)"
+description = """
+Codebase analysis found ZERO aria-label, role=, or alt= attributes.
+Fix accessibility across all UI:
+- Add ARIA labels to all interactive elements
+- Ensure keyboard navigation (Tab, Enter, Escape)
+- Add visible focus indicators
+- Validate color contrast (WCAG AA minimum)
+- Screen reader support for ATS scores, keyword lists
+- Alt text for any visual indicators
+- Announce loading/completion states
+"""
+files       = [
+    "src/options/pages/*.tsx",
+    "src/options/components/*.tsx",
+    "src/content/ui/sidebar.ts",
+    "src/popup/App.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase4.tasks]]
+id          = "4.3"
+title       = "Add data export and backup"
+description = """
+No way to export or backup data currently.
+Implement:
+- Export all data as JSON (MasterProfile, applications, settings)
+- Import from JSON (restore backup)
+- Export application history as CSV
+- Export specific resume versions
+- Warning when approaching Chrome storage limits
+- Auto-cleanup of old application records (configurable retention)
+"""
+files       = [
+    "src/options/components/DataManager.tsx",
+    "src/storage/export-import.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase4.tasks]]
+id          = "4.4"
+title       = "Add dashboard overview page"
+description = """
+Users need a home base showing their overall status.
+Create Dashboard page:
+- Application pipeline summary (counts per status)
+- Recent activity feed
+- ATS score distribution (how well you match recent jobs)
+- Quick actions: upload resume, analyze job, generate resume
+- Upcoming deadlines (if deadline tracking added)
+- Learning system insights (top recommendation)
+- Profile completeness indicator
+"""
+files       = [
+    "src/options/pages/Dashboard.tsx",
+    "src/options/components/DashboardWidgets.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+# ============================================================================
+# PHASE 5: Advanced Features (Competitive Moat)
+# ============================================================================
+
+[phases.phase5]
+name        = "Advanced Features & Competitive Moat"
+description = "Features that establish long-term advantage. Inspired by JobRight (Insider Connections, H1B), Simplify (job curation), Careerflow (LinkedIn optimizer)."
+target      = "Week 10-13"
+goal        = "Full-featured career assistant, not just a resume tool"
+
+[[phases.phase5.tasks]]
+id          = "5.1"
+title       = "Interview preparation module"
+description = """
+Almost no competitor offers interview prep (only JobRight's Orion chatbot).
+Build interview prep tied to resume data + JD:
+- Generate likely interview questions based on JD + resume gaps
+- Provide answer frameworks using STAR method with candidate's actual experience
+- Behavioral question generator with suggested answers from answer bank
+- Technical question suggestions based on JD requirements
+- Company research summary (from JD context)
+- 'Weakness' question handler (frame gaps as growth areas)
+- Save prep notes per application
+
+Competitor benchmark: JobRight has Orion AI coach but it's generic.
+Our advantage: tied to specific JD + specific resume data.
+"""
+files       = [
+    "src/core/interview/question-generator.ts",
+    "src/options/components/InterviewPrep.tsx",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase5.tasks]]
+id          = "5.2"
+title       = "Email follow-up and networking templates"
+description = """
+Generate contextual follow-up emails and networking outreach:
+- Thank you after interview (reference specific discussion points)
+- Follow up on submitted application (after X days)
+- Networking outreach (warm intro request for referrals)
+- Cold outreach to hiring managers (professional, not spammy)
+- Post-rejection graceful follow-up
+- Salary negotiation templates
+- Templates personalized with JD + company context
+- Copy to clipboard or open in email client
+
+Competitor benchmarks:
+- JobRight Insider Connections: auto-finds hiring managers and generates outreach
+- Swooped: networking templates with contact discovery
+- Simplify: follow-up email generation from tracker
+- LoopCV: recruiter email outreach (but sends to wrong people)
+
+We can't scrape LinkedIn contacts (privacy-first), but we CAN:
+- Generate quality outreach templates from JD/company context
+- Help users craft referral requests from their existing network
+- Provide hiring manager email format guesses (firstname.lastname@company.com)
+"""
+files       = [
+    "src/core/communication/email-templates.ts",
+    "src/options/components/EmailTemplates.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase5.tasks]]
+id          = "5.3"
+title       = "Application deadline tracking with notifications"
+description = """
+Track application deadlines:
+- Extract deadline from JD when available
+- Manual deadline entry
+- Countdown timers on saved jobs
+- Browser notifications before deadline (Chrome notifications API)
+- Priority sorting by deadline proximity
+- Application pacing recommendations (mental health awareness)
+- Suggested weekly application targets based on user's pace
+"""
+files       = [
+    "src/shared/types/job.types.ts",
+    "src/options/components/DeadlineTracker.tsx",
+]
+priority    = "p3-low"
+status      = "pending"
+
+[[phases.phase5.tasks]]
+id          = "5.4"
+title       = "Expand keyword databases for incomplete backgrounds"
+description = """
+Healthcare, Finance, Legal, Education backgrounds have minimal keyword coverage
+(25-29 keywords each vs 110-200 for CS/Data/MBA).
+Expand all to full role/skill area hierarchy with 80-150+ keywords each.
+"""
+files       = [
+    "src/core/ats/keywords/other-backgrounds.ts",
+    "src/shared/types/background.types.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase5.tasks]]
+id          = "5.5"
+title       = "LinkedIn profile consistency checker"
+description = """
+87% of recruiters use LinkedIn to vet candidates.
+47% reject for inconsistencies between resume and LinkedIn.
+
+Move LinkedIn checker from Phase 3 to Phase 5 (lower priority but unique feature).
+Compare resume vs LinkedIn for: job titles, dates, companies, skills, education.
+Flag discrepancies with severity levels.
+
+Competitor benchmark: Careerflow has LinkedIn Optimizer (profile scoring across 14 sections).
+Our approach: consistency checker (is your resume and LinkedIn telling the same story?).
+"""
+files       = [
+    "src/core/profile/linkedin-checker.ts",
+    "src/options/components/LinkedInChecker.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase5.tasks]]
+id          = "5.6"
+title       = "Visa/H1B sponsorship awareness"
+description = """
+JobRight's H1B filter is one of their unique features that international
+job seekers find invaluable.
+
+Add basic visa/sponsorship awareness:
+- Parse JD for visa sponsorship mentions ("H1B", "visa sponsorship", "must be authorized")
+- Display sponsorship indicator on job detection sidebar
+- Filter saved jobs by sponsorship availability
+- Note: We don't maintain a company sponsorship database (that's JobRight's moat),
+  but we CAN detect sponsorship mentions in individual JDs.
+"""
+files       = [
+    "src/core/ats/requirement-scanner.ts",
+    "src/content/ui/sidebar.ts",
+]
+priority    = "p3-low"
+status      = "pending"
+
+# ============================================================================
+# PHASE 6: Testing & Quality (Release Readiness)
+# ============================================================================
+
+[phases.phase6]
+name        = "Testing & Release Quality"
+description = "No tests currently exist. Add critical test coverage before release."
+target      = "Week 14-16"
+goal        = "Confidence to ship without breaking user data"
+
+[[phases.phase6.tasks]]
+id          = "6.1"
+title       = "Add unit tests for ATS scoring"
+description = """
+hybrid-scorer.ts (1013 lines) and layered-scorer.ts (964 lines) have ZERO tests.
+Add tests for:
+- Keyword extraction and frequency weighting
+- Background detection accuracy
+- Seniority level matching
+- Score calculation with known inputs
+- Background mismatch penalty
+- Edge cases: empty JD, empty profile, missing fields
+"""
+files       = [
+    "src/core/ats/__tests__/hybrid-scorer.test.ts",
+    "src/core/ats/__tests__/layered-scorer.test.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase6.tasks]]
+id          = "6.2"
+title       = "Add unit tests for resume generation"
+description = """
+Test resume output:
+- DOCX structure validation (section headers, font sizes, margins)
+- PDF content validation
+- Bullet count enforcement by seniority
+- Page count targeting logic
+- Skill categorization accuracy
+- ATS format validation pass/fail
+- Cover letter structure validation
+"""
+files       = [
+    "src/options/components/__tests__/ResumeGenerator.test.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase6.tasks]]
+id          = "6.3"
+title       = "Add integration tests for message passing"
+description = """
+Test the full message flow:
+- Content script → Background → Response cycle
+- All 29+ message types have handlers
+- Error handling for invalid messages
+- Rate limit handling for AI calls
+- Extension context invalidation recovery
+"""
+files       = [
+    "src/background/__tests__/message-handler.test.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase6.tasks]]
+id          = "6.4"
+title       = "Add E2E tests for critical user flows"
+description = """
+Test the core user journeys:
+- Resume upload → Profile creation → View profile
+- Job detection → ATS score display
+- Resume tailoring with JD → Download
+- Application tracking → Status update
+"""
+files       = ["tests/e2e/"]
+priority    = "p3-low"
+status      = "pending"
+
+# ============================================================================
+# QUALITY STANDARDS — Applied to all phases
+# ============================================================================
+
+[quality]
+description = "Standards that apply across ALL development work"
+
+[quality.resume_output]
+must_pass_ats       = "Every generated resume must pass our own ATS format validator"
+must_be_human       = "AI-enhanced content must pass authenticity checks"
+must_preserve_truth = "NEVER fabricate metrics, titles, or experiences"
+must_target_pages   = "Must hit target page count for experience level"
+
+[quality.code]
+typescript_strict   = true
+no_any_types        = "Minimize use of 'any' type"
+error_handling      = "All async operations must have try/catch with meaningful fallbacks"
+loading_states      = "All async UI operations must show loading indicators"
+module_prefix       = "All console.log/error must use [ModuleName] prefix"
+
+[quality.ai_prompts]
+temperature_ladder  = "Analysis(0.3) → Enhancement(0.5) → Creative(0.65)"
+always_fallback     = "Every AI call must have a non-AI fallback path"
+json_safety         = "Always use extractJSONFromResponse() for AI output parsing"
+rate_limit_aware    = "15s delay between calls for Groq; respect provider limits"
