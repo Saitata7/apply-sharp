@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Jobs Pilot",
+  "name": "ApplySharp",
   "version": "1.0.0",
   "description": "Local-first AI Job Assistant - Smart job matching, cover letters, and autofill",
 
@@ -68,7 +68,7 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     },
-    "default_title": "Jobs Pilot"
+    "default_title": "ApplySharp"
   },
 
   "options_ui": {

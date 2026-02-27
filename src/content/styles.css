@@ -1,6 +1,6 @@
-/* Jobs Pilot Content Script Styles */
+/* ApplySharp Content Script Styles */
 
-.jobs-pilot-overlay {
+.applysharp-overlay {
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -16,12 +16,12 @@
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.jobs-pilot-overlay.minimized {
+.applysharp-overlay.minimized {
   width: auto;
   max-height: none;
 }
 
-.jobs-pilot-header {
+.applysharp-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -30,7 +30,7 @@
   color: white;
 }
 
-.jobs-pilot-header-title {
+.applysharp-header-title {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -38,12 +38,12 @@
   font-size: 14px;
 }
 
-.jobs-pilot-header-actions {
+.applysharp-header-actions {
   display: flex;
   gap: 4px;
 }
 
-.jobs-pilot-btn {
+.applysharp-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -56,48 +56,48 @@
   transition: all 0.15s ease;
 }
 
-.jobs-pilot-btn-icon {
+.applysharp-btn-icon {
   padding: 6px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
 
-.jobs-pilot-btn-icon:hover {
+.applysharp-btn-icon:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
-.jobs-pilot-btn-primary {
+.applysharp-btn-primary {
   background: #3b82f6;
   color: white;
 }
 
-.jobs-pilot-btn-primary:hover {
+.applysharp-btn-primary:hover {
   background: #2563eb;
 }
 
-.jobs-pilot-btn-secondary {
+.applysharp-btn-secondary {
   background: #f1f5f9;
   color: #475569;
 }
 
-.jobs-pilot-btn-secondary:hover {
+.applysharp-btn-secondary:hover {
   background: #e2e8f0;
 }
 
-.jobs-pilot-btn-success {
+.applysharp-btn-success {
   background: #22c55e;
   color: white;
 }
 
-.jobs-pilot-btn-success:hover {
+.applysharp-btn-success:hover {
   background: #16a34a;
 }
 
-.jobs-pilot-content {
+.applysharp-content {
   padding: 16px;
 }
 
-.jobs-pilot-job-title {
+.applysharp-job-title {
   font-size: 16px;
   font-weight: 600;
   color: #1e293b;
@@ -105,13 +105,13 @@
   line-height: 1.3;
 }
 
-.jobs-pilot-company {
+.applysharp-company {
   font-size: 14px;
   color: #64748b;
   margin-bottom: 12px;
 }
 
-.jobs-pilot-score {
+.applysharp-score {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -121,7 +121,7 @@
   margin-bottom: 12px;
 }
 
-.jobs-pilot-score-circle {
+.applysharp-score-circle {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -133,36 +133,36 @@
   color: white;
 }
 
-.jobs-pilot-score-high {
+.applysharp-score-high {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
 }
 
-.jobs-pilot-score-medium {
+.applysharp-score-medium {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 }
 
-.jobs-pilot-score-low {
+.applysharp-score-low {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
-.jobs-pilot-score-info {
+.applysharp-score-info {
   flex: 1;
 }
 
-.jobs-pilot-score-label {
+.applysharp-score-label {
   font-size: 12px;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.jobs-pilot-score-profile {
+.applysharp-score-profile {
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
 }
 
-.jobs-pilot-actions {
+.applysharp-actions {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
@@ -170,18 +170,18 @@
   background: #f8fafc;
 }
 
-.jobs-pilot-actions .jobs-pilot-btn {
+.applysharp-actions .applysharp-btn {
   flex: 1;
 }
 
-.jobs-pilot-tags {
+.applysharp-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
 }
 
-.jobs-pilot-tag {
+.applysharp-tag {
   display: inline-flex;
   align-items: center;
   padding: 4px 8px;
@@ -192,18 +192,18 @@
   font-weight: 500;
 }
 
-.jobs-pilot-tag-match {
+.applysharp-tag-match {
   background: #dcfce7;
   color: #166534;
 }
 
-.jobs-pilot-tag-missing {
+.applysharp-tag-missing {
   background: #fee2e2;
   color: #991b1b;
 }
 
 /* Minimized state */
-.jobs-pilot-minimized {
+.applysharp-minimized {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -211,12 +211,12 @@
   cursor: pointer;
 }
 
-.jobs-pilot-minimized:hover {
+.applysharp-minimized:hover {
   background: #f8fafc;
 }
 
 /* Loading state */
-.jobs-pilot-loading {
+.applysharp-loading {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,16 +224,16 @@
   color: #64748b;
 }
 
-.jobs-pilot-spinner {
+.applysharp-spinner {
   width: 24px;
   height: 24px;
   border: 2px solid #e2e8f0;
   border-top-color: #3b82f6;
   border-radius: 50%;
-  animation: jobs-pilot-spin 0.8s linear infinite;
+  animation: applysharp-spin 0.8s linear infinite;
 }
 
-@keyframes jobs-pilot-spin {
+@keyframes applysharp-spin {
   to {
     transform: rotate(360deg);
   }
@@ -241,38 +241,38 @@
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
-  .jobs-pilot-overlay {
+  .applysharp-overlay {
     background: #1e293b;
     color: #f1f5f9;
   }
 
-  .jobs-pilot-job-title {
+  .applysharp-job-title {
     color: #f1f5f9;
   }
 
-  .jobs-pilot-company {
+  .applysharp-company {
     color: #94a3b8;
   }
 
-  .jobs-pilot-score {
+  .applysharp-score {
     background: #334155;
   }
 
-  .jobs-pilot-score-profile {
+  .applysharp-score-profile {
     color: #f1f5f9;
   }
 
-  .jobs-pilot-actions {
+  .applysharp-actions {
     background: #0f172a;
     border-top-color: #334155;
   }
 
-  .jobs-pilot-btn-secondary {
+  .applysharp-btn-secondary {
     background: #334155;
     color: #f1f5f9;
   }
 
-  .jobs-pilot-btn-secondary:hover {
+  .applysharp-btn-secondary:hover {
     background: #475569;
   }
 }

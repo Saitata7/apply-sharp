@@ -2,13 +2,13 @@
 
 ## Storage Overview
 
-Jobs Pilot uses two storage mechanisms:
+ApplySharp uses two storage mechanisms:
 - **IndexedDB** (via `idb` package) — Structured data (profiles, jobs, applications)
 - **Chrome Storage** (`chrome.storage.local`) — Settings, master profiles, active states
 
 ## IndexedDB Schema
 
-Database: `jobs-pilot-db` (version 1)
+Database: `applysharp-db` (version 1)
 
 ### Stores
 

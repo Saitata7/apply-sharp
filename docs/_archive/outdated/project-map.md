@@ -1,4 +1,4 @@
-# Jobs Pilot Project Map (auto-generated)
+# ApplySharp Project Map (auto-generated)
 
 ## Models
 (schema not found at src/storage/schemas"          # IndexedDB schemas)

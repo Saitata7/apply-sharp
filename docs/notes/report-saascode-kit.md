@@ -1,7 +1,7 @@
 # SaasCode Kit — Bug Report
 
 **Date**: 2026-02-13
-**Project**: Jobs Pilot (Chrome Extension, Manifest V3)
+**Project**: ApplySharp (Chrome Extension, Manifest V3)
 **Kit Version**: github:Saitata7/saascode-kit (latest, updated 2026-02-13)
 
 ---
@@ -59,15 +59,31 @@ The review flags every single `console.log()` and `console.debug()` statement as
 
 Previous behavior (>10 per file threshold) was more useful.
 
+### Bug 4: `update --full` Fails to Regenerate Templates
+
+**Severity**: HIGH
+
+Running `npx github:Saitata7/saascode-kit update --full` exits with code 1. The `[Templates]` section prints but is completely empty — no files are regenerated (CLAUDE.md, .cursorrules, .windsurfrules, etc.). The command also appears to run twice (duplicate output). Only the hooks file (`.claude/settings.json`) is synced successfully.
+
+**Observed**: 2026-02-27
+
+### Bug 5: `docs --prd` Generates Template Instead of Actual PRD
+
+**Severity**: MEDIUM
+
+Running `npx github:Saitata7/saascode-kit docs --prd` outputs a template file with instructions (e.g., "Analyze this project's codebase and generate the Product Brief") instead of actually analyzing the codebase and producing a real PRD. The output is just a prompt skeleton, not a product brief.
+
+**Observed**: 2026-02-27
+
 ---
 
 ## Summary
 
 | Severity | Count |
 |----------|-------|
-| HIGH | 1 |
-| MEDIUM | 2 |
-| **Total** | **3 bugs** |
+| HIGH | 2 |
+| MEDIUM | 3 |
+| **Total** | **5 bugs** |
 
 ### What's Fixed Since Last Report
 

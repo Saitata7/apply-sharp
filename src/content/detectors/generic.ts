@@ -23,7 +23,7 @@ export class GenericDetector implements JobDetector {
     // For sites that load content dynamically, wait for content
     const isDynamicSite = this.isDynamicContentSite();
     if (isDynamicSite) {
-      console.log('[Jobs Pilot] Detected dynamic content site, waiting for content to load...');
+      console.log('[ApplySharp] Detected dynamic content site, waiting for content to load...');
       await this.waitForDynamicContent();
     }
 
@@ -59,14 +59,14 @@ export class GenericDetector implements JobDetector {
 
       // Check if content is already loaded
       if (this.hasJobContent()) {
-        console.log('[Jobs Pilot] Content already loaded');
+        console.log('[ApplySharp] Content already loaded');
         resolve();
         return;
       }
 
       const observer = new MutationObserver(() => {
         if (this.hasJobContent()) {
-          console.log('[Jobs Pilot] Dynamic content loaded after', Date.now() - startTime, 'ms');
+          console.log('[ApplySharp] Dynamic content loaded after', Date.now() - startTime, 'ms');
           observer.disconnect();
           // Small delay to let any final rendering complete
           setTimeout(resolve, 200);
@@ -82,7 +82,7 @@ export class GenericDetector implements JobDetector {
       // Timeout fallback
       setTimeout(() => {
         observer.disconnect();
-        console.log('[Jobs Pilot] Dynamic content wait timed out after', timeout, 'ms');
+        console.log('[ApplySharp] Dynamic content wait timed out after', timeout, 'ms');
         resolve();
       }, timeout);
     });
@@ -164,7 +164,7 @@ export class GenericDetector implements JobDetector {
     };
 
     // Debug logging - print key values directly for easier viewing
-    console.log('[Jobs Pilot] Generic extraction:');
+    console.log('[ApplySharp] Generic extraction:');
     console.log('  - Title found:', title ? `"${title}"` : 'NO (fallback used)');
     console.log('  - Company found:', company ? `"${company}"` : 'NO (fallback used)');
     console.log('  - Location:', location || 'not found');
@@ -184,28 +184,28 @@ export class GenericDetector implements JobDetector {
     // Debug: Check if key fields exist in body
     const hasDesiredSkills = bodyText.includes('Desired Skills');
     const hasRole = bodyText.includes('Role');
-    console.log('[Jobs Pilot] Title search - Desired Skills in page:', hasDesiredSkills, ', Role in page:', hasRole);
+    console.log('[ApplySharp] Title search - Desired Skills in page:', hasDesiredSkills, ', Role in page:', hasRole);
 
     // Pattern 1: "Desired Skills: X" or "Desired Skills   X" (tabs/spaces)
     const desiredSkillsMatch = bodyText.match(/Desired Skills[\s:\-]*([A-Za-z][A-Za-z\s\+\#\.]+?)(?:\n|$)/i);
     // Pattern 2: "Role: X" or "Role   X" - be more flexible
     const roleMatch = bodyText.match(/\bRole[\s:\-]*([A-Za-z][A-Za-z\s]+?)(?:\n|$)/i);
 
-    console.log('[Jobs Pilot] Desired Skills match:', desiredSkillsMatch ? desiredSkillsMatch[1] : 'NOT FOUND');
-    console.log('[Jobs Pilot] Role match:', roleMatch ? roleMatch[1] : 'NOT FOUND');
+    console.log('[ApplySharp] Desired Skills match:', desiredSkillsMatch ? desiredSkillsMatch[1] : 'NOT FOUND');
+    console.log('[ApplySharp] Role match:', roleMatch ? roleMatch[1] : 'NOT FOUND');
 
     if (desiredSkillsMatch && roleMatch) {
       const skill = desiredSkillsMatch[1].trim();
       const role = roleMatch[1].trim();
       if (skill && role && skill.length < 50 && role.length < 50) {
-        console.log('[Jobs Pilot] Constructed title from Desired Skills + Role:', `${skill} ${role}`);
+        console.log('[ApplySharp] Constructed title from Desired Skills + Role:', `${skill} ${role}`);
         return `${skill} ${role}`;
       }
     }
     if (desiredSkillsMatch) {
       const skill = desiredSkillsMatch[1].trim();
       if (skill && skill.length < 50 && skill.length > 1) {
-        console.log('[Jobs Pilot] Constructed title from Desired Skills:', `${skill} Developer`);
+        console.log('[ApplySharp] Constructed title from Desired Skills:', `${skill} Developer`);
         return `${skill} Developer`;
       }
     }
@@ -213,7 +213,7 @@ export class GenericDetector implements JobDetector {
     // Pattern 2: Look for "Job Title: X" or "Position: X" in body text
     const jobTitleMatch = bodyText.match(/(?:Job Title|Position|Title)\s*[:\-]?\s*([^\n]+)/i);
     if (jobTitleMatch && jobTitleMatch[1].trim().length > 3 && jobTitleMatch[1].trim().length < 100) {
-      console.log('[Jobs Pilot] Found title from Job Title field:', jobTitleMatch[1].trim());
+      console.log('[ApplySharp] Found title from Job Title field:', jobTitleMatch[1].trim());
       return jobTitleMatch[1].trim();
     }
 
@@ -245,7 +245,7 @@ export class GenericDetector implements JobDetector {
         const el = document.querySelector(selector);
         const text = el?.textContent?.trim();
         if (text && text.length > 3 && text.length < 150) {
-          console.log('[Jobs Pilot] Found title from selector:', selector, '=', text);
+          console.log('[ApplySharp] Found title from selector:', selector, '=', text);
           return text;
         }
       } catch {
@@ -261,7 +261,7 @@ export class GenericDetector implements JobDetector {
       const lowerText = text.toLowerCase();
       // Skip if it looks like branding
       if (text.length > 3 && text.length < 150 && !brandingTerms.some(term => lowerText.includes(term))) {
-        console.log('[Jobs Pilot] Found title from h1:', text);
+        console.log('[ApplySharp] Found title from h1:', text);
         return text;
       }
     }
@@ -277,7 +277,7 @@ export class GenericDetector implements JobDetector {
           if (label === 'role' || label === 'job title' || label === 'position') {
             const value = cells[i + 1]?.textContent?.trim();
             if (value && value.length > 0 && value.length < 200) {
-              console.log('[Jobs Pilot] Found title from table:', value);
+              console.log('[ApplySharp] Found title from table:', value);
               return value;
             }
           }
@@ -289,7 +289,7 @@ export class GenericDetector implements JobDetector {
     const pageTitle = document.title;
     const pageTitleMatch = pageTitle.match(/^([^|–—-]+)/);
     if (pageTitleMatch && pageTitleMatch[1].trim().length > 3) {
-      console.log('[Jobs Pilot] Using page title as fallback:', pageTitleMatch[1].trim());
+      console.log('[ApplySharp] Using page title as fallback:', pageTitleMatch[1].trim());
       return pageTitleMatch[1].trim();
     }
 
@@ -400,7 +400,7 @@ export class GenericDetector implements JobDetector {
         const contextStart = Math.max(0, startIdx - 100);
         const contextEnd = Math.min(bodyText.length, endIdx + 500);
         const content = bodyText.substring(contextStart, contextEnd);
-        console.log('[Jobs Pilot] Found job content via requirement sentences, count:', requirementSentences.length, 'length:', content.length);
+        console.log('[ApplySharp] Found job content via requirement sentences, count:', requirementSentences.length, 'length:', content.length);
         return content.trim();
       }
     }
@@ -423,10 +423,10 @@ export class GenericDetector implements JobDetector {
         const parent = list.parentElement;
         const parentText = getCleanText(parent);
         if (parentText.length > text.length && parentText.length < 10000) {
-          console.log('[Jobs Pilot] Found job content via bullet list, length:', parentText.length);
+          console.log('[ApplySharp] Found job content via bullet list, length:', parentText.length);
           return parentText;
         }
-        console.log('[Jobs Pilot] Found job content via bullet list, length:', text.length);
+        console.log('[ApplySharp] Found job content via bullet list, length:', text.length);
         return text;
       }
     }
@@ -468,7 +468,7 @@ export class GenericDetector implements JobDetector {
 
     candidates.sort((a, b) => b.score - a.score);
     if (candidates.length > 0) {
-      console.log('[Jobs Pilot] Found job content via scoring, score:', candidates[0].score, 'length:', candidates[0].text.length);
+      console.log('[ApplySharp] Found job content via scoring, score:', candidates[0].score, 'length:', candidates[0].text.length);
       return candidates[0].text;
     }
 
@@ -490,12 +490,12 @@ export class GenericDetector implements JobDetector {
       }
 
       if (content.length > 300) {
-        console.log('[Jobs Pilot] Found job content from Job Description marker, length:', content.length);
+        console.log('[ApplySharp] Found job content from Job Description marker, length:', content.length);
         return content.trim();
       }
     }
 
-    console.log('[Jobs Pilot] Using full body fallback, length:', bodyText.length);
+    console.log('[ApplySharp] Using full body fallback, length:', bodyText.length);
     return bodyText.substring(0, 10000);
   }
 

@@ -30,11 +30,11 @@ async function init() {
       const jobSignals = detectJobPage();
 
       if (!jobSignals.isJobPage) {
-        console.log('[Jobs Pilot] Not a job page (confidence:', jobSignals.confidence, '%)');
+        console.log('[ApplySharp] Not a job page (confidence:', jobSignals.confidence, '%)');
         return;
       }
 
-      console.log('[Jobs Pilot] Detected job page via heuristics:', {
+      console.log('[ApplySharp] Detected job page via heuristics:', {
         confidence: jobSignals.confidence,
         signals: jobSignals.signals.slice(0, 3),
       });
@@ -42,14 +42,14 @@ async function init() {
 
     // Use generic platform
     platformType = 'generic';
-    console.log('[Jobs Pilot] Using generic detection for:', window.location.hostname);
+    console.log('[ApplySharp] Using generic detection for:', window.location.hostname);
   } else {
-    console.log(`[Jobs Pilot] Detected ${platform.name} job page`);
+    console.log(`[ApplySharp] Detected ${platform.name} job page`);
   }
 
   const detector = createDetector(platformType);
   if (!detector) {
-    console.log('[Jobs Pilot] No detector for platform:', platformType);
+    console.log('[ApplySharp] No detector for platform:', platformType);
     return;
   }
 
@@ -62,16 +62,16 @@ async function init() {
 
     // Validate extraction - need at least a title and some description
     if (!currentJob.title || currentJob.title === 'Unknown Title') {
-      console.log('[Jobs Pilot] Could not extract job title, skipping');
+      console.log('[ApplySharp] Could not extract job title, skipping');
       return;
     }
 
     if (!currentJob.description || currentJob.description.length < 100) {
-      console.log('[Jobs Pilot] Job description too short, might not be a job page');
+      console.log('[ApplySharp] Job description too short, might not be a job page');
       return;
     }
 
-    console.log('[Jobs Pilot] Extracted job:', currentJob.title, 'at', currentJob.company);
+    console.log('[ApplySharp] Extracted job:', currentJob.title, 'at', currentJob.company);
 
     // Store job context for autofill (persists during navigation to application form)
     try {
@@ -84,9 +84,9 @@ async function init() {
           timestamp: Date.now(),
         },
       });
-      console.log('[Jobs Pilot] Stored job context for autofill');
+      console.log('[ApplySharp] Stored job context for autofill');
     } catch (e) {
-      console.log('[Jobs Pilot] Could not store job context:', e);
+      console.log('[ApplySharp] Could not store job context:', e);
     }
 
     // Show the sidebar
@@ -102,26 +102,26 @@ async function init() {
       },
     }).catch((error) => {
       // Extension context may be invalidated after update
-      console.log('[Jobs Pilot] Could not notify background:', error?.message || 'Extension context invalidated');
+      console.log('[ApplySharp] Could not notify background:', error?.message || 'Extension context invalidated');
     });
 
     // Auto-analyze if we have a profile
     autoAnalyzeIfReady();
   } catch (error) {
-    console.error('[Jobs Pilot] Failed to extract job:', error);
+    console.error('[ApplySharp] Failed to extract job:', error);
   }
 }
 
 async function autoAnalyzeIfReady() {
   if (!currentJob) return;
 
-  const sidebar = document.getElementById('jobs-pilot-overlay');
+  const sidebar = document.getElementById('applysharp-overlay');
 
   try {
     // Check if we have an active master profile
     const profileResponse = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
     if (!profileResponse?.success || !profileResponse.data) {
-      console.log('[Jobs Pilot] No active profile for auto-analysis');
+      console.log('[ApplySharp] No active profile for auto-analysis');
       // Show message in sidebar
       if (sidebar) {
         const matchedEl = sidebar.querySelector('#jp-matched-keywords');
@@ -136,7 +136,7 @@ async function autoAnalyzeIfReady() {
     updateATSScoreLoading();
 
     // Log job info for debugging
-    console.log('[Jobs Pilot] Analyzing job:');
+    console.log('[ApplySharp] Analyzing job:');
     console.log('  - Title:', currentJob.title);
     console.log('  - Company:', currentJob.company);
     console.log('  - Description length:', currentJob.description?.length || 0);
@@ -153,9 +153,9 @@ async function autoAnalyzeIfReady() {
 
     if (response?.success && response.data) {
       updateATSScore(response.data);
-      console.log('[Jobs Pilot] Auto-analyzed job:', response.data.overallScore);
+      console.log('[ApplySharp] Auto-analyzed job:', response.data.overallScore);
     } else {
-      console.log('[Jobs Pilot] Auto-analysis returned no data:', response?.error);
+      console.log('[ApplySharp] Auto-analysis returned no data:', response?.error);
       // Show error in sidebar
       if (sidebar) {
         const matchedEl = sidebar.querySelector('#jp-matched-keywords');
@@ -174,7 +174,7 @@ async function autoAnalyzeIfReady() {
       }
     }
   } catch (error) {
-    console.error('[Jobs Pilot] Failed to auto-analyze:', error);
+    console.error('[ApplySharp] Failed to auto-analyze:', error);
     // Show error in sidebar
     if (sidebar) {
       const matchedEl = sidebar.querySelector('#jp-matched-keywords');
@@ -191,7 +191,7 @@ async function autoAnalyzeIfReady() {
 }
 
 function updateATSScoreLoading() {
-  const sidebar = document.getElementById('jobs-pilot-overlay');
+  const sidebar = document.getElementById('applysharp-overlay');
   if (!sidebar) return;
 
   const scoreEl = sidebar.querySelector('#jp-ats-score');
@@ -285,7 +285,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'TOGGLE_SIDEBAR':
       if (currentJob) {
-        const sidebar = document.getElementById('jobs-pilot-sidebar');
+        const sidebar = document.getElementById('applysharp-sidebar');
         if (sidebar) {
           hideSidebar();
         } else {

@@ -708,7 +708,7 @@ function fillDateField(element: HTMLInputElement, value: string): boolean {
       }
 
       // If this is clearly a date range but we can't determine which part to use, skip
-      console.log(`[Jobs Pilot] Skipping date range "${value}" - field doesn't specify start/end`);
+      console.log(`[ApplySharp] Skipping date range "${value}" - field doesn't specify start/end`);
       return false;
     }
 
@@ -721,10 +721,10 @@ function fillDateField(element: HTMLInputElement, value: string): boolean {
     }
 
     // If we can't parse it, skip filling this field
-    console.log(`[Jobs Pilot] Could not parse date value: "${value}" - skipping`);
+    console.log(`[ApplySharp] Could not parse date value: "${value}" - skipping`);
     return false;
   } catch (error) {
-    console.error('[Jobs Pilot] Error filling date field:', error);
+    console.error('[ApplySharp] Error filling date field:', error);
     return false;
   }
 }

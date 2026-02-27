@@ -2,7 +2,7 @@
 
 ## AI Providers
 
-Jobs Pilot supports 3 AI providers through a common interface (`AIProviderInterface`).
+ApplySharp supports 3 AI providers through a common interface (`AIProviderInterface`).
 
 | Provider | Type | Default Model | Context Limit | Config |
 |----------|------|---------------|---------------|--------|

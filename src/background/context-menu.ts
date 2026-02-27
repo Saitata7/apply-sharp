@@ -4,8 +4,8 @@ export function setupContextMenus(): void {
 
   // Create context menu items
   chrome.contextMenus.create({
-    id: 'jobs-pilot-save',
-    title: 'Save Job with Jobs Pilot',
+    id: 'applysharp-save',
+    title: 'Save Job with ApplySharp',
     contexts: ['page'],
     documentUrlPatterns: [
       '*://www.linkedin.com/jobs/*',
@@ -19,7 +19,7 @@ export function setupContextMenus(): void {
   });
 
   chrome.contextMenus.create({
-    id: 'jobs-pilot-analyze',
+    id: 'applysharp-analyze',
     title: 'Analyze Job Fit',
     contexts: ['page'],
     documentUrlPatterns: [
@@ -38,15 +38,15 @@ export function setupContextMenus(): void {
     if (!tab?.id) return;
 
     const handleError = (action: string) => (error: Error) => {
-      console.warn(`[Jobs Pilot] Context menu ${action} failed:`, error?.message || 'Content script not available');
+      console.warn(`[ApplySharp] Context menu ${action} failed:`, error?.message || 'Content script not available');
     };
 
     switch (info.menuItemId) {
-      case 'jobs-pilot-save':
+      case 'applysharp-save':
         chrome.tabs.sendMessage(tab.id, { type: 'SAVE_CURRENT_JOB' })
           .catch(handleError('save'));
         break;
-      case 'jobs-pilot-analyze':
+      case 'applysharp-analyze':
         chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_CURRENT_JOB' })
           .catch(handleError('analyze'));
         break;

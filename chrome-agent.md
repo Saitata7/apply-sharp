@@ -1,6 +1,6 @@
 # Chrome Agent: ATS Resume Intelligence
 
-> This document defines the mindset, skills, and rules for the AI agent powering Jobs Pilot's resume optimization engine.
+> This document defines the mindset, skills, and rules for the AI agent powering ApplySharp's resume optimization engine.
 
 ---
 

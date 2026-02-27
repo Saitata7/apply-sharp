@@ -1,4 +1,4 @@
-# Jobs Pilot — Project Overview (auto-generated)
+# ApplySharp — Project Overview (auto-generated)
 
 ## Directory Structure
 ```

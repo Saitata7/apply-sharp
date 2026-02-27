@@ -1,8 +1,8 @@
-# Jobs Pilot - Product Requirements Document
+# ApplySharp - Product Requirements Document
 
 ## Vision
 
-Jobs Pilot is a local-first AI Job Assistant Chrome extension that transforms the job application process from tedious manual work into an intelligent, personalized experience. It combines the automation of tools like Simplify with the AI-powered customization of RightJob, while keeping all data private on the user's machine.
+ApplySharp is a local-first AI Job Assistant Chrome extension that transforms the job application process from tedious manual work into an intelligent, personalized experience. It combines the automation of tools like Simplify with the AI-powered customization of RightJob, while keeping all data private on the user's machine.
 
 **Key Differentiators:**
 - **Self-improving system** that learns from application outcomes automatically
@@ -30,7 +30,7 @@ Existing solutions either:
 
 ## Solution
 
-Jobs Pilot addresses these problems with:
+ApplySharp addresses these problems with:
 
 ### Core Features
 

@@ -1,8 +1,8 @@
 # SaasCode Kit — Manifest
-# Jobs Pilot: Local-first AI Job Assistant Chrome Extension
+# ApplySharp: Local-first AI Job Assistant Chrome Extension
 
 project:
-  name: "Jobs Pilot"
+  name: "ApplySharp"
   description: "Local-first AI Job Assistant Chrome extension that automates and optimizes the job application process while keeping all data private on the user's machine"
   type: "single-tenant"
   domain: "chrome-extension"

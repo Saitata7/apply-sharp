@@ -500,7 +500,7 @@ export default function MyProfile() {
                       <p className="text-muted"><strong>To manually clear all data:</strong></p>
                       <ol className="storage-steps">
                         <li>Go to <code>chrome://extensions</code></li>
-                        <li>Find "Jobs Pilot" and click "Details"</li>
+                        <li>Find "ApplySharp" and click "Details"</li>
                         <li>Scroll down and click "Clear data" under "Site settings"</li>
                       </ol>
                       <p className="text-muted hint">Or simply remove and reinstall the extension.</p>

@@ -86,7 +86,7 @@ export default function ApplicationHistory() {
           <h3>No jobs saved yet</h3>
           <p>
             Visit a job posting on LinkedIn, Indeed, Greenhouse, or Lever
-            and Jobs Pilot will automatically detect it.
+            and ApplySharp will automatically detect it.
           </p>
         </div>
       ) : (

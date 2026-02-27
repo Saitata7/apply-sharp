@@ -55,7 +55,7 @@ export async function handleMessage(
 
     case 'JOB_DETECTED':
       // Log job detection, could trigger auto-save or notifications
-      console.log('[Jobs Pilot] Job detected:', (message.payload as { title?: string } | undefined)?.title);
+      console.log('[ApplySharp] Job detected:', (message.payload as { title?: string } | undefined)?.title);
       return { success: true };
 
     case 'ANALYZE_JOB':
@@ -400,7 +400,7 @@ async function getSettingsWithMigrations() {
   // Migrate deprecated Groq models
   if (settings?.ai?.groq?.model && DEPRECATED_GROQ_MODELS[settings.ai.groq.model]) {
     const newModel = DEPRECATED_GROQ_MODELS[settings.ai.groq.model];
-    console.log(`[Jobs Pilot] Migrating deprecated Groq model: ${settings.ai.groq.model} -> ${newModel}`);
+    console.log(`[ApplySharp] Migrating deprecated Groq model: ${settings.ai.groq.model} -> ${newModel}`);
     settings = await settingsRepo.update({
       ai: {
         ...settings.ai,
@@ -606,7 +606,7 @@ async function handleAnalyzeResume(payload: {
     };
 
     await profileRepo.create(resumeProfile);
-    console.log('[Jobs Pilot] Created synced ResumeProfile from MasterProfile');
+    console.log('[ApplySharp] Created synced ResumeProfile from MasterProfile');
 
     return { success: true, data: masterProfile };
   } catch (error) {

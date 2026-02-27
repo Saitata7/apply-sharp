@@ -1,13 +1,14 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, deleteDB, DBSchema, IDBPDatabase } from 'idb';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import type { Job, JobPlatform } from '@shared/types/job.types';
 import type { Application, ApplicationStatus } from '@shared/types/application.types';
 import type { UserSettings } from '@shared/types/settings.types';
 
-const DB_NAME = 'jobs-pilot-db';
+const DB_NAME = 'applysharp-db';
+const OLD_DB_NAME = 'jobs-pilot-db';
 const DB_VERSION = 1;
 
-export interface JobsPilotDB extends DBSchema {
+export interface ApplySharpDB extends DBSchema {
   profiles: {
     key: string;
     value: ResumeProfile;
@@ -43,14 +44,39 @@ export interface JobsPilotDB extends DBSchema {
   };
 }
 
-let dbInstance: IDBPDatabase<JobsPilotDB> | null = null;
+let dbInstance: IDBPDatabase<ApplySharpDB> | null = null;
 
-export async function initDB(): Promise<IDBPDatabase<JobsPilotDB>> {
+async function migrateFromOldDB(newDb: IDBPDatabase<ApplySharpDB>): Promise<void> {
+  try {
+    const databases = await indexedDB.databases();
+    const oldExists = databases.some((d) => d.name === OLD_DB_NAME);
+    if (!oldExists) return;
+
+    const oldDb = await openDB(OLD_DB_NAME, DB_VERSION);
+    const storeNames = ['profiles', 'jobs', 'applications', 'settings'] as const;
+
+    for (const storeName of storeNames) {
+      if (!oldDb.objectStoreNames.contains(storeName)) continue;
+      const records = await oldDb.getAll(storeName);
+      for (const record of records) {
+        await newDb.put(storeName, record);
+      }
+    }
+
+    oldDb.close();
+    await deleteDB(OLD_DB_NAME);
+    console.log('[ApplySharp] Migrated data from old database');
+  } catch (error) {
+    console.warn('[ApplySharp] Migration from old DB failed:', error);
+  }
+}
+
+export async function initDB(): Promise<IDBPDatabase<ApplySharpDB>> {
   if (dbInstance) {
     return dbInstance;
   }
 
-  dbInstance = await openDB<JobsPilotDB>(DB_NAME, DB_VERSION, {
+  dbInstance = await openDB<ApplySharpDB>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       // Profiles store
       if (!db.objectStoreNames.contains('profiles')) {
@@ -85,10 +111,12 @@ export async function initDB(): Promise<IDBPDatabase<JobsPilotDB>> {
     },
   });
 
+  await migrateFromOldDB(dbInstance);
+
   return dbInstance;
 }
 
-export async function getDB(): Promise<IDBPDatabase<JobsPilotDB>> {
+export async function getDB(): Promise<IDBPDatabase<ApplySharpDB>> {
   if (!dbInstance) {
     return initDB();
   }

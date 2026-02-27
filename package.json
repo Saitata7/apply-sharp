@@ -1,5 +1,5 @@
 {
-  "name": "jobs-pilot",
+  "name": "applysharp",
   "version": "1.0.0",
   "description": "Local-first AI Job Assistant Chrome Extension",
   "type": "module",

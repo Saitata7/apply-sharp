@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Jobs Pilot is a **Chrome Extension (Manifest V3)** that runs entirely in the browser. There is no backend server — all data stays on the user's machine.
+ApplySharp is a **Chrome Extension (Manifest V3)** that runs entirely in the browser. There is no backend server — all data stays on the user's machine.
 
 ```
 ┌─────────────────────────────────────────────────────────┐

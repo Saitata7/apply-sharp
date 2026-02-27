@@ -283,7 +283,7 @@ export async function scanAndShowRequirementGaps(): Promise<void> {
     const profileResponse = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
 
     if (!profileResponse?.success || !profileResponse.data) {
-      console.log('[Jobs Pilot] No profile for requirement gap analysis');
+      console.log('[ApplySharp] No profile for requirement gap analysis');
       return;
     }
 
@@ -310,15 +310,15 @@ export async function scanAndShowRequirementGaps(): Promise<void> {
     // Update the UI
     updateRequirementGaps(gaps);
 
-    console.log('[Jobs Pilot] Requirement gaps found:', gaps.length);
+    console.log('[ApplySharp] Requirement gaps found:', gaps.length);
   } catch (error) {
-    console.error('[Jobs Pilot] Failed to scan requirement gaps:', error);
+    console.error('[ApplySharp] Failed to scan requirement gaps:', error);
   }
 }
 
 function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLElement {
   const overlay = document.createElement('div');
-  overlay.id = 'jobs-pilot-overlay';
+  overlay.id = 'applysharp-overlay';
   overlay.style.transform = 'translateX(100%)';
 
   overlay.innerHTML = `
@@ -348,7 +348,7 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
 
       <!-- Header -->
       <div class="jp-header">
-        <span class="jp-title">Jobs Pilot</span>
+        <span class="jp-title">ApplySharp</span>
         <div class="jp-header-actions">
           <button class="jp-icon-btn" id="jp-minimize-btn" title="Minimize">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -562,8 +562,8 @@ function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform:
     const btn = overlay.querySelector('#jp-analyze-btn') as HTMLButtonElement;
     const scoreEl = overlay.querySelector('#jp-ats-score');
 
-    console.log('[Jobs Pilot] Re-analyze clicked, job:', job?.title, 'platform:', platform);
-    console.log('[Jobs Pilot] Job description length:', job?.description?.length || 0);
+    console.log('[ApplySharp] Re-analyze clicked, job:', job?.title, 'platform:', platform);
+    console.log('[ApplySharp] Job description length:', job?.description?.length || 0);
 
     btn.textContent = 'Analyzing...';
     btn.disabled = true;
@@ -574,17 +574,17 @@ function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform:
         payload: { job, platform, useAI: true }, // Use AI for manual re-analyze
       });
 
-      console.log('[Jobs Pilot] Analyze response:', response);
+      console.log('[ApplySharp] Analyze response:', response);
 
       if (response?.success && response.data) {
-        console.log('[Jobs Pilot] Score:', response.data.overallScore);
-        console.log('[Jobs Pilot] Matched:', response.data.matchedKeywords?.length || 0, 'keywords');
-        console.log('[Jobs Pilot] Missing:', response.data.missingKeywords?.length || 0, 'keywords');
+        console.log('[ApplySharp] Score:', response.data.overallScore);
+        console.log('[ApplySharp] Matched:', response.data.matchedKeywords?.length || 0, 'keywords');
+        console.log('[ApplySharp] Missing:', response.data.missingKeywords?.length || 0, 'keywords');
         updateATSScore(response.data);
       } else {
         // Show error in UI
         const errorMsg = response?.error || 'Analysis failed';
-        console.error('[Jobs Pilot] Analysis error:', errorMsg);
+        console.error('[ApplySharp] Analysis error:', errorMsg);
         if (scoreEl) {
           scoreEl.textContent = '--';
         }
@@ -595,7 +595,7 @@ function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform:
         }
       }
     } catch (error) {
-      console.error('[Jobs Pilot] Analysis exception:', error);
+      console.error('[ApplySharp] Analysis exception:', error);
       if (scoreEl) {
         scoreEl.textContent = '--';
       }
@@ -710,9 +710,9 @@ async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
 
     // Don't log scary errors for expected extension reload scenarios
     if (errorMessage.includes('Extension context invalidated') || !chrome.runtime?.id) {
-      console.log('[Jobs Pilot] Extension was updated - refresh page to reconnect');
+      console.log('[ApplySharp] Extension was updated - refresh page to reconnect');
     } else {
-      console.error('[Jobs Pilot] Failed to load profiles:', error);
+      console.error('[ApplySharp] Failed to load profiles:', error);
     }
 
     // Check if extension was reloaded/updated
@@ -800,7 +800,7 @@ function capitalize(str: string): string {
 
 function getOverlayStyles(): string {
   return `
-    #jobs-pilot-overlay {
+    #applysharp-overlay {
       position: fixed;
       top: 100px;
       right: 0;

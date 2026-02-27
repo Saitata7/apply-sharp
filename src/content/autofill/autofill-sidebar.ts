@@ -634,7 +634,7 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
           </svg>
-          Jobs Pilot Auto-Fill
+          ApplySharp Auto-Fill
         </h3>
         <button class="jp-sidebar-close" id="jp-sidebar-close">×</button>
       </div>
@@ -702,7 +702,7 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
         Auto-Fill Fields
         <span class="jp-fill-count">${preview.fields.filter(f => f.willFill).length}</span>
       </button>
-      <div class="jp-powered-by">Powered by Jobs Pilot • Local & Private</div>
+      <div class="jp-powered-by">Powered by ApplySharp • Local & Private</div>
     </div>
   `;
 }

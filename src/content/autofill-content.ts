@@ -60,7 +60,7 @@ async function handleAutofill(
         return { success: false, error: 'Extension context invalidated - refresh page' };
       }
       if (!response?.success || !response.data) {
-        showNotification('error', 'No profile found. Please set up your profile in Jobs Pilot settings.');
+        showNotification('error', 'No profile found. Please set up your profile in ApplySharp settings.');
         return { success: false, error: 'No profile found' };
       }
       profile = response.data as ResumeProfile;

@@ -1,6 +1,6 @@
 # Message API Reference
 
-All communication in Jobs Pilot uses Chrome message passing. This is the extension's "API."
+All communication in ApplySharp uses Chrome message passing. This is the extension's "API."
 
 ## How It Works
 
