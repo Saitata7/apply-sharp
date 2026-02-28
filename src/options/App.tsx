@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ResumeUpload from './pages/ResumeUpload';
 import MyProfile from './pages/MyProfile';
 import ProfileManager from './pages/ProfileManager';
@@ -7,12 +7,54 @@ import ATSScore from './pages/ATSScore';
 import ApplicationHistory from './pages/ApplicationHistory';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
+import OnboardingWizard from './components/OnboardingWizard';
 import { ProfileProvider } from './context/ProfileContext';
 
 type Tab = 'resume' | 'myprofile' | 'profiles' | 'atsscore' | 'ai' | 'history' | 'analytics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('resume');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  useEffect(() => {
+    chrome.runtime
+      .sendMessage({ type: 'GET_SETTINGS' })
+      .then((res) => {
+        if (res?.success && res.data && !res.data.onboardingCompleted) {
+          setShowOnboarding(true);
+        }
+      })
+      .catch(() => {
+        // Extension context may be invalidated — skip onboarding check
+      })
+      .finally(() => setCheckingOnboarding(false));
+  }, []);
+
+  const handleOnboardingDone = async () => {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      if (res?.success && res.data) {
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_SETTINGS',
+          payload: { ...res.data, onboardingCompleted: true },
+        });
+      }
+    } catch {
+      // Non-critical — onboarding state save failed
+    }
+    setShowOnboarding(false);
+  };
+
+  if (checkingOnboarding) return null;
+
+  if (showOnboarding) {
+    return (
+      <ProfileProvider>
+        <OnboardingWizard onComplete={handleOnboardingDone} onSkip={handleOnboardingDone} />
+      </ProfileProvider>
+    );
+  }
 
   return (
     <ProfileProvider>

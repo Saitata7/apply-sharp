@@ -1,4 +1,8 @@
-import { DEFAULT_MODELS, DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_CONTEXT_LENGTH } from '@shared/constants/models';
+import {
+  DEFAULT_MODELS,
+  DEFAULT_OLLAMA_BASE_URL,
+  DEFAULT_OLLAMA_CONTEXT_LENGTH,
+} from '@shared/constants/models';
 
 export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'groq';
 
@@ -12,6 +16,8 @@ export interface UserSettings {
   notifications: NotificationSettings;
   privacy: PrivacySettings;
   appearance: AppearanceSettings;
+
+  onboardingCompleted?: boolean;
 }
 
 export interface AISettings {

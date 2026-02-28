@@ -656,7 +656,7 @@ files       = [
     "src/options/components/OnboardingWizard.tsx",
 ]
 priority    = "p1-high"
-status      = "pending"
+status      = "done"
 
 [[phases.phase4.tasks]]
 id          = "4.2"
