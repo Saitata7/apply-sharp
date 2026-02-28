@@ -821,7 +821,7 @@ files       = [
     "src/shared/types/background.types.ts",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 [[phases.phase5.tasks]]
 id          = "5.5"

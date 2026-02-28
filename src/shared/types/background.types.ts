@@ -354,13 +354,18 @@ export const MBA_ROLES: RoleConfig[] = [
     id: 'operations-manager',
     name: 'Operations Manager',
     description: 'Oversee daily operations, process improvement, team management',
-    skillAreas: MBA_SKILL_AREAS.map(area => ({
+    skillAreas: MBA_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'operations' ? 40 :
-                     area.id === 'management-leadership' ? 30 :
-                     area.id === 'finance-accounting' ? 15 :
-                     area.id === 'project-management' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'operations'
+          ? 40
+          : area.id === 'management-leadership'
+            ? 30
+            : area.id === 'finance-accounting'
+              ? 15
+              : area.id === 'project-management'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['operations manager', 'operations director', 'ops manager', 'business operations'],
@@ -369,13 +374,18 @@ export const MBA_ROLES: RoleConfig[] = [
     id: 'project-manager',
     name: 'Project Manager',
     description: 'Plan and execute projects, coordinate teams, manage timelines',
-    skillAreas: MBA_SKILL_AREAS.map(area => ({
+    skillAreas: MBA_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'project-management' ? 50 :
-                     area.id === 'communication' ? 20 :
-                     area.id === 'management-leadership' ? 20 :
-                     area.id === 'operations' ? 10 :
-                     5,
+      defaultWeight:
+        area.id === 'project-management'
+          ? 50
+          : area.id === 'communication'
+            ? 20
+            : area.id === 'management-leadership'
+              ? 20
+              : area.id === 'operations'
+                ? 10
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
     indicators: ['project manager', 'program manager', 'pmp', 'scrum master', 'agile'],
@@ -384,13 +394,18 @@ export const MBA_ROLES: RoleConfig[] = [
     id: 'business-analyst',
     name: 'Business Analyst',
     description: 'Analyze business needs, requirements gathering, process documentation',
-    skillAreas: MBA_SKILL_AREAS.map(area => ({
+    skillAreas: MBA_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'operations' ? 30 :
-                     area.id === 'communication' ? 25 :
-                     area.id === 'strategy' ? 20 :
-                     area.id === 'project-management' ? 15 :
-                     10,
+      defaultWeight:
+        area.id === 'operations'
+          ? 30
+          : area.id === 'communication'
+            ? 25
+            : area.id === 'strategy'
+              ? 20
+              : area.id === 'project-management'
+                ? 15
+                : 10,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
     indicators: ['business analyst', 'ba', 'requirements analyst', 'systems analyst'],
@@ -399,13 +414,18 @@ export const MBA_ROLES: RoleConfig[] = [
     id: 'product-manager',
     name: 'Product Manager',
     description: 'Product strategy, roadmap planning, cross-functional leadership',
-    skillAreas: MBA_SKILL_AREAS.map(area => ({
+    skillAreas: MBA_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'strategy' ? 35 :
-                     area.id === 'communication' ? 25 :
-                     area.id === 'project-management' ? 20 :
-                     area.id === 'management-leadership' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'strategy'
+          ? 35
+          : area.id === 'communication'
+            ? 25
+            : area.id === 'project-management'
+              ? 20
+              : area.id === 'management-leadership'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['product manager', 'product owner', 'pm', 'product lead'],
@@ -414,13 +434,18 @@ export const MBA_ROLES: RoleConfig[] = [
     id: 'management-consultant',
     name: 'Management Consultant',
     description: 'Strategic consulting, business transformation, client advisory',
-    skillAreas: MBA_SKILL_AREAS.map(area => ({
+    skillAreas: MBA_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'strategy' ? 40 :
-                     area.id === 'communication' ? 25 :
-                     area.id === 'operations' ? 20 :
-                     area.id === 'finance-accounting' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'strategy'
+          ? 40
+          : area.id === 'communication'
+            ? 25
+            : area.id === 'operations'
+              ? 20
+              : area.id === 'finance-accounting'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['consultant', 'management consultant', 'strategy consultant', 'advisory'],
@@ -486,28 +511,44 @@ export const ENGINEERING_ROLES: RoleConfig[] = [
     id: 'mechanical-engineer',
     name: 'Mechanical Engineer',
     description: 'Design mechanical systems, product development, analysis',
-    skillAreas: ENGINEERING_SKILL_AREAS.map(area => ({
+    skillAreas: ENGINEERING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'technical-design' ? 40 :
-                     area.id === 'technical-analysis' ? 25 :
-                     area.id === 'manufacturing' ? 20 :
-                     area.id === 'quality-compliance' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'technical-design'
+          ? 40
+          : area.id === 'technical-analysis'
+            ? 25
+            : area.id === 'manufacturing'
+              ? 20
+              : area.id === 'quality-compliance'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
-    indicators: ['mechanical engineer', 'mechanical design', 'product engineer', 'cad', 'solidworks'],
+    indicators: [
+      'mechanical engineer',
+      'mechanical design',
+      'product engineer',
+      'cad',
+      'solidworks',
+    ],
   },
   {
     id: 'electrical-engineer',
     name: 'Electrical Engineer',
     description: 'Design electrical systems, circuits, power systems',
-    skillAreas: ENGINEERING_SKILL_AREAS.map(area => ({
+    skillAreas: ENGINEERING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'technical-design' ? 40 :
-                     area.id === 'technical-analysis' ? 30 :
-                     area.id === 'quality-compliance' ? 15 :
-                     area.id === 'safety' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'technical-design'
+          ? 40
+          : area.id === 'technical-analysis'
+            ? 30
+            : area.id === 'quality-compliance'
+              ? 15
+              : area.id === 'safety'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['electrical engineer', 'ee', 'power systems', 'circuits', 'plc', 'controls'],
@@ -516,13 +557,18 @@ export const ENGINEERING_ROLES: RoleConfig[] = [
     id: 'civil-engineer',
     name: 'Civil Engineer',
     description: 'Infrastructure design, construction, site development',
-    skillAreas: ENGINEERING_SKILL_AREAS.map(area => ({
+    skillAreas: ENGINEERING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'technical-design' ? 35 :
-                     area.id === 'project-engineering' ? 30 :
-                     area.id === 'quality-compliance' ? 20 :
-                     area.id === 'safety' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'technical-design'
+          ? 35
+          : area.id === 'project-engineering'
+            ? 30
+            : area.id === 'quality-compliance'
+              ? 20
+              : area.id === 'safety'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['civil engineer', 'structural engineer', 'construction', 'autocad', 'pe license'],
@@ -531,28 +577,44 @@ export const ENGINEERING_ROLES: RoleConfig[] = [
     id: 'manufacturing-engineer',
     name: 'Manufacturing Engineer',
     description: 'Production processes, lean manufacturing, continuous improvement',
-    skillAreas: ENGINEERING_SKILL_AREAS.map(area => ({
+    skillAreas: ENGINEERING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'manufacturing' ? 40 :
-                     area.id === 'quality-compliance' ? 25 :
-                     area.id === 'technical-design' ? 20 :
-                     area.id === 'safety' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'manufacturing'
+          ? 40
+          : area.id === 'quality-compliance'
+            ? 25
+            : area.id === 'technical-design'
+              ? 20
+              : area.id === 'safety'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
-    indicators: ['manufacturing engineer', 'process engineer', 'industrial engineer', 'lean', 'six sigma'],
+    indicators: [
+      'manufacturing engineer',
+      'process engineer',
+      'industrial engineer',
+      'lean',
+      'six sigma',
+    ],
   },
   {
     id: 'quality-engineer',
     name: 'Quality Engineer',
     description: 'Quality assurance, testing, compliance, root cause analysis',
-    skillAreas: ENGINEERING_SKILL_AREAS.map(area => ({
+    skillAreas: ENGINEERING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'quality-compliance' ? 50 :
-                     area.id === 'technical-analysis' ? 25 :
-                     area.id === 'manufacturing' ? 15 :
-                     area.id === 'safety' ? 10 :
-                     5,
+      defaultWeight:
+        area.id === 'quality-compliance'
+          ? 50
+          : area.id === 'technical-analysis'
+            ? 25
+            : area.id === 'manufacturing'
+              ? 15
+              : area.id === 'safety'
+                ? 10
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
     indicators: ['quality engineer', 'qa engineer', 'qc engineer', 'iso', 'root cause', 'fmea'],
@@ -610,12 +672,16 @@ export const DESIGN_ROLES: RoleConfig[] = [
     id: 'ux-designer',
     name: 'UX Designer',
     description: 'User experience design, research, information architecture',
-    skillAreas: DESIGN_SKILL_AREAS.map(area => ({
+    skillAreas: DESIGN_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'ux-design' ? 50 :
-                     area.id === 'ui-design' ? 25 :
-                     area.id === 'design-tools' ? 20 :
-                     5,
+      defaultWeight:
+        area.id === 'ux-design'
+          ? 50
+          : area.id === 'ui-design'
+            ? 25
+            : area.id === 'design-tools'
+              ? 20
+              : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['ux designer', 'user experience', 'ux research', 'interaction design'],
@@ -624,13 +690,18 @@ export const DESIGN_ROLES: RoleConfig[] = [
     id: 'ui-designer',
     name: 'UI Designer',
     description: 'Visual interface design, design systems, prototypes',
-    skillAreas: DESIGN_SKILL_AREAS.map(area => ({
+    skillAreas: DESIGN_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'ui-design' ? 50 :
-                     area.id === 'ux-design' ? 20 :
-                     area.id === 'design-tools' ? 20 :
-                     area.id === 'graphic-design' ? 10 :
-                     5,
+      defaultWeight:
+        area.id === 'ui-design'
+          ? 50
+          : area.id === 'ux-design'
+            ? 20
+            : area.id === 'design-tools'
+              ? 20
+              : area.id === 'graphic-design'
+                ? 10
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
     indicators: ['ui designer', 'visual designer', 'interface design', 'design system'],
@@ -639,12 +710,16 @@ export const DESIGN_ROLES: RoleConfig[] = [
     id: 'product-designer',
     name: 'Product Designer',
     description: 'End-to-end product design, UX + UI, user-centered design',
-    skillAreas: DESIGN_SKILL_AREAS.map(area => ({
+    skillAreas: DESIGN_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'ux-design' ? 40 :
-                     area.id === 'ui-design' ? 40 :
-                     area.id === 'design-tools' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'ux-design'
+          ? 40
+          : area.id === 'ui-design'
+            ? 40
+            : area.id === 'design-tools'
+              ? 15
+              : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['product designer', 'digital product', 'end-to-end design'],
@@ -653,13 +728,18 @@ export const DESIGN_ROLES: RoleConfig[] = [
     id: 'graphic-designer',
     name: 'Graphic Designer',
     description: 'Visual design, branding, marketing materials',
-    skillAreas: DESIGN_SKILL_AREAS.map(area => ({
+    skillAreas: DESIGN_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'graphic-design' ? 50 :
-                     area.id === 'design-tools' ? 25 :
-                     area.id === 'motion-design' ? 15 :
-                     area.id === 'ui-design' ? 10 :
-                     5,
+      defaultWeight:
+        area.id === 'graphic-design'
+          ? 50
+          : area.id === 'design-tools'
+            ? 25
+            : area.id === 'motion-design'
+              ? 15
+              : area.id === 'ui-design'
+                ? 10
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
     indicators: ['graphic designer', 'visual designer', 'brand designer', 'creative designer'],
@@ -725,58 +805,98 @@ export const MARKETING_ROLES: RoleConfig[] = [
     id: 'digital-marketing-manager',
     name: 'Digital Marketing Manager',
     description: 'Digital campaigns, paid media, SEO/SEM strategy',
-    skillAreas: MARKETING_SKILL_AREAS.map(area => ({
+    skillAreas: MARKETING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'digital-marketing' ? 45 :
-                     area.id === 'marketing-analytics' ? 25 :
-                     area.id === 'marketing-tools' ? 15 :
-                     area.id === 'content-marketing' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'digital-marketing'
+          ? 45
+          : area.id === 'marketing-analytics'
+            ? 25
+            : area.id === 'marketing-tools'
+              ? 15
+              : area.id === 'content-marketing'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead'],
-    indicators: ['digital marketing', 'performance marketing', 'growth marketing', 'seo', 'sem', 'ppc'],
+    indicators: [
+      'digital marketing',
+      'performance marketing',
+      'growth marketing',
+      'seo',
+      'sem',
+      'ppc',
+    ],
   },
   {
     id: 'content-marketing-manager',
     name: 'Content Marketing Manager',
     description: 'Content strategy, editorial calendar, copywriting',
-    skillAreas: MARKETING_SKILL_AREAS.map(area => ({
+    skillAreas: MARKETING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'content-marketing' ? 50 :
-                     area.id === 'social-media' ? 20 :
-                     area.id === 'brand-marketing' ? 15 :
-                     area.id === 'digital-marketing' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'content-marketing'
+          ? 50
+          : area.id === 'social-media'
+            ? 20
+            : area.id === 'brand-marketing'
+              ? 15
+              : area.id === 'digital-marketing'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead'],
-    indicators: ['content marketing', 'content strategist', 'copywriter', 'editorial', 'content manager'],
+    indicators: [
+      'content marketing',
+      'content strategist',
+      'copywriter',
+      'editorial',
+      'content manager',
+    ],
   },
   {
     id: 'social-media-manager',
     name: 'Social Media Manager',
     description: 'Social strategy, community management, content creation',
-    skillAreas: MARKETING_SKILL_AREAS.map(area => ({
+    skillAreas: MARKETING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'social-media' ? 50 :
-                     area.id === 'content-marketing' ? 25 :
-                     area.id === 'marketing-analytics' ? 15 :
-                     area.id === 'brand-marketing' ? 10 :
-                     5,
+      defaultWeight:
+        area.id === 'social-media'
+          ? 50
+          : area.id === 'content-marketing'
+            ? 25
+            : area.id === 'marketing-analytics'
+              ? 15
+              : area.id === 'brand-marketing'
+                ? 10
+                : 5,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
-    indicators: ['social media', 'community manager', 'social strategist', 'instagram', 'tiktok', 'linkedin'],
+    indicators: [
+      'social media',
+      'community manager',
+      'social strategist',
+      'instagram',
+      'tiktok',
+      'linkedin',
+    ],
   },
   {
     id: 'marketing-manager',
     name: 'Marketing Manager',
     description: 'Marketing strategy, campaign management, team leadership',
-    skillAreas: MARKETING_SKILL_AREAS.map(area => ({
+    skillAreas: MARKETING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'brand-marketing' ? 30 :
-                     area.id === 'digital-marketing' ? 25 :
-                     area.id === 'marketing-analytics' ? 20 :
-                     area.id === 'content-marketing' ? 15 :
-                     10,
+      defaultWeight:
+        area.id === 'brand-marketing'
+          ? 30
+          : area.id === 'digital-marketing'
+            ? 25
+            : area.id === 'marketing-analytics'
+              ? 20
+              : area.id === 'content-marketing'
+                ? 15
+                : 10,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['marketing manager', 'marketing director', 'head of marketing', 'vp marketing'],
@@ -785,13 +905,18 @@ export const MARKETING_ROLES: RoleConfig[] = [
     id: 'brand-manager',
     name: 'Brand Manager',
     description: 'Brand strategy, positioning, brand guidelines',
-    skillAreas: MARKETING_SKILL_AREAS.map(area => ({
+    skillAreas: MARKETING_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'brand-marketing' ? 50 :
-                     area.id === 'content-marketing' ? 20 :
-                     area.id === 'marketing-analytics' ? 15 :
-                     area.id === 'social-media' ? 15 :
-                     5,
+      defaultWeight:
+        area.id === 'brand-marketing'
+          ? 50
+          : area.id === 'content-marketing'
+            ? 20
+            : area.id === 'marketing-analytics'
+              ? 15
+              : area.id === 'social-media'
+                ? 15
+                : 5,
     })),
     seniorityLevels: ['mid', 'senior', 'lead'],
     indicators: ['brand manager', 'brand marketing', 'brand strategist', 'communications manager'],
@@ -868,14 +993,20 @@ export const CS_ROLES: RoleConfig[] = [
     id: 'fullstack-developer',
     name: 'Full Stack Developer',
     description: 'End-to-end web development, frontend and backend',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'frontend' ? 40 :
-                     area.id === 'backend' ? 40 :
-                     area.id === 'database' ? 20 :
-                     area.id === 'devops' ? 15 :
-                     area.id === 'testing' ? 10 :
-                     area.defaultWeight,
+      defaultWeight:
+        area.id === 'frontend'
+          ? 40
+          : area.id === 'backend'
+            ? 40
+            : area.id === 'database'
+              ? 20
+              : area.id === 'devops'
+                ? 15
+                : area.id === 'testing'
+                  ? 10
+                  : area.defaultWeight,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['full stack', 'fullstack', 'full-stack', 'frontend and backend'],
@@ -884,28 +1015,39 @@ export const CS_ROLES: RoleConfig[] = [
     id: 'frontend-developer',
     name: 'Frontend Developer',
     description: 'Client-side development, UI/UX implementation',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'frontend' ? 70 :
-                     area.id === 'testing' ? 15 :
-                     area.id === 'devops' ? 10 :
-                     0,
+      defaultWeight:
+        area.id === 'frontend' ? 70 : area.id === 'testing' ? 15 : area.id === 'devops' ? 10 : 0,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
-    indicators: ['frontend', 'front-end', 'front end', 'ui developer', 'react developer', 'vue developer'],
+    indicators: [
+      'frontend',
+      'front-end',
+      'front end',
+      'ui developer',
+      'react developer',
+      'vue developer',
+    ],
   },
   {
     id: 'backend-developer',
     name: 'Backend Developer',
     description: 'Server-side development, APIs, microservices',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'backend' ? 60 :
-                     area.id === 'database' ? 25 :
-                     area.id === 'devops' ? 20 :
-                     area.id === 'architecture' ? 15 :
-                     area.id === 'testing' ? 10 :
-                     0,
+      defaultWeight:
+        area.id === 'backend'
+          ? 60
+          : area.id === 'database'
+            ? 25
+            : area.id === 'devops'
+              ? 20
+              : area.id === 'architecture'
+                ? 15
+                : area.id === 'testing'
+                  ? 10
+                  : 0,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['backend', 'back-end', 'back end', 'api developer', 'server-side'],
@@ -914,31 +1056,50 @@ export const CS_ROLES: RoleConfig[] = [
     id: 'devops-engineer',
     name: 'DevOps Engineer',
     description: 'CI/CD, infrastructure, cloud platforms',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'devops' ? 70 :
-                     area.id === 'security' ? 20 :
-                     area.id === 'backend' ? 15 :
-                     area.id === 'architecture' ? 15 :
-                     0,
+      defaultWeight:
+        area.id === 'devops'
+          ? 70
+          : area.id === 'security'
+            ? 20
+            : area.id === 'backend'
+              ? 15
+              : area.id === 'architecture'
+                ? 15
+                : 0,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
-    indicators: ['devops', 'dev ops', 'site reliability', 'sre', 'platform engineer', 'infrastructure'],
+    indicators: [
+      'devops',
+      'dev ops',
+      'site reliability',
+      'sre',
+      'platform engineer',
+      'infrastructure',
+    ],
   },
   {
     id: 'data-engineer',
     name: 'Data Engineer',
     description: 'Data pipelines, ETL, big data infrastructure',
     skillAreas: [
-      ...CS_SKILL_AREAS.filter(a => ['database', 'backend', 'devops', 'architecture'].includes(a.id)),
-      ...DATA_SKILL_AREAS.filter(a => ['data-engineering', 'sql-databases'].includes(a.id)),
-    ].map(area => ({
+      ...CS_SKILL_AREAS.filter((a) =>
+        ['database', 'backend', 'devops', 'architecture'].includes(a.id)
+      ),
+      ...DATA_SKILL_AREAS.filter((a) => ['data-engineering', 'sql-databases'].includes(a.id)),
+    ].map((area) => ({
       ...area,
-      defaultWeight: area.id === 'data-engineering' ? 50 :
-                     area.id === 'sql-databases' || area.id === 'database' ? 30 :
-                     area.id === 'devops' ? 20 :
-                     area.id === 'backend' ? 15 :
-                     10,
+      defaultWeight:
+        area.id === 'data-engineering'
+          ? 50
+          : area.id === 'sql-databases' || area.id === 'database'
+            ? 30
+            : area.id === 'devops'
+              ? 20
+              : area.id === 'backend'
+                ? 15
+                : 10,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['data engineer', 'data infrastructure', 'etl developer', 'big data'],
@@ -947,13 +1108,18 @@ export const CS_ROLES: RoleConfig[] = [
     id: 'ml-engineer',
     name: 'Machine Learning Engineer',
     description: 'ML systems, model deployment, MLOps',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'ml-ai' ? 60 :
-                     area.id === 'backend' ? 25 :
-                     area.id === 'devops' ? 20 :
-                     area.id === 'database' ? 15 :
-                     0,
+      defaultWeight:
+        area.id === 'ml-ai'
+          ? 60
+          : area.id === 'backend'
+            ? 25
+            : area.id === 'devops'
+              ? 20
+              : area.id === 'database'
+                ? 15
+                : 0,
     })),
     seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
     indicators: ['machine learning', 'ml engineer', 'ai engineer', 'deep learning', 'mlops'],
@@ -962,15 +1128,19 @@ export const CS_ROLES: RoleConfig[] = [
     id: 'mobile-developer',
     name: 'Mobile Developer',
     description: 'iOS, Android, cross-platform mobile apps',
-    skillAreas: CS_SKILL_AREAS.map(area => ({
+    skillAreas: CS_SKILL_AREAS.map((area) => ({
       ...area,
-      defaultWeight: area.id === 'mobile' ? 70 :
-                     area.id === 'backend' ? 20 :
-                     area.id === 'testing' ? 15 :
-                     0,
+      defaultWeight:
+        area.id === 'mobile' ? 70 : area.id === 'backend' ? 20 : area.id === 'testing' ? 15 : 0,
     })),
     seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
-    indicators: ['mobile developer', 'ios developer', 'android developer', 'react native', 'flutter'],
+    indicators: [
+      'mobile developer',
+      'ios developer',
+      'android developer',
+      'react native',
+      'flutter',
+    ],
   },
   {
     id: 'software-engineer',
@@ -979,6 +1149,617 @@ export const CS_ROLES: RoleConfig[] = [
     skillAreas: CS_SKILL_AREAS,
     seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
     indicators: ['software engineer', 'software developer', 'sde', 'swe'],
+  },
+];
+
+/**
+ * Healthcare Background Configuration
+ */
+export const HEALTHCARE_SKILL_AREAS: SkillAreaTemplate[] = [
+  {
+    id: 'clinical-skills',
+    name: 'Clinical Skills',
+    description: 'Patient assessment, triage, medication administration, wound care',
+    defaultWeight: 25,
+    isRequired: true,
+    keywords: [],
+  },
+  {
+    id: 'patient-care',
+    name: 'Patient Care & Communication',
+    description: 'Care plans, patient advocacy, discharge planning, education',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'healthcare-technology',
+    name: 'Healthcare Technology',
+    description: 'EMR/EHR systems (Epic, Cerner), telemedicine, health informatics',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'healthcare-compliance',
+    name: 'Healthcare Compliance',
+    description: 'HIPAA, JCAHO, infection control, quality measures, evidence-based practice',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'healthcare-admin',
+    name: 'Healthcare Administration',
+    description: 'Medical billing, insurance, scheduling, revenue cycle, credentialing',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'healthcare-certifications',
+    name: 'Certifications & Credentials',
+    description: 'RN, NP, PA, BLS, ACLS, BSN, MSN',
+    defaultWeight: 10,
+    isRequired: false,
+    keywords: [],
+  },
+];
+
+export const HEALTHCARE_ROLES: RoleConfig[] = [
+  {
+    id: 'registered-nurse',
+    name: 'Registered Nurse (RN)',
+    description: 'Direct patient care, clinical assessment, medication administration',
+    skillAreas: HEALTHCARE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'clinical-skills'
+          ? 40
+          : area.id === 'patient-care'
+            ? 30
+            : area.id === 'healthcare-certifications'
+              ? 15
+              : area.id === 'healthcare-compliance'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: ['registered nurse', 'rn', 'staff nurse', 'charge nurse', 'nursing'],
+  },
+  {
+    id: 'healthcare-administrator',
+    name: 'Healthcare Administrator',
+    description: 'Hospital operations, staff management, regulatory compliance',
+    skillAreas: HEALTHCARE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'healthcare-admin'
+          ? 35
+          : area.id === 'healthcare-compliance'
+            ? 25
+            : area.id === 'healthcare-technology'
+              ? 20
+              : area.id === 'patient-care'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
+    indicators: [
+      'healthcare administrator',
+      'hospital administrator',
+      'health services manager',
+      'clinical director',
+    ],
+  },
+  {
+    id: 'nurse-practitioner',
+    name: 'Nurse Practitioner (NP)',
+    description: 'Advanced clinical practice, diagnosis, treatment planning',
+    skillAreas: HEALTHCARE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'clinical-skills'
+          ? 45
+          : area.id === 'patient-care'
+            ? 25
+            : area.id === 'healthcare-certifications'
+              ? 15
+              : area.id === 'healthcare-compliance'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['mid', 'senior', 'lead'],
+    indicators: ['nurse practitioner', 'np', 'aprn', 'advanced practice nurse'],
+  },
+  {
+    id: 'health-information-specialist',
+    name: 'Health Information Specialist',
+    description: 'Clinical informatics, EHR management, data analytics, compliance',
+    skillAreas: HEALTHCARE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'healthcare-technology'
+          ? 40
+          : area.id === 'healthcare-admin'
+            ? 25
+            : area.id === 'healthcare-compliance'
+              ? 20
+              : area.id === 'clinical-skills'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: [
+      'health information',
+      'clinical informatics',
+      'health informatics',
+      'medical records',
+      'him',
+    ],
+  },
+];
+
+/**
+ * Finance / Accounting Background Configuration
+ */
+export const FINANCE_SKILL_AREAS: SkillAreaTemplate[] = [
+  {
+    id: 'financial-analysis',
+    name: 'Financial Analysis',
+    description: 'Financial modeling, valuation, DCF, reporting, ROI analysis',
+    defaultWeight: 25,
+    isRequired: true,
+    keywords: [],
+  },
+  {
+    id: 'accounting',
+    name: 'Accounting',
+    description: 'GAAP, IFRS, general ledger, reconciliation, AP/AR, tax',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'budgeting-forecasting',
+    name: 'Budgeting & Forecasting',
+    description: 'Budget management, P&L, cash flow, FP&A, treasury',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'investment-banking',
+    name: 'Investment & Banking',
+    description: 'Portfolio management, M&A, underwriting, equity research, securities',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'financial-compliance',
+    name: 'Compliance & Audit',
+    description: 'SOX, internal audit, risk management, AML, KYC, SEC, FINRA',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'finance-tools',
+    name: 'Finance Tools',
+    description: 'SAP, Oracle, QuickBooks, Bloomberg, Excel, Power BI, Tableau',
+    defaultWeight: 10,
+    isRequired: false,
+    keywords: [],
+  },
+];
+
+export const FINANCE_ROLES: RoleConfig[] = [
+  {
+    id: 'financial-analyst',
+    name: 'Financial Analyst',
+    description: 'Financial modeling, reporting, forecasting, variance analysis',
+    skillAreas: FINANCE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'financial-analysis'
+          ? 40
+          : area.id === 'budgeting-forecasting'
+            ? 25
+            : area.id === 'finance-tools'
+              ? 20
+              : area.id === 'accounting'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: ['financial analyst', 'finance analyst', 'fp&a analyst', 'financial planning'],
+  },
+  {
+    id: 'accountant',
+    name: 'Accountant',
+    description: 'General ledger, reconciliation, tax, financial statements',
+    skillAreas: FINANCE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'accounting'
+          ? 45
+          : area.id === 'financial-compliance'
+            ? 20
+            : area.id === 'finance-tools'
+              ? 15
+              : area.id === 'financial-analysis'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: [
+      'accountant',
+      'accounting',
+      'cpa',
+      'staff accountant',
+      'senior accountant',
+      'controller',
+    ],
+  },
+  {
+    id: 'investment-banker',
+    name: 'Investment Banker',
+    description: 'M&A, capital markets, underwriting, due diligence',
+    skillAreas: FINANCE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'investment-banking'
+          ? 45
+          : area.id === 'financial-analysis'
+            ? 30
+            : area.id === 'financial-compliance'
+              ? 15
+              : area.id === 'finance-tools'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
+    indicators: [
+      'investment banker',
+      'investment banking',
+      'capital markets',
+      'equity research',
+      'ibd',
+    ],
+  },
+  {
+    id: 'financial-controller',
+    name: 'Financial Controller',
+    description: 'Financial oversight, accounting operations, compliance, reporting',
+    skillAreas: FINANCE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'accounting'
+          ? 35
+          : area.id === 'financial-compliance'
+            ? 25
+            : area.id === 'budgeting-forecasting'
+              ? 20
+              : area.id === 'financial-analysis'
+                ? 15
+                : 5,
+    })),
+    seniorityLevels: ['senior', 'lead', 'principal'],
+    indicators: ['financial controller', 'controller', 'finance director', 'vp finance'],
+  },
+  {
+    id: 'fpa-analyst',
+    name: 'FP&A Analyst',
+    description: 'Financial planning, budgeting, forecasting, business partnering',
+    skillAreas: FINANCE_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'budgeting-forecasting'
+          ? 40
+          : area.id === 'financial-analysis'
+            ? 30
+            : area.id === 'finance-tools'
+              ? 15
+              : area.id === 'accounting'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: ['fp&a', 'financial planning', 'fpa analyst', 'budget analyst'],
+  },
+];
+
+/**
+ * Legal Background Configuration
+ */
+export const LEGAL_SKILL_AREAS: SkillAreaTemplate[] = [
+  {
+    id: 'legal-practice',
+    name: 'Legal Practice Areas',
+    description: 'Litigation, corporate, IP, employment, regulatory, tax law',
+    defaultWeight: 25,
+    isRequired: true,
+    keywords: [],
+  },
+  {
+    id: 'legal-research',
+    name: 'Legal Research & Writing',
+    description: 'Case law, briefs, motions, memoranda, discovery, argumentation',
+    defaultWeight: 25,
+    isRequired: true,
+    keywords: [],
+  },
+  {
+    id: 'contract-management',
+    name: 'Contract Management',
+    description: 'Contract drafting, negotiation, review, NDA, SLA, MSA',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'legal-tools',
+    name: 'Legal Tools & Technology',
+    description: 'Westlaw, LexisNexis, e-discovery, case management, CLM',
+    defaultWeight: 10,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'legal-compliance',
+    name: 'Compliance & Governance',
+    description: 'Regulatory compliance, corporate governance, due diligence, ethics',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+];
+
+export const LEGAL_ROLES: RoleConfig[] = [
+  {
+    id: 'attorney',
+    name: 'Attorney / Lawyer',
+    description: 'Legal practice, litigation, client representation, legal strategy',
+    skillAreas: LEGAL_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'legal-practice'
+          ? 35
+          : area.id === 'legal-research'
+            ? 30
+            : area.id === 'legal-compliance'
+              ? 15
+              : area.id === 'contract-management'
+                ? 15
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
+    indicators: ['attorney', 'lawyer', 'counsel', 'associate attorney', 'partner', 'of counsel'],
+  },
+  {
+    id: 'paralegal',
+    name: 'Paralegal',
+    description: 'Legal research, document preparation, case management, filing',
+    skillAreas: LEGAL_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'legal-research'
+          ? 35
+          : area.id === 'contract-management'
+            ? 25
+            : area.id === 'legal-tools'
+              ? 20
+              : area.id === 'legal-practice'
+                ? 15
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior'],
+    indicators: ['paralegal', 'legal assistant', 'litigation paralegal', 'corporate paralegal'],
+  },
+  {
+    id: 'compliance-officer',
+    name: 'Compliance Officer',
+    description: 'Regulatory compliance, policy development, risk assessment, governance',
+    skillAreas: LEGAL_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'legal-compliance'
+          ? 45
+          : area.id === 'legal-practice'
+            ? 25
+            : area.id === 'legal-research'
+              ? 15
+              : area.id === 'contract-management'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
+    indicators: [
+      'compliance officer',
+      'compliance manager',
+      'compliance director',
+      'chief compliance',
+    ],
+  },
+  {
+    id: 'contract-manager',
+    name: 'Contract Manager',
+    description: 'Contract lifecycle, vendor negotiations, agreement drafting',
+    skillAreas: LEGAL_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'contract-management'
+          ? 45
+          : area.id === 'legal-compliance'
+            ? 20
+            : area.id === 'legal-practice'
+              ? 15
+              : area.id === 'legal-tools'
+                ? 15
+                : 5,
+    })),
+    seniorityLevels: ['mid', 'senior', 'lead'],
+    indicators: [
+      'contract manager',
+      'contracts manager',
+      'contract administrator',
+      'contract specialist',
+    ],
+  },
+];
+
+/**
+ * Education Background Configuration
+ */
+export const EDUCATION_SKILL_AREAS: SkillAreaTemplate[] = [
+  {
+    id: 'teaching-instruction',
+    name: 'Teaching & Instruction',
+    description: 'Pedagogy, differentiated instruction, assessment, lesson planning',
+    defaultWeight: 25,
+    isRequired: true,
+    keywords: [],
+  },
+  {
+    id: 'curriculum-design',
+    name: 'Curriculum Design',
+    description: 'Curriculum development, standards alignment, backward design, course creation',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'student-management',
+    name: 'Student Management & Support',
+    description: 'Classroom management, special education, IEP, ESL, counseling',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'educational-technology',
+    name: 'Educational Technology',
+    description: 'LMS, e-learning, edtech tools, SCORM, adaptive learning',
+    defaultWeight: 15,
+    isRequired: false,
+    keywords: [],
+  },
+  {
+    id: 'training-development',
+    name: 'Training & Development',
+    description: 'Instructional design, ADDIE, corporate training, L&D, facilitation',
+    defaultWeight: 20,
+    isRequired: false,
+    keywords: [],
+  },
+];
+
+export const EDUCATION_ROLES: RoleConfig[] = [
+  {
+    id: 'teacher',
+    name: 'Teacher (K-12)',
+    description: 'Classroom instruction, lesson planning, student assessment, parent communication',
+    skillAreas: EDUCATION_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'teaching-instruction'
+          ? 40
+          : area.id === 'student-management'
+            ? 25
+            : area.id === 'curriculum-design'
+              ? 20
+              : area.id === 'educational-technology'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: [
+      'teacher',
+      'classroom teacher',
+      'k-12',
+      'k12',
+      'elementary teacher',
+      'high school teacher',
+    ],
+  },
+  {
+    id: 'instructional-designer',
+    name: 'Instructional Designer',
+    description: 'Course design, e-learning development, ADDIE, learning technology',
+    skillAreas: EDUCATION_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'training-development'
+          ? 35
+          : area.id === 'curriculum-design'
+            ? 25
+            : area.id === 'educational-technology'
+              ? 25
+              : area.id === 'teaching-instruction'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: [
+      'instructional designer',
+      'learning designer',
+      'e-learning developer',
+      'course developer',
+    ],
+  },
+  {
+    id: 'professor',
+    name: 'Professor / Lecturer',
+    description: 'Higher education teaching, research, curriculum, academic advising',
+    skillAreas: EDUCATION_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'teaching-instruction'
+          ? 40
+          : area.id === 'curriculum-design'
+            ? 30
+            : area.id === 'educational-technology'
+              ? 15
+              : area.id === 'student-management'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead', 'principal'],
+    indicators: [
+      'professor',
+      'lecturer',
+      'adjunct',
+      'assistant professor',
+      'associate professor',
+      'tenure',
+    ],
+  },
+  {
+    id: 'corporate-trainer',
+    name: 'Corporate Trainer',
+    description: 'Employee training, workshop facilitation, onboarding, L&D',
+    skillAreas: EDUCATION_SKILL_AREAS.map((area) => ({
+      ...area,
+      defaultWeight:
+        area.id === 'training-development'
+          ? 45
+          : area.id === 'educational-technology'
+            ? 20
+            : area.id === 'teaching-instruction'
+              ? 20
+              : area.id === 'curriculum-design'
+                ? 10
+                : 5,
+    })),
+    seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
+    indicators: [
+      'corporate trainer',
+      'training specialist',
+      'l&d',
+      'learning and development',
+      'facilitator',
+    ],
   },
 ];
 
@@ -992,9 +1773,19 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
     description: 'Software development, programming, technical roles',
     roles: CS_ROLES,
     indicators: [
-      'software', 'developer', 'engineer', 'programming', 'coding',
-      'frontend', 'backend', 'fullstack', 'devops', 'data engineer',
-      'machine learning', 'web development', 'mobile development',
+      'software',
+      'developer',
+      'engineer',
+      'programming',
+      'coding',
+      'frontend',
+      'backend',
+      'fullstack',
+      'devops',
+      'data engineer',
+      'machine learning',
+      'web development',
+      'mobile development',
     ],
   },
   {
@@ -1014,12 +1805,16 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
         id: 'bi-analyst',
         name: 'BI Analyst',
         description: 'Business intelligence, dashboards, reporting',
-        skillAreas: DATA_SKILL_AREAS.map(area => ({
+        skillAreas: DATA_SKILL_AREAS.map((area) => ({
           ...area,
-          defaultWeight: area.id === 'bi-tools' ? 50 :
-                         area.id === 'data-visualization' ? 30 :
-                         area.id === 'sql-databases' ? 20 :
-                         10,
+          defaultWeight:
+            area.id === 'bi-tools'
+              ? 50
+              : area.id === 'data-visualization'
+                ? 30
+                : area.id === 'sql-databases'
+                  ? 20
+                  : 10,
         })),
         seniorityLevels: ['entry', 'mid', 'senior', 'lead'],
         indicators: ['bi analyst', 'business intelligence', 'power bi', 'tableau'],
@@ -1028,20 +1823,31 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
         id: 'data-scientist',
         name: 'Data Scientist',
         description: 'Statistical modeling, ML, predictive analytics',
-        skillAreas: DATA_SKILL_AREAS.map(area => ({
+        skillAreas: DATA_SKILL_AREAS.map((area) => ({
           ...area,
-          defaultWeight: area.id === 'ml-statistics' ? 40 :
-                         area.id === 'programming' ? 30 :
-                         area.id === 'data-analysis' ? 25 :
-                         10,
+          defaultWeight:
+            area.id === 'ml-statistics'
+              ? 40
+              : area.id === 'programming'
+                ? 30
+                : area.id === 'data-analysis'
+                  ? 25
+                  : 10,
         })),
         seniorityLevels: ['mid', 'senior', 'lead', 'principal'],
         indicators: ['data scientist', 'data science', 'predictive analytics', 'ml scientist'],
       },
     ],
     indicators: [
-      'data analyst', 'data scientist', 'business intelligence', 'bi analyst',
-      'analytics', 'insights', 'visualization', 'tableau', 'power bi',
+      'data analyst',
+      'data scientist',
+      'business intelligence',
+      'bi analyst',
+      'analytics',
+      'insights',
+      'visualization',
+      'tableau',
+      'power bi',
     ],
   },
   // MBA / Business - IMPLEMENTED
@@ -1050,7 +1856,16 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
     name: 'MBA / Business',
     description: 'Business management, strategy, operations',
     roles: MBA_ROLES,
-    indicators: ['mba', 'business', 'management', 'strategy', 'operations', 'consulting', 'project manager', 'product manager'],
+    indicators: [
+      'mba',
+      'business',
+      'management',
+      'strategy',
+      'operations',
+      'consulting',
+      'project manager',
+      'product manager',
+    ],
   },
   // Engineering (Non-Software) - IMPLEMENTED
   {
@@ -1058,7 +1873,17 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
     name: 'Engineering (Non-Software)',
     description: 'Mechanical, electrical, civil, chemical engineering',
     roles: ENGINEERING_ROLES,
-    indicators: ['mechanical', 'electrical', 'civil', 'chemical', 'structural', 'pe license', 'cad', 'manufacturing', 'quality engineer'],
+    indicators: [
+      'mechanical',
+      'electrical',
+      'civil',
+      'chemical',
+      'structural',
+      'pe license',
+      'cad',
+      'manufacturing',
+      'quality engineer',
+    ],
   },
   // Design / Creative - IMPLEMENTED
   {
@@ -1066,7 +1891,16 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
     name: 'Design / Creative',
     description: 'UI/UX, graphic design, product design',
     roles: DESIGN_ROLES,
-    indicators: ['designer', 'ux', 'ui', 'graphic', 'product design', 'figma', 'creative', 'visual design'],
+    indicators: [
+      'designer',
+      'ux',
+      'ui',
+      'graphic',
+      'product design',
+      'figma',
+      'creative',
+      'visual design',
+    ],
   },
   // Marketing / Communications - IMPLEMENTED
   {
@@ -1074,36 +1908,82 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
     name: 'Marketing / Communications',
     description: 'Digital marketing, content, communications',
     roles: MARKETING_ROLES,
-    indicators: ['marketing', 'seo', 'content', 'social media', 'brand', 'communications', 'digital marketing', 'growth'],
+    indicators: [
+      'marketing',
+      'seo',
+      'content',
+      'social media',
+      'brand',
+      'communications',
+      'digital marketing',
+      'growth',
+    ],
   },
-  // Placeholder configs for remaining backgrounds
+  // Healthcare - IMPLEMENTED
   {
     id: 'healthcare',
     name: 'Healthcare',
     description: 'Medical, clinical, health administration',
-    roles: [],
-    indicators: ['healthcare', 'medical', 'clinical', 'hospital', 'patient', 'nursing'],
+    roles: HEALTHCARE_ROLES,
+    indicators: [
+      'healthcare',
+      'medical',
+      'clinical',
+      'hospital',
+      'patient',
+      'nursing',
+      'nurse',
+      'physician',
+    ],
   },
+  // Finance / Accounting - IMPLEMENTED
   {
     id: 'finance',
     name: 'Finance / Accounting',
     description: 'Financial analysis, accounting, investment',
-    roles: [],
-    indicators: ['finance', 'accounting', 'investment', 'banking', 'financial', 'cpa'],
+    roles: FINANCE_ROLES,
+    indicators: [
+      'finance',
+      'accounting',
+      'investment',
+      'banking',
+      'financial',
+      'cpa',
+      'cfa',
+      'audit',
+    ],
   },
+  // Legal - IMPLEMENTED
   {
     id: 'legal',
     name: 'Legal',
     description: 'Law, compliance, legal operations',
-    roles: [],
-    indicators: ['lawyer', 'attorney', 'legal', 'compliance', 'paralegal', 'jd degree'],
+    roles: LEGAL_ROLES,
+    indicators: [
+      'lawyer',
+      'attorney',
+      'legal',
+      'compliance',
+      'paralegal',
+      'jd degree',
+      'litigation',
+    ],
   },
+  // Education - IMPLEMENTED
   {
     id: 'education',
     name: 'Education',
     description: 'Teaching, training, instructional design',
-    roles: [],
-    indicators: ['teacher', 'instructor', 'professor', 'education', 'training', 'curriculum'],
+    roles: EDUCATION_ROLES,
+    indicators: [
+      'teacher',
+      'instructor',
+      'professor',
+      'education',
+      'training',
+      'curriculum',
+      'instructional design',
+    ],
   },
   {
     id: 'other',
@@ -1118,15 +1998,18 @@ export const BACKGROUND_CONFIGS: BackgroundConfig[] = [
  * Helper: Get background config by ID
  */
 export function getBackgroundConfig(backgroundId: BackgroundType): BackgroundConfig | undefined {
-  return BACKGROUND_CONFIGS.find(b => b.id === backgroundId);
+  return BACKGROUND_CONFIGS.find((b) => b.id === backgroundId);
 }
 
 /**
  * Helper: Get role config by ID within a background
  */
-export function getRoleConfig(backgroundId: BackgroundType, roleId: string): RoleConfig | undefined {
+export function getRoleConfig(
+  backgroundId: BackgroundType,
+  roleId: string
+): RoleConfig | undefined {
   const background = getBackgroundConfig(backgroundId);
-  return background?.roles.find(r => r.id === roleId);
+  return background?.roles.find((r) => r.id === roleId);
 }
 
 /**
@@ -1156,7 +2039,10 @@ export function detectBackgroundFromJD(jobDescription: string): BackgroundType |
 /**
  * Helper: Detect role from job description within a background
  */
-export function detectRoleFromJD(backgroundId: BackgroundType, jobDescription: string): string | null {
+export function detectRoleFromJD(
+  backgroundId: BackgroundType,
+  jobDescription: string
+): string | null {
   const background = getBackgroundConfig(backgroundId);
   if (!background) return null;
 

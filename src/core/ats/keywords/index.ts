@@ -23,16 +23,102 @@ export { SECURITY_KEYWORDS, getSecurityPatterns } from './security';
 export { DATA_ANALYTICS_KEYWORDS, getDataAnalyticsPatterns } from './data-analytics';
 
 // Skill Area Keyword Exports - Other Backgrounds
-export { MBA_BUSINESS_KEYWORDS, getMbaBusinessPatterns, MANAGEMENT_LEADERSHIP_KEYWORDS, OPERATIONS_KEYWORDS, STRATEGY_KEYWORDS, FINANCE_ACCOUNTING_KEYWORDS, PROJECT_MANAGEMENT_KEYWORDS, COMMUNICATION_KEYWORDS } from './mba-business';
-export { ENGINEERING_KEYWORDS, getEngineeringPatterns, TECHNICAL_DESIGN_KEYWORDS, PROJECT_ENGINEERING_KEYWORDS, QUALITY_COMPLIANCE_KEYWORDS, MANUFACTURING_KEYWORDS, SAFETY_KEYWORDS, TECHNICAL_ANALYSIS_KEYWORDS } from './engineering';
-export { DESIGN_KEYWORDS, getDesignPatterns, UX_DESIGN_KEYWORDS, UI_DESIGN_KEYWORDS, GRAPHIC_DESIGN_KEYWORDS, DESIGN_TOOLS_KEYWORDS, MOTION_DESIGN_KEYWORDS } from './design';
-export { MARKETING_KEYWORDS, getMarketingPatterns, DIGITAL_MARKETING_KEYWORDS, CONTENT_MARKETING_KEYWORDS, SOCIAL_MEDIA_KEYWORDS, BRAND_MARKETING_KEYWORDS, MARKETING_ANALYTICS_KEYWORDS, MARKETING_TOOLS_KEYWORDS } from './marketing';
+export {
+  MBA_BUSINESS_KEYWORDS,
+  getMbaBusinessPatterns,
+  MANAGEMENT_LEADERSHIP_KEYWORDS,
+  OPERATIONS_KEYWORDS,
+  STRATEGY_KEYWORDS,
+  FINANCE_ACCOUNTING_KEYWORDS,
+  PROJECT_MANAGEMENT_KEYWORDS,
+  COMMUNICATION_KEYWORDS,
+} from './mba-business';
+export {
+  ENGINEERING_KEYWORDS,
+  getEngineeringPatterns,
+  TECHNICAL_DESIGN_KEYWORDS,
+  PROJECT_ENGINEERING_KEYWORDS,
+  QUALITY_COMPLIANCE_KEYWORDS,
+  MANUFACTURING_KEYWORDS,
+  SAFETY_KEYWORDS,
+  TECHNICAL_ANALYSIS_KEYWORDS,
+} from './engineering';
+export {
+  DESIGN_KEYWORDS,
+  getDesignPatterns,
+  UX_DESIGN_KEYWORDS,
+  UI_DESIGN_KEYWORDS,
+  GRAPHIC_DESIGN_KEYWORDS,
+  DESIGN_TOOLS_KEYWORDS,
+  MOTION_DESIGN_KEYWORDS,
+} from './design';
+export {
+  MARKETING_KEYWORDS,
+  getMarketingPatterns,
+  DIGITAL_MARKETING_KEYWORDS,
+  CONTENT_MARKETING_KEYWORDS,
+  SOCIAL_MEDIA_KEYWORDS,
+  BRAND_MARKETING_KEYWORDS,
+  MARKETING_ANALYTICS_KEYWORDS,
+  MARKETING_TOOLS_KEYWORDS,
+} from './marketing';
 
 // Common / Universal Keywords (soft skills, office tools, etc.)
-export { COMMON_KEYWORDS, getCommonPatterns, COMMUNICATION_SKILLS_KEYWORDS, LEADERSHIP_SKILLS_KEYWORDS, TEAMWORK_SKILLS_KEYWORDS, PROBLEM_SOLVING_KEYWORDS, ORGANIZATION_SKILLS_KEYWORDS, ADAPTABILITY_KEYWORDS, WORK_ETHIC_KEYWORDS, REMOTE_WORK_KEYWORDS, OFFICE_TOOLS_KEYWORDS, CUSTOMER_SERVICE_KEYWORDS, EDUCATION_KEYWORDS } from './common';
+export {
+  COMMON_KEYWORDS,
+  getCommonPatterns,
+  COMMUNICATION_SKILLS_KEYWORDS,
+  LEADERSHIP_SKILLS_KEYWORDS,
+  TEAMWORK_SKILLS_KEYWORDS,
+  PROBLEM_SOLVING_KEYWORDS,
+  ORGANIZATION_SKILLS_KEYWORDS,
+  ADAPTABILITY_KEYWORDS,
+  WORK_ETHIC_KEYWORDS,
+  REMOTE_WORK_KEYWORDS,
+  OFFICE_TOOLS_KEYWORDS,
+  CUSTOMER_SERVICE_KEYWORDS,
+  EDUCATION_KEYWORDS,
+} from './common';
 
 // Other Backgrounds (Healthcare, Finance, Legal, Education)
-export { HEALTHCARE_KEYWORDS, getHealthcarePatterns, FINANCE_KEYWORDS, getFinancePatterns, LEGAL_KEYWORDS, getLegalPatterns, EDUCATION_KEYWORDS as EDUCATION_FIELD_KEYWORDS, getEducationPatterns } from './other-backgrounds';
+export {
+  HEALTHCARE_KEYWORDS,
+  getHealthcarePatterns,
+  CLINICAL_SKILLS_KEYWORDS,
+  PATIENT_CARE_KEYWORDS,
+  HEALTHCARE_TECHNOLOGY_KEYWORDS,
+  HEALTHCARE_COMPLIANCE_KEYWORDS,
+  HEALTHCARE_ADMIN_KEYWORDS,
+  HEALTHCARE_CERTIFICATIONS_KEYWORDS,
+} from './other-backgrounds';
+export {
+  FINANCE_KEYWORDS,
+  getFinancePatterns,
+  FINANCIAL_ANALYSIS_KEYWORDS,
+  ACCOUNTING_KEYWORDS,
+  BUDGETING_FORECASTING_KEYWORDS,
+  INVESTMENT_BANKING_KEYWORDS,
+  FINANCIAL_COMPLIANCE_KEYWORDS,
+  FINANCE_TOOLS_KEYWORDS,
+} from './other-backgrounds';
+export {
+  LEGAL_KEYWORDS,
+  getLegalPatterns,
+  LEGAL_PRACTICE_KEYWORDS,
+  LEGAL_RESEARCH_KEYWORDS,
+  CONTRACT_MANAGEMENT_KEYWORDS,
+  LEGAL_TOOLS_KEYWORDS,
+  LEGAL_COMPLIANCE_KEYWORDS,
+} from './other-backgrounds';
+export {
+  EDUCATION_KEYWORDS as EDUCATION_FIELD_KEYWORDS,
+  getEducationPatterns,
+  TEACHING_INSTRUCTION_KEYWORDS,
+  CURRICULUM_DESIGN_KEYWORDS,
+  STUDENT_MANAGEMENT_KEYWORDS,
+  EDUCATIONAL_TECHNOLOGY_KEYWORDS,
+  TRAINING_DEVELOPMENT_KEYWORDS,
+} from './other-backgrounds';
 
 // Import all for aggregation - Computer Science
 import { FRONTEND_KEYWORDS, getFrontendPatterns } from './frontend';
@@ -53,10 +139,61 @@ import { DESIGN_KEYWORDS, getDesignPatterns } from './design';
 import { MARKETING_KEYWORDS, getMarketingPatterns } from './marketing';
 
 // Import common/universal keywords
-import { COMMON_KEYWORDS, getCommonPatterns, COMMUNICATION_SKILLS_KEYWORDS, LEADERSHIP_SKILLS_KEYWORDS, TEAMWORK_SKILLS_KEYWORDS, PROBLEM_SOLVING_KEYWORDS, ORGANIZATION_SKILLS_KEYWORDS, ADAPTABILITY_KEYWORDS, WORK_ETHIC_KEYWORDS, REMOTE_WORK_KEYWORDS, OFFICE_TOOLS_KEYWORDS, CUSTOMER_SERVICE_KEYWORDS, EDUCATION_KEYWORDS } from './common';
+import {
+  COMMON_KEYWORDS,
+  getCommonPatterns,
+  COMMUNICATION_SKILLS_KEYWORDS,
+  LEADERSHIP_SKILLS_KEYWORDS,
+  TEAMWORK_SKILLS_KEYWORDS,
+  PROBLEM_SOLVING_KEYWORDS,
+  ORGANIZATION_SKILLS_KEYWORDS,
+  ADAPTABILITY_KEYWORDS,
+  WORK_ETHIC_KEYWORDS,
+  REMOTE_WORK_KEYWORDS,
+  OFFICE_TOOLS_KEYWORDS,
+  CUSTOMER_SERVICE_KEYWORDS,
+  EDUCATION_KEYWORDS,
+} from './common';
 
 // Import other backgrounds
-import { HEALTHCARE_KEYWORDS, getHealthcarePatterns, FINANCE_KEYWORDS, getFinancePatterns, LEGAL_KEYWORDS, getLegalPatterns, EDUCATION_KEYWORDS as EDUCATION_FIELD_KEYWORDS, getEducationPatterns } from './other-backgrounds';
+import {
+  HEALTHCARE_KEYWORDS,
+  getHealthcarePatterns,
+  CLINICAL_SKILLS_KEYWORDS,
+  PATIENT_CARE_KEYWORDS,
+  HEALTHCARE_TECHNOLOGY_KEYWORDS,
+  HEALTHCARE_COMPLIANCE_KEYWORDS,
+  HEALTHCARE_ADMIN_KEYWORDS,
+  HEALTHCARE_CERTIFICATIONS_KEYWORDS,
+} from './other-backgrounds';
+import {
+  FINANCE_KEYWORDS,
+  getFinancePatterns,
+  FINANCIAL_ANALYSIS_KEYWORDS,
+  ACCOUNTING_KEYWORDS,
+  BUDGETING_FORECASTING_KEYWORDS,
+  INVESTMENT_BANKING_KEYWORDS,
+  FINANCIAL_COMPLIANCE_KEYWORDS,
+  FINANCE_TOOLS_KEYWORDS,
+} from './other-backgrounds';
+import {
+  LEGAL_KEYWORDS,
+  getLegalPatterns,
+  LEGAL_PRACTICE_KEYWORDS,
+  LEGAL_RESEARCH_KEYWORDS,
+  CONTRACT_MANAGEMENT_KEYWORDS,
+  LEGAL_TOOLS_KEYWORDS,
+  LEGAL_COMPLIANCE_KEYWORDS,
+} from './other-backgrounds';
+import {
+  EDUCATION_KEYWORDS as EDUCATION_FIELD_KEYWORDS,
+  getEducationPatterns,
+  TEACHING_INSTRUCTION_KEYWORDS,
+  CURRICULUM_DESIGN_KEYWORDS,
+  STUDENT_MANAGEMENT_KEYWORDS,
+  EDUCATIONAL_TECHNOLOGY_KEYWORDS,
+  TRAINING_DEVELOPMENT_KEYWORDS,
+} from './other-backgrounds';
 
 import type { KeywordEntry } from '@shared/types/background.types';
 
@@ -65,9 +202,9 @@ import type { KeywordEntry } from '@shared/types/background.types';
  * Handles special characters like "/" better than simple word boundaries
  */
 export function createKeywordPattern(terms: string[]): RegExp {
-  const escapedTerms = terms.map(t => {
+  const escapedTerms = terms.map((t) => {
     // Escape special regex characters
-    let escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // For terms with "/" or "-", use more flexible boundaries
     if (t.includes('/') || t.includes('-')) {
       // Use word boundary OR start/end of string OR whitespace
@@ -78,15 +215,45 @@ export function createKeywordPattern(terms: string[]): RegExp {
 
   // Use case-insensitive matching with word boundaries
   // For complex terms, the boundary handling is in the individual term escaping
-  const pattern = new RegExp(`(?:^|[\\s,;.!?()\\[\\]"'])(${escapedTerms.join('|')})(?:$|[\\s,;.!?()\\[\\]"'])`, 'gi');
+  const pattern = new RegExp(
+    `(?:^|[\\s,;.!?()\\[\\]"'])(${escapedTerms.join('|')})(?:$|[\\s,;.!?()\\[\\]"'])`,
+    'gi'
+  );
   return pattern;
 }
 
 // Import specific skill area keywords
-import { MANAGEMENT_LEADERSHIP_KEYWORDS, OPERATIONS_KEYWORDS, STRATEGY_KEYWORDS, FINANCE_ACCOUNTING_KEYWORDS, PROJECT_MANAGEMENT_KEYWORDS, COMMUNICATION_KEYWORDS } from './mba-business';
-import { TECHNICAL_DESIGN_KEYWORDS, PROJECT_ENGINEERING_KEYWORDS, QUALITY_COMPLIANCE_KEYWORDS, MANUFACTURING_KEYWORDS, SAFETY_KEYWORDS, TECHNICAL_ANALYSIS_KEYWORDS } from './engineering';
-import { UX_DESIGN_KEYWORDS, UI_DESIGN_KEYWORDS, GRAPHIC_DESIGN_KEYWORDS, DESIGN_TOOLS_KEYWORDS, MOTION_DESIGN_KEYWORDS } from './design';
-import { DIGITAL_MARKETING_KEYWORDS, CONTENT_MARKETING_KEYWORDS, SOCIAL_MEDIA_KEYWORDS, BRAND_MARKETING_KEYWORDS, MARKETING_ANALYTICS_KEYWORDS, MARKETING_TOOLS_KEYWORDS } from './marketing';
+import {
+  MANAGEMENT_LEADERSHIP_KEYWORDS,
+  OPERATIONS_KEYWORDS,
+  STRATEGY_KEYWORDS,
+  FINANCE_ACCOUNTING_KEYWORDS,
+  PROJECT_MANAGEMENT_KEYWORDS,
+  COMMUNICATION_KEYWORDS,
+} from './mba-business';
+import {
+  TECHNICAL_DESIGN_KEYWORDS,
+  PROJECT_ENGINEERING_KEYWORDS,
+  QUALITY_COMPLIANCE_KEYWORDS,
+  MANUFACTURING_KEYWORDS,
+  SAFETY_KEYWORDS,
+  TECHNICAL_ANALYSIS_KEYWORDS,
+} from './engineering';
+import {
+  UX_DESIGN_KEYWORDS,
+  UI_DESIGN_KEYWORDS,
+  GRAPHIC_DESIGN_KEYWORDS,
+  DESIGN_TOOLS_KEYWORDS,
+  MOTION_DESIGN_KEYWORDS,
+} from './design';
+import {
+  DIGITAL_MARKETING_KEYWORDS,
+  CONTENT_MARKETING_KEYWORDS,
+  SOCIAL_MEDIA_KEYWORDS,
+  BRAND_MARKETING_KEYWORDS,
+  MARKETING_ANALYTICS_KEYWORDS,
+  MARKETING_TOOLS_KEYWORDS,
+} from './marketing';
 
 /**
  * Skill area to keywords mapping
@@ -154,12 +321,40 @@ export const SKILL_AREA_KEYWORDS: Record<string, KeywordEntry[]> = {
   'remote-work': REMOTE_WORK_KEYWORDS,
   'office-tools': OFFICE_TOOLS_KEYWORDS,
   'customer-service-skills': CUSTOMER_SERVICE_KEYWORDS,
-  'education': EDUCATION_KEYWORDS,
+  education: EDUCATION_KEYWORDS,
 
-  // Other Backgrounds (basic keywords)
-  'healthcare': HEALTHCARE_KEYWORDS,
-  'finance': FINANCE_KEYWORDS,
-  'legal': LEGAL_KEYWORDS,
+  // Healthcare skill areas
+  'clinical-skills': CLINICAL_SKILLS_KEYWORDS,
+  'patient-care': PATIENT_CARE_KEYWORDS,
+  'healthcare-technology': HEALTHCARE_TECHNOLOGY_KEYWORDS,
+  'healthcare-compliance': HEALTHCARE_COMPLIANCE_KEYWORDS,
+  'healthcare-admin': HEALTHCARE_ADMIN_KEYWORDS,
+  'healthcare-certifications': HEALTHCARE_CERTIFICATIONS_KEYWORDS,
+  healthcare: HEALTHCARE_KEYWORDS,
+
+  // Finance skill areas
+  'financial-analysis': FINANCIAL_ANALYSIS_KEYWORDS,
+  accounting: ACCOUNTING_KEYWORDS,
+  'budgeting-forecasting': BUDGETING_FORECASTING_KEYWORDS,
+  'investment-banking': INVESTMENT_BANKING_KEYWORDS,
+  'financial-compliance': FINANCIAL_COMPLIANCE_KEYWORDS,
+  'finance-tools': FINANCE_TOOLS_KEYWORDS,
+  finance: FINANCE_KEYWORDS,
+
+  // Legal skill areas
+  'legal-practice': LEGAL_PRACTICE_KEYWORDS,
+  'legal-research': LEGAL_RESEARCH_KEYWORDS,
+  'contract-management': CONTRACT_MANAGEMENT_KEYWORDS,
+  'legal-tools': LEGAL_TOOLS_KEYWORDS,
+  'legal-compliance': LEGAL_COMPLIANCE_KEYWORDS,
+  legal: LEGAL_KEYWORDS,
+
+  // Education skill areas
+  'teaching-instruction': TEACHING_INSTRUCTION_KEYWORDS,
+  'curriculum-design': CURRICULUM_DESIGN_KEYWORDS,
+  'student-management': STUDENT_MANAGEMENT_KEYWORDS,
+  'educational-technology': EDUCATIONAL_TECHNOLOGY_KEYWORDS,
+  'training-development': TRAINING_DEVELOPMENT_KEYWORDS,
   'education-field': EDUCATION_FIELD_KEYWORDS,
 };
 
@@ -181,58 +376,198 @@ export function getKeywordsForSkillArea(skillAreaId: string): KeywordEntry[] {
  */
 const NON_TECH_KEYWORDS: Record<string, string[]> = {
   'retail-operations': [
-    'retail', 'store operations', 'merchandising', 'inventory management', 'pos',
-    'point of sale', 'cash register', 'cashier', 'checkout', 'shrink prevention',
-    'loss prevention', 'planogram', 'stock replenishment', 'pricing', 'markdown',
-    'visual merchandising', 'shelf management', 'receiving', 'backroom', 'floor',
+    'retail',
+    'store operations',
+    'merchandising',
+    'inventory management',
+    'pos',
+    'point of sale',
+    'cash register',
+    'cashier',
+    'checkout',
+    'shrink prevention',
+    'loss prevention',
+    'planogram',
+    'stock replenishment',
+    'pricing',
+    'markdown',
+    'visual merchandising',
+    'shelf management',
+    'receiving',
+    'backroom',
+    'floor',
   ],
   'customer-service': [
-    'customer service', 'customer experience', 'customer satisfaction', 'client service',
-    'customer support', 'call center', 'help desk', 'complaint resolution', 'escalation',
-    'service recovery', 'nps', 'csat', 'customer feedback', 'customer relations',
-    'guest services', 'customer-facing', 'client relations',
+    'customer service',
+    'customer experience',
+    'customer satisfaction',
+    'client service',
+    'customer support',
+    'call center',
+    'help desk',
+    'complaint resolution',
+    'escalation',
+    'service recovery',
+    'nps',
+    'csat',
+    'customer feedback',
+    'customer relations',
+    'guest services',
+    'customer-facing',
+    'client relations',
   ],
   'management-leadership': [
-    'management', 'leadership', 'supervisor', 'team lead', 'direct reports',
-    'coaching', 'mentoring', 'training', 'performance review', 'hiring', 'staffing',
-    'scheduling', 'delegation', 'motivation', 'conflict resolution', 'decision making',
-    'accountability', 'team management', 'people management',
+    'management',
+    'leadership',
+    'supervisor',
+    'team lead',
+    'direct reports',
+    'coaching',
+    'mentoring',
+    'training',
+    'performance review',
+    'hiring',
+    'staffing',
+    'scheduling',
+    'delegation',
+    'motivation',
+    'conflict resolution',
+    'decision making',
+    'accountability',
+    'team management',
+    'people management',
   ],
-  'operations': [
-    'operations', 'process improvement', 'workflow', 'efficiency', 'productivity',
-    'logistics', 'supply chain', 'vendor management', 'compliance', 'audit',
-    'quality control', 'sop', 'kpi', 'continuous improvement', 'lean', 'six sigma',
-    'operational excellence', 'process optimization',
+  operations: [
+    'operations',
+    'process improvement',
+    'workflow',
+    'efficiency',
+    'productivity',
+    'logistics',
+    'supply chain',
+    'vendor management',
+    'compliance',
+    'audit',
+    'quality control',
+    'sop',
+    'kpi',
+    'continuous improvement',
+    'lean',
+    'six sigma',
+    'operational excellence',
+    'process optimization',
   ],
   'finance-accounting': [
-    'accounting', 'finance', 'budget', 'forecasting', 'p&l', 'profit and loss',
-    'revenue', 'expense', 'cost control', 'financial reporting', 'audit',
-    'accounts payable', 'accounts receivable', 'reconciliation', 'ledger',
-    'gaap', 'quickbooks', 'sap', 'erp', 'invoicing', 'billing', 'bookkeeping',
+    'accounting',
+    'finance',
+    'budget',
+    'forecasting',
+    'p&l',
+    'profit and loss',
+    'revenue',
+    'expense',
+    'cost control',
+    'financial reporting',
+    'audit',
+    'accounts payable',
+    'accounts receivable',
+    'reconciliation',
+    'ledger',
+    'gaap',
+    'quickbooks',
+    'sap',
+    'erp',
+    'invoicing',
+    'billing',
+    'bookkeeping',
   ],
   'sales-marketing': [
-    'sales', 'revenue', 'quota', 'pipeline', 'lead generation', 'prospecting',
-    'closing', 'negotiation', 'crm', 'salesforce', 'marketing', 'campaign',
-    'branding', 'promotion', 'digital marketing', 'seo', 'social media',
-    'content marketing', 'advertising', 'market research',
+    'sales',
+    'revenue',
+    'quota',
+    'pipeline',
+    'lead generation',
+    'prospecting',
+    'closing',
+    'negotiation',
+    'crm',
+    'salesforce',
+    'marketing',
+    'campaign',
+    'branding',
+    'promotion',
+    'digital marketing',
+    'seo',
+    'social media',
+    'content marketing',
+    'advertising',
+    'market research',
   ],
   'human-resources': [
-    'hr', 'human resources', 'recruiting', 'talent acquisition', 'onboarding',
-    'employee relations', 'benefits administration', 'compensation', 'payroll',
-    'hris', 'performance management', 'training and development', 'engagement',
-    'retention', 'succession planning', 'labor law', 'eeoc', 'diversity',
+    'hr',
+    'human resources',
+    'recruiting',
+    'talent acquisition',
+    'onboarding',
+    'employee relations',
+    'benefits administration',
+    'compensation',
+    'payroll',
+    'hris',
+    'performance management',
+    'training and development',
+    'engagement',
+    'retention',
+    'succession planning',
+    'labor law',
+    'eeoc',
+    'diversity',
   ],
-  'healthcare': [
-    'patient care', 'clinical', 'medical', 'healthcare', 'nursing', 'physician',
-    'diagnosis', 'treatment', 'care plan', 'hipaa', 'ehr', 'emr', 'epic', 'cerner',
-    'pharmacy', 'laboratory', 'vital signs', 'medication administration', 'charting',
-    'bedside manner', 'patient safety', 'infection control',
+  healthcare: [
+    'patient care',
+    'clinical',
+    'medical',
+    'healthcare',
+    'nursing',
+    'physician',
+    'diagnosis',
+    'treatment',
+    'care plan',
+    'hipaa',
+    'ehr',
+    'emr',
+    'epic',
+    'cerner',
+    'pharmacy',
+    'laboratory',
+    'vital signs',
+    'medication administration',
+    'charting',
+    'bedside manner',
+    'patient safety',
+    'infection control',
   ],
-  'administrative': [
-    'administrative', 'office management', 'clerical', 'reception', 'calendar management',
-    'scheduling', 'correspondence', 'filing', 'data entry', 'microsoft office',
-    'word', 'excel', 'powerpoint', 'outlook', 'typing', 'phone', 'meeting coordination',
-    'travel arrangements', 'expense reports', 'document management',
+  administrative: [
+    'administrative',
+    'office management',
+    'clerical',
+    'reception',
+    'calendar management',
+    'scheduling',
+    'correspondence',
+    'filing',
+    'data entry',
+    'microsoft office',
+    'word',
+    'excel',
+    'powerpoint',
+    'outlook',
+    'typing',
+    'phone',
+    'meeting coordination',
+    'travel arrangements',
+    'expense reports',
+    'document management',
   ],
 };
 
@@ -240,9 +575,12 @@ const NON_TECH_KEYWORDS: Record<string, string[]> = {
  * Generate patterns dynamically from keyword list
  */
 function generatePatternsFromKeywords(keywords: string[]): [RegExp, string][] {
-  return keywords.map(keyword => {
+  return keywords.map((keyword) => {
     const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`(?:^|[\\s,;.!?()\\[\\]"'])(${escaped})(?:$|[\\s,;.!?()\\[\\]"'])`, 'gi');
+    const pattern = new RegExp(
+      `(?:^|[\\s,;.!?()\\[\\]"'])(${escaped})(?:$|[\\s,;.!?()\\[\\]"'])`,
+      'gi'
+    );
     return [pattern, keyword] as [RegExp, string];
   });
 }
@@ -296,7 +634,7 @@ export function getNonTechKeywordsForArea(skillAreaId: string): KeywordEntry[] {
   const keywords = NON_TECH_KEYWORDS[skillAreaId];
   if (!keywords) return [];
 
-  return keywords.map(name => ({
+  return keywords.map((name) => ({
     name,
     variations: [name],
     weight: 1.0, // Default weight
@@ -420,7 +758,7 @@ export function getSkillAreaForKeyword(keywordName: string): string | null {
     for (const kw of keywords) {
       if (
         kw.name.toLowerCase() === normalizedName ||
-        kw.variations.some(v => v.toLowerCase() === normalizedName)
+        kw.variations.some((v) => v.toLowerCase() === normalizedName)
       ) {
         return areaId;
       }
@@ -439,7 +777,7 @@ export function findKeywordByName(name: string): KeywordEntry | null {
   for (const kw of getAllKeywords()) {
     if (
       kw.name.toLowerCase() === normalizedName ||
-      kw.variations.some(v => v.toLowerCase() === normalizedName)
+      kw.variations.some((v) => v.toLowerCase() === normalizedName)
     ) {
       return kw;
     }
@@ -517,7 +855,7 @@ export function getKeywordStats(): Record<string, { total: number; core: number 
   for (const { id, keywords } of areas) {
     stats[id] = {
       total: keywords.length,
-      core: keywords.filter(kw => kw.isCore).length,
+      core: keywords.filter((kw) => kw.isCore).length,
     };
   }
 
