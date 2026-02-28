@@ -4,13 +4,22 @@ import MyProfile from './pages/MyProfile';
 import ProfileManager from './pages/ProfileManager';
 import AISettings from './pages/AISettings';
 import ATSScore from './pages/ATSScore';
+import InterviewPrep from './pages/InterviewPrep';
 import ApplicationHistory from './pages/ApplicationHistory';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import OnboardingWizard from './components/OnboardingWizard';
 import { ProfileProvider } from './context/ProfileContext';
 
-type Tab = 'resume' | 'myprofile' | 'profiles' | 'atsscore' | 'ai' | 'history' | 'analytics';
+type Tab =
+  | 'resume'
+  | 'myprofile'
+  | 'profiles'
+  | 'atsscore'
+  | 'interview'
+  | 'ai'
+  | 'history'
+  | 'analytics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('resume');
@@ -157,6 +166,23 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-item ${activeTab === 'interview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('interview')}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Interview Prep
+            </button>
+
+            <button
               className={`nav-item ${activeTab === 'ai' ? 'active' : ''}`}
               onClick={() => setActiveTab('ai')}
             >
@@ -222,6 +248,7 @@ export default function App() {
           {activeTab === 'myprofile' && <MyProfile />}
           {activeTab === 'profiles' && <ProfileManager />}
           {activeTab === 'atsscore' && <ATSScore />}
+          {activeTab === 'interview' && <InterviewPrep />}
           {activeTab === 'ai' && <AISettings />}
           {activeTab === 'history' && <ApplicationHistory />}
           {activeTab === 'analytics' && <AnalyticsDashboard />}

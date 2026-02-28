@@ -23,6 +23,7 @@ import type { SeniorityLevel } from '@core/resume/bullet-validator';
 import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { analyzeSkillGaps } from '@core/ats/gap-analyzer';
 import { scanRedFlags } from '@core/resume/red-flag-scanner';
+import { generateInterviewPrep } from '@core/interview/question-generator';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
@@ -338,6 +339,15 @@ export async function handleMessage(
           rawText: string;
           targetPages: number;
           jobDescription?: string;
+        }
+      );
+
+    case 'GENERATE_INTERVIEW_PREP':
+      return handleGenerateInterviewPrep(
+        message.payload as {
+          jobDescription: string;
+          companyName: string;
+          jobTitle: string;
         }
       );
 
@@ -4040,6 +4050,51 @@ async function handleScoreResumeFileATS(payload: {
     };
   } catch (error) {
     console.error('[ApplySharp] File ATS scoring failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ── Interview Prep ─────────────────────────────────────────────────────
+
+async function handleGenerateInterviewPrep(payload: {
+  jobDescription: string;
+  companyName: string;
+  jobTitle: string;
+}): Promise<MessageResponse> {
+  try {
+    const { jobDescription, companyName, jobTitle } = payload;
+
+    if (!jobDescription?.trim()) {
+      return { success: false, error: 'Job description is required' };
+    }
+
+    const settings = await settingsRepo.get();
+    if (!settings?.ai) {
+      return { success: false, error: 'AI not configured. Set up an AI provider in AI Settings.' };
+    }
+
+    const aiService = new AIService(settings.ai);
+    const isAvailable = await aiService.isAvailable();
+    if (!isAvailable) {
+      return { success: false, error: 'AI service not available. Check your provider settings.' };
+    }
+
+    const masterProfile = await masterProfileRepo.getActive();
+    if (!masterProfile) {
+      return { success: false, error: 'No active profile found. Upload a resume first.' };
+    }
+
+    const result = await generateInterviewPrep(
+      aiService,
+      masterProfile,
+      jobDescription,
+      companyName || 'the company',
+      jobTitle || 'the role'
+    );
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[ApplySharp] Interview prep generation failed:', error);
     return { success: false, error: (error as Error).message };
   }
 }

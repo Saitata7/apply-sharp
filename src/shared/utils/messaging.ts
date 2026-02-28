@@ -70,7 +70,9 @@ export type MessageType =
   | 'RUN_LEARNING_ANALYSIS'
   // ATS Score page
   | 'SCORE_RESUME_ATS'
-  | 'SCORE_RESUME_FILE_ATS';
+  | 'SCORE_RESUME_FILE_ATS'
+  // Interview Prep
+  | 'GENERATE_INTERVIEW_PREP';
 
 export interface Message<T = unknown> {
   type: MessageType;
