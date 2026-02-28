@@ -24,6 +24,12 @@ import {
 } from '@/ai/prompts/templates';
 import { sanitizePromptInput } from '@shared/utils/prompt-safety';
 import { generateChecksum, estimateYearsOfExperience } from '../resume/text-utils';
+import {
+  detectBackgroundFromJD,
+  getBackgroundConfig,
+  detectRoleFromJD,
+} from '@shared/types/background.types';
+import type { UserBackgroundConfig } from '@shared/types/background.types';
 
 export interface AnalysisProgress {
   stage: 'parsing' | 'extracting' | 'analyzing' | 'enriching' | 'generating' | 'complete';
@@ -43,24 +49,21 @@ const AI_CALL_DELAY_MS = 15000; // 15 seconds between calls
  * Sleep helper to add delays between API calls
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Extract JSON from AI response, handling markdown code blocks and extra text
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractJSON(content: string): any {
   console.log('[extractJSON] Attempting to extract JSON from response of length:', content.length);
 
   // Clean up the content first - remove any BOM and normalize whitespace
-  let cleaned = content.trim();
+  const cleaned = content.trim();
 
   // Method 1: Try to extract from markdown code blocks (various formats)
-  const codeBlockPatterns = [
-    /```json\s*([\s\S]*?)```/i,
-    /```\s*([\s\S]*?)```/,
-    /`([\s\S]*?)`/,
-  ];
+  const codeBlockPatterns = [/```json\s*([\s\S]*?)```/i, /```\s*([\s\S]*?)```/, /`([\s\S]*?)`/];
 
   for (const pattern of codeBlockPatterns) {
     const match = cleaned.match(pattern);
@@ -95,7 +98,10 @@ function extractJSON(content: string): any {
       try {
         return JSON.parse(fixed);
       } catch (fixError) {
-        console.error('[extractJSON] Failed to parse even after fixes:', jsonResult.substring(0, 300));
+        console.error(
+          '[extractJSON] Failed to parse even after fixes:',
+          jsonResult.substring(0, 300)
+        );
       }
     }
   }
@@ -196,15 +202,17 @@ function findBalancedJSON(content: string): string | null {
  * Fix common JSON formatting issues from AI responses
  */
 function fixCommonJSONIssues(jsonStr: string): string {
-  return jsonStr
-    // Remove trailing commas before } or ]
-    .replace(/,(\s*[}\]])/g, '$1')
-    // Fix unquoted keys (simple cases)
-    .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
-    // Remove comments (// style)
-    .replace(/\/\/[^\n]*/g, '')
-    // Remove newlines inside strings (naive approach - may break some cases)
-    .replace(/:\s*"([^"]*)\n([^"]*)"/g, ': "$1\\n$2"');
+  return (
+    jsonStr
+      // Remove trailing commas before } or ]
+      .replace(/,(\s*[}\]])/g, '$1')
+      // Fix unquoted keys (simple cases)
+      .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
+      // Remove comments (// style)
+      .replace(/\/\/[^\n]*/g, '')
+      // Remove newlines inside strings (naive approach - may break some cases)
+      .replace(/:\s*"([^"]*)\n([^"]*)"/g, ': "$1\\n$2"')
+  );
 }
 
 /**
@@ -288,12 +296,13 @@ export class CareerContextEngine {
         lastName: structuredData.personal.lastName || initialProfile.personal?.lastName || '',
         email: structuredData.personal.email || initialProfile.personal?.email || '',
         phone: structuredData.personal.phone || initialProfile.personal?.phone || '',
-        location: structuredData.personal.location || initialProfile.personal?.location || {
-          city: '',
-          state: '',
-          country: '',
-          formatted: '',
-        },
+        location: structuredData.personal.location ||
+          initialProfile.personal?.location || {
+            city: '',
+            state: '',
+            country: '',
+            formatted: '',
+          },
         linkedInUrl: structuredData.personal.linkedInUrl || initialProfile.personal?.linkedInUrl,
         githubUrl: structuredData.personal.githubUrl || initialProfile.personal?.githubUrl,
         portfolioUrl: structuredData.personal.portfolioUrl || initialProfile.personal?.portfolioUrl,
@@ -327,7 +336,11 @@ export class CareerContextEngine {
     progress('generating', 85, 'Generating answer bank...');
     console.log('[ContextEngine] Starting answer bank generation...');
     const answerBank = await this.generateAnswerBank(initialProfile as MasterProfile);
-    console.log('[ContextEngine] Answer bank generated:', answerBank.commonQuestions?.length || 0, 'answers');
+    console.log(
+      '[ContextEngine] Answer bank generated:',
+      answerBank.commonQuestions?.length || 0,
+      'answers'
+    );
     initialProfile.answerBank = answerBank;
 
     // Stage 5: Generate initial role profiles (with delay)
@@ -335,7 +348,10 @@ export class CareerContextEngine {
     await sleep(AI_CALL_DELAY_MS);
     progress('generating', 95, 'Creating role-specific profiles...');
     console.log('[ContextEngine] Starting profile generation...');
-    console.log('[ContextEngine] Best fit roles for profile generation:', careerContext.bestFitRoles?.length || 0);
+    console.log(
+      '[ContextEngine] Best fit roles for profile generation:',
+      careerContext.bestFitRoles?.length || 0
+    );
     const generatedProfiles = await this.generateInitialProfiles(initialProfile as MasterProfile);
     console.log('[ContextEngine] Generated profiles:', generatedProfiles.length);
     initialProfile.generatedProfiles = generatedProfiles;
@@ -355,6 +371,23 @@ export class CareerContextEngine {
       currentlyEmployed: initialProfile.experience?.[0]?.isCurrent || false,
     };
 
+    // Auto-detect background from resume text + career context
+    const detectedBackground = detectBackgroundFromJD(rawText);
+    if (detectedBackground) {
+      const bgConfig = getBackgroundConfig(detectedBackground);
+      const detectedRole =
+        detectRoleFromJD(detectedBackground, rawText) || bgConfig?.roles?.[0]?.id || '';
+      initialProfile.backgroundConfig = {
+        background: detectedBackground,
+        primaryRole: detectedRole,
+        skillAreas: [],
+        isAutoDetected: true,
+      } as UserBackgroundConfig;
+      console.log(
+        `[ContextEngine] Auto-detected background: ${detectedBackground}, role: ${detectedRole}`
+      );
+    }
+
     progress('complete', 100, 'Analysis complete!');
 
     return initialProfile as MasterProfile;
@@ -363,15 +396,19 @@ export class CareerContextEngine {
   /**
    * Extract structured data using AI
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async extractStructuredData(rawText: string): Promise<any> {
-    const prompt = RESUME_PARSE_PROMPT.replace('{resumeText}', sanitizePromptInput(rawText, 'resume_text'));
+    const prompt = RESUME_PARSE_PROMPT.replace(
+      '{resumeText}',
+      sanitizePromptInput(rawText, 'resume_text')
+    );
 
     try {
       console.log('[ContextEngine] Calling AI for structured extraction...');
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.1, maxTokens: 4000 }
-      );
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.1,
+        maxTokens: 4000,
+      });
 
       console.log('[ContextEngine] AI response length:', response.content.length);
       console.log('[ContextEngine] AI response preview:', response.content.substring(0, 500));
@@ -391,7 +428,11 @@ export class CareerContextEngine {
   /**
    * Build career context using AI
    */
-  private async buildCareerContext(parsedData: any, estimatedYears: number): Promise<CareerContext> {
+  private async buildCareerContext(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parsedData: any,
+    estimatedYears: number
+  ): Promise<CareerContext> {
     const prompt = CAREER_CONTEXT_PROMPT.replace(
       '{parsedData}',
       sanitizePromptInput(JSON.stringify(parsedData, null, 2), 'parsed_resume')
@@ -399,20 +440,37 @@ export class CareerContextEngine {
 
     try {
       console.log('[ContextEngine] Building career context...');
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.3, maxTokens: 2500 }
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.3,
+        maxTokens: 2500,
+      });
+
+      console.log(
+        '[ContextEngine] Career context response preview:',
+        response.content.substring(0, 300)
       );
 
-      console.log('[ContextEngine] Career context response preview:', response.content.substring(0, 300));
-
       const context = extractJSON(response.content) as CareerContext;
-      console.log('[ContextEngine] Career context parsed - summary:', context.summary?.substring(0, 100));
+      console.log(
+        '[ContextEngine] Career context parsed - summary:',
+        context.summary?.substring(0, 100)
+      );
       console.log('[ContextEngine] Career context - bestFitRoles:', context.bestFitRoles?.length);
 
       // Override with calculated years if AI estimate seems off
       if (Math.abs(context.yearsOfExperience - estimatedYears) > 3) {
         context.yearsOfExperience = estimatedYears;
+      }
+
+      // Ensure seniorityLevel matches years (AI often overestimates)
+      const years = context.yearsOfExperience;
+      const correctLevel =
+        years <= 5 ? 'entry' : years <= 10 ? 'mid' : years <= 15 ? 'senior' : 'executive';
+      if (context.seniorityLevel !== correctLevel) {
+        console.log(
+          `[ContextEngine] Correcting seniority: AI said "${context.seniorityLevel}" but ${years} years → "${correctLevel}"`
+        );
+        context.seniorityLevel = correctLevel;
       }
 
       return context;
@@ -423,7 +481,14 @@ export class CareerContextEngine {
         summary: '',
         careerTrajectory: 'stable',
         yearsOfExperience: estimatedYears,
-        seniorityLevel: estimatedYears > 8 ? 'senior' : estimatedYears > 3 ? 'mid' : 'entry',
+        seniorityLevel:
+          estimatedYears <= 5
+            ? 'entry'
+            : estimatedYears <= 10
+              ? 'mid'
+              : estimatedYears <= 15
+                ? 'senior'
+                : 'executive',
         primaryDomain: 'Software Engineering',
         secondaryDomains: [],
         industryExperience: [],
@@ -444,24 +509,34 @@ export class CareerContextEngine {
   /**
    * Enrich skills with context
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async enrichSkills(parsedData: any, basicSkills: string[]): Promise<SkillsWithContext> {
     const prompt = SKILLS_ENRICHMENT_PROMPT.replace(
       '{parsedData}',
-      sanitizePromptInput(JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2), 'parsed_resume')
+      sanitizePromptInput(
+        JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2),
+        'parsed_resume'
+      )
     );
 
     try {
       console.log('[ContextEngine] Calling AI for skills enrichment...');
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.2, maxTokens: 2000 }
-      );
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.2,
+        maxTokens: 2000,
+      });
 
       console.log('[ContextEngine] Skills enrichment response length:', response.content.length);
-      console.log('[ContextEngine] Skills enrichment response preview:', response.content.substring(0, 500));
+      console.log(
+        '[ContextEngine] Skills enrichment response preview:',
+        response.content.substring(0, 500)
+      );
 
       const result = extractJSON(response.content) as SkillsWithContext;
-      console.log('[ContextEngine] Skills enrichment parsed successfully, technical skills:', result.technical?.length || 0);
+      console.log(
+        '[ContextEngine] Skills enrichment parsed successfully, technical skills:',
+        result.technical?.length || 0
+      );
       return result;
     } catch (error) {
       console.error('[ContextEngine] Failed to enrich skills:', error);
@@ -492,17 +567,23 @@ export class CareerContextEngine {
    */
   private async generateAnswerBank(profile: MasterProfile): Promise<AnswerBank> {
     const candidateProfile = this.formatProfileForPrompt(profile);
-    const prompt = ANSWER_BANK_PROMPT.replace('{candidateProfile}', sanitizePromptInput(candidateProfile, 'candidate_profile'));
+    const prompt = ANSWER_BANK_PROMPT.replace(
+      '{candidateProfile}',
+      sanitizePromptInput(candidateProfile, 'candidate_profile')
+    );
 
     try {
       console.log('[ContextEngine] Calling AI for answer bank...');
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.5, maxTokens: 3000 }
-      );
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.5,
+        maxTokens: 3000,
+      });
 
       console.log('[ContextEngine] Answer bank AI response length:', response.content.length);
-      console.log('[ContextEngine] Answer bank response preview:', response.content.substring(0, 300));
+      console.log(
+        '[ContextEngine] Answer bank response preview:',
+        response.content.substring(0, 300)
+      );
 
       const answers = extractJSON(response.content);
       console.log('[ContextEngine] Answer bank parsed, keys:', Object.keys(answers));
@@ -555,7 +636,10 @@ export class CareerContextEngine {
     const profiles: GeneratedProfile[] = [];
     const bestRoles = profile.careerContext?.bestFitRoles?.slice(0, 3) || [];
 
-    console.log('[ContextEngine] Generating profiles for roles:', bestRoles.map(r => r.title));
+    console.log(
+      '[ContextEngine] Generating profiles for roles:',
+      bestRoles.map((r) => r.title)
+    );
 
     if (bestRoles.length === 0) {
       console.warn('[ContextEngine] No bestFitRoles found, skipping profile generation');
@@ -593,15 +677,19 @@ export class CareerContextEngine {
     masterProfile: MasterProfile,
     targetRole: string
   ): Promise<GeneratedProfile | null> {
-    const prompt = PROFILE_GENERATOR_PROMPT
-      .replace('{masterProfile}', sanitizePromptInput(JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2), 'master_profile'))
-      .replace('{targetRole}', targetRole);
+    const prompt = PROFILE_GENERATOR_PROMPT.replace(
+      '{masterProfile}',
+      sanitizePromptInput(
+        JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2),
+        'master_profile'
+      )
+    ).replace('{targetRole}', targetRole);
 
     try {
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.4, maxTokens: 1500 }
-      );
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.4,
+        maxTokens: 1500,
+      });
 
       const result = extractJSON(response.content);
 
@@ -634,17 +722,19 @@ export class CareerContextEngine {
     content: string,
     writingStyle: CareerContext['writingStyle']
   ): Promise<string> {
-    const prompt = HUMANIZE_CONTENT_PROMPT
-      .replace('{content}', sanitizePromptInput(content, 'original_content'))
+    const prompt = HUMANIZE_CONTENT_PROMPT.replace(
+      '{content}',
+      sanitizePromptInput(content, 'original_content')
+    )
       .replace('{tone}', writingStyle.tone)
       .replace('{complexity}', writingStyle.complexity)
       .replace('{voice}', writingStyle.preferredVoice);
 
     try {
-      const response = await this.aiService.chat(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.7, maxTokens: 1000 }
-      );
+      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+        temperature: 0.7,
+        maxTokens: 1000,
+      });
 
       return response.content.trim();
     } catch (error) {
@@ -668,12 +758,22 @@ export class CareerContextEngine {
 Name: ${profile.personal?.fullName}
 Years of Experience: ${profile.careerContext?.yearsOfExperience || 0}
 Primary Domain: ${profile.careerContext?.primaryDomain || 'Unknown'}
-Top Skills: ${profile.skills?.technical?.slice(0, 10).map((s) => s.name).join(', ') || 'N/A'}
+Top Skills: ${
+      profile.skills?.technical
+        ?.slice(0, 10)
+        .map((s) => s.name)
+        .join(', ') || 'N/A'
+    }
 Recent Experience:
 ${JSON.stringify(exp, null, 2)}
 Key Strengths: ${profile.careerContext?.strengthAreas?.slice(0, 5).join(', ') || 'N/A'}
 Top Accomplishments:
-${profile.careerContext?.topAccomplishments?.slice(0, 2).map((a) => `- ${a.statement}`).join('\n') || 'N/A'}
+${
+  profile.careerContext?.topAccomplishments
+    ?.slice(0, 2)
+    .map((a) => `- ${a.statement}`)
+    .join('\n') || 'N/A'
+}
     `.trim();
   }
 
@@ -798,9 +898,8 @@ export function calculateQuickScore(
     }
   }
 
-  const score = techKeywords.length > 0
-    ? Math.round((matched.length / techKeywords.length) * 100)
-    : 0;
+  const score =
+    techKeywords.length > 0 ? Math.round((matched.length / techKeywords.length) * 100) : 0;
 
   return { score, matched, missing };
 }

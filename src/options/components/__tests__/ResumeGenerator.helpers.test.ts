@@ -123,19 +123,20 @@ describe('formatResumeDate', () => {
 // ── getExperienceLevel ──────────────────────────────────────────────────
 
 describe('getExperienceLevel', () => {
-  it('returns "entry" for 0-3 years', () => {
+  it('returns "entry" for 0-5 years', () => {
     expect(getExperienceLevel(0)).toBe('entry');
-    expect(getExperienceLevel(2)).toBe('entry');
     expect(getExperienceLevel(3)).toBe('entry');
+    expect(getExperienceLevel(5)).toBe('entry');
   });
 
-  it('returns "mid" for 4-7 years', () => {
-    expect(getExperienceLevel(4)).toBe('mid');
-    expect(getExperienceLevel(7)).toBe('mid');
+  it('returns "mid" for 6-10 years', () => {
+    expect(getExperienceLevel(6)).toBe('mid');
+    expect(getExperienceLevel(8)).toBe('mid');
+    expect(getExperienceLevel(10)).toBe('mid');
   });
 
-  it('returns "senior" for 8-15 years', () => {
-    expect(getExperienceLevel(8)).toBe('senior');
+  it('returns "senior" for 11-15 years', () => {
+    expect(getExperienceLevel(11)).toBe('senior');
     expect(getExperienceLevel(15)).toBe('senior');
   });
 
@@ -148,14 +149,14 @@ describe('getExperienceLevel', () => {
 // ── getRecommendedPages ─────────────────────────────────────────────────
 
 describe('getRecommendedPages', () => {
-  it('returns 1 page for 0-7 years', () => {
+  it('returns 1 page for 0-10 years', () => {
     expect(getRecommendedPages(0)).toBe(1);
     expect(getRecommendedPages(5)).toBe(1);
-    expect(getRecommendedPages(7)).toBe(1);
+    expect(getRecommendedPages(10)).toBe(1);
   });
 
-  it('returns 2 pages for 8+ years', () => {
-    expect(getRecommendedPages(8)).toBe(2);
+  it('returns 2 pages for 11+ years', () => {
+    expect(getRecommendedPages(11)).toBe(2);
     expect(getRecommendedPages(15)).toBe(2);
     expect(getRecommendedPages(25)).toBe(2);
   });

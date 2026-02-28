@@ -16,33 +16,75 @@ export async function generateChecksum(text: string): Promise<string> {
 }
 
 /**
+ * Extract the work experience section from resume text, excluding education/projects/skills.
+ * This prevents education dates from being counted as work experience.
+ */
+function extractWorkExperienceSection(rawText: string): string {
+  // Common work experience section headers
+  const expHeaders =
+    /\b(work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history|work\s+history)\b/i;
+  // Section headers that END the work experience section
+  const endHeaders =
+    /\b(education|academic|skills|technical\s+skills|certifications|projects|publications|awards|honors|volunteer|interests|references|additional)\b/i;
+
+  const expMatch = expHeaders.exec(rawText);
+  if (!expMatch) return rawText; // Can't find experience section, use full text
+
+  const startIdx = expMatch.index;
+  const afterExp = rawText.substring(startIdx + expMatch[0].length);
+  const endMatch = endHeaders.exec(afterExp);
+
+  if (endMatch) {
+    return rawText.substring(startIdx, startIdx + expMatch[0].length + endMatch.index);
+  }
+  return rawText.substring(startIdx); // Experience goes to end of document
+}
+
+/**
  * Calculate years of experience from text
- * Handles multiple date formats and tries to avoid education dates
+ * Only counts work experience dates, not education dates
  */
 export function estimateYearsOfExperience(rawText: string): number {
   // Look for explicit years of experience mentions
-  const expMatch = rawText.match(/(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:professional\s+)?(?:experience|exp)/i);
+  const expMatch = rawText.match(
+    /(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:professional\s+)?(?:experience|exp)/i
+  );
   if (expMatch) {
     return parseInt(expMatch[1], 10);
   }
+
+  // Extract only the work experience section to avoid counting education dates
+  const workText = extractWorkExperienceSection(rawText);
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1; // 1-12
 
   // Month name mapping
   const monthMap: Record<string, number> = {
-    jan: 1, january: 1,
-    feb: 2, february: 2,
-    mar: 3, march: 3,
-    apr: 4, april: 4,
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
     may: 5,
-    jun: 6, june: 6,
-    jul: 7, july: 7,
-    aug: 8, august: 8,
-    sep: 9, sept: 9, september: 9,
-    oct: 10, october: 10,
-    nov: 11, november: 11,
-    dec: 12, december: 12,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12,
   };
 
   // Extract date ranges with various formats
@@ -56,15 +98,20 @@ export function estimateYearsOfExperience(rawText: string): number {
   const dateRanges: DateRange[] = [];
 
   // Pattern 1: "Month YYYY - Month YYYY" or "Month YYYY - Present"
-  const monthYearPattern = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2}))/gi;
+  const monthYearPattern =
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2}))/gi;
 
-  for (const match of rawText.matchAll(monthYearPattern)) {
+  for (const match of workText.matchAll(monthYearPattern)) {
     const startMonth = monthMap[match[1].toLowerCase().substring(0, 3)] || 1;
     const startYear = parseInt(match[2], 10);
     let endMonth = currentMonth;
     let endYear = currentYear;
 
-    if (match[3].toLowerCase() !== 'present' && match[3].toLowerCase() !== 'current' && match[3].toLowerCase() !== 'now') {
+    if (
+      match[3].toLowerCase() !== 'present' &&
+      match[3].toLowerCase() !== 'current' &&
+      match[3].toLowerCase() !== 'now'
+    ) {
       endMonth = match[4] ? monthMap[match[4].toLowerCase().substring(0, 3)] || 12 : 12;
       endYear = match[5] ? parseInt(match[5], 10) : currentYear;
     }
@@ -75,15 +122,20 @@ export function estimateYearsOfExperience(rawText: string): number {
   }
 
   // Pattern 2: "MM/YYYY - MM/YYYY" or "MM/YYYY - Present"
-  const numericDatePattern = /\b(\d{1,2})\s*[\/\-\.]\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(\d{1,2})\s*[\/\-\.]\s*((?:19|20)\d{2}))/gi;
+  const numericDatePattern =
+    /\b(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2}))/gi;
 
-  for (const match of rawText.matchAll(numericDatePattern)) {
+  for (const match of workText.matchAll(numericDatePattern)) {
     const startMonth = Math.min(12, Math.max(1, parseInt(match[1], 10)));
     const startYear = parseInt(match[2], 10);
     let endMonth = currentMonth;
     let endYear = currentYear;
 
-    if (match[3].toLowerCase() !== 'present' && match[3].toLowerCase() !== 'current' && match[3].toLowerCase() !== 'now') {
+    if (
+      match[3].toLowerCase() !== 'present' &&
+      match[3].toLowerCase() !== 'current' &&
+      match[3].toLowerCase() !== 'now'
+    ) {
       endMonth = match[4] ? Math.min(12, Math.max(1, parseInt(match[4], 10))) : 12;
       endYear = match[5] ? parseInt(match[5], 10) : currentYear;
     }
@@ -94,20 +146,23 @@ export function estimateYearsOfExperience(rawText: string): number {
   }
 
   // Pattern 3: "YYYY - YYYY" or "YYYY - Present" (fallback for year-only formats)
-  const yearOnlyPattern = /\b((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(?:19|20)\d{2})\b/gi;
+  const yearOnlyPattern =
+    /\b((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(?:19|20)\d{2})\b/gi;
 
-  for (const match of rawText.matchAll(yearOnlyPattern)) {
+  for (const match of workText.matchAll(yearOnlyPattern)) {
     const startYear = parseInt(match[1], 10);
     let endYear = currentYear;
 
-    if (match[2].toLowerCase() !== 'present' && match[2].toLowerCase() !== 'current' && match[2].toLowerCase() !== 'now') {
+    if (
+      match[2].toLowerCase() !== 'present' &&
+      match[2].toLowerCase() !== 'current' &&
+      match[2].toLowerCase() !== 'now'
+    ) {
       endYear = parseInt(match[2], 10);
     }
 
     // Only add if we don't already have a more precise match for this range
-    const hasOverlap = dateRanges.some(r =>
-      r.startYear === startYear || r.endYear === endYear
-    );
+    const hasOverlap = dateRanges.some((r) => r.startYear === startYear || r.endYear === endYear);
 
     if (!hasOverlap && endYear >= startYear) {
       // Use conservative estimate: assume full years
@@ -153,8 +208,8 @@ export function estimateYearsOfExperience(rawText: string): number {
     totalMonths += months;
   }
 
-  // Convert to years, rounding appropriately
-  return Math.round(totalMonths / 12);
+  // Convert to years — floor to avoid inflating experience
+  return Math.floor(totalMonths / 12);
 }
 
 /**
@@ -189,9 +244,7 @@ export function extractBasicInfo(rawText: string): {
   // e.g., "LinkedIn: username" or "linkedin/username"
   let linkedInFallback: string | undefined;
   if (!linkedIn) {
-    const linkedInAltMatch = rawText.match(
-      /linkedin[:\s]+(?:\/in\/)?([a-zA-Z0-9_-]{3,})/i
-    );
+    const linkedInAltMatch = rawText.match(/linkedin[:\s]+(?:\/in\/)?([a-zA-Z0-9_-]{3,})/i);
     if (linkedInAltMatch && linkedInAltMatch[1].length >= 3) {
       linkedInFallback = `https://www.linkedin.com/in/${linkedInAltMatch[1]}`;
     }
@@ -341,28 +394,86 @@ function extractSkillsFromText(text: string): string[] {
  * Pure function - no DOM dependencies
  */
 export function extractKeywords(text: string): string[] {
-  const words = text.toLowerCase()
-    .replace(/[^a-z0-9\s\-\.\/\+\#]/g, ' ')
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s\-./+#]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2);
+    .filter((w) => w.length > 2);
 
   // Common tech terms and skills
   const techTerms = new Set<string>();
 
   // Single words
   const singleWordSkills = [
-    'javascript', 'typescript', 'python', 'java', 'golang', 'rust', 'ruby', 'php', 'swift', 'kotlin',
-    'react', 'angular', 'vue', 'svelte', 'nextjs', 'nuxt', 'gatsby',
-    'nodejs', 'express', 'fastapi', 'django', 'flask', 'spring', 'rails',
-    'aws', 'azure', 'gcp', 'heroku', 'vercel', 'netlify',
-    'docker', 'kubernetes', 'terraform', 'ansible', 'jenkins', 'circleci', 'github',
-    'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'dynamodb', 'cassandra',
-    'graphql', 'rest', 'grpc', 'websocket',
-    'linux', 'unix', 'bash', 'powershell',
-    'git', 'jira', 'confluence', 'slack',
-    'agile', 'scrum', 'kanban',
-    'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit',
-    'html', 'css', 'sass', 'tailwind', 'bootstrap',
+    'javascript',
+    'typescript',
+    'python',
+    'java',
+    'golang',
+    'rust',
+    'ruby',
+    'php',
+    'swift',
+    'kotlin',
+    'react',
+    'angular',
+    'vue',
+    'svelte',
+    'nextjs',
+    'nuxt',
+    'gatsby',
+    'nodejs',
+    'express',
+    'fastapi',
+    'django',
+    'flask',
+    'spring',
+    'rails',
+    'aws',
+    'azure',
+    'gcp',
+    'heroku',
+    'vercel',
+    'netlify',
+    'docker',
+    'kubernetes',
+    'terraform',
+    'ansible',
+    'jenkins',
+    'circleci',
+    'github',
+    'postgresql',
+    'mysql',
+    'mongodb',
+    'redis',
+    'elasticsearch',
+    'dynamodb',
+    'cassandra',
+    'graphql',
+    'rest',
+    'grpc',
+    'websocket',
+    'linux',
+    'unix',
+    'bash',
+    'powershell',
+    'git',
+    'jira',
+    'confluence',
+    'slack',
+    'agile',
+    'scrum',
+    'kanban',
+    'tensorflow',
+    'pytorch',
+    'pandas',
+    'numpy',
+    'scikit',
+    'html',
+    'css',
+    'sass',
+    'tailwind',
+    'bootstrap',
   ];
 
   for (const word of words) {
@@ -374,17 +485,42 @@ export function extractKeywords(text: string): string[] {
   // Multi-word terms
   const lowerText = text.toLowerCase();
   const multiWordTerms = [
-    'machine learning', 'deep learning', 'natural language processing', 'nlp',
-    'ci/cd', 'ci cd', 'continuous integration', 'continuous deployment',
-    'test driven development', 'tdd', 'behavior driven development', 'bdd',
-    'amazon web services', 'google cloud', 'microsoft azure',
-    'node.js', 'react.js', 'vue.js', 'next.js',
-    'rest api', 'restful api', 'graphql api',
-    'sql server', 'oracle database',
-    'data structures', 'algorithms', 'system design',
-    'microservices', 'serverless', 'event driven',
-    'unit testing', 'integration testing', 'e2e testing',
-    'project management', 'product management', 'team leadership',
+    'machine learning',
+    'deep learning',
+    'natural language processing',
+    'nlp',
+    'ci/cd',
+    'ci cd',
+    'continuous integration',
+    'continuous deployment',
+    'test driven development',
+    'tdd',
+    'behavior driven development',
+    'bdd',
+    'amazon web services',
+    'google cloud',
+    'microsoft azure',
+    'node.js',
+    'react.js',
+    'vue.js',
+    'next.js',
+    'rest api',
+    'restful api',
+    'graphql api',
+    'sql server',
+    'oracle database',
+    'data structures',
+    'algorithms',
+    'system design',
+    'microservices',
+    'serverless',
+    'event driven',
+    'unit testing',
+    'integration testing',
+    'e2e testing',
+    'project management',
+    'product management',
+    'team leadership',
   ];
 
   for (const term of multiWordTerms) {

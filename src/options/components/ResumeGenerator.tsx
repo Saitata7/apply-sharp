@@ -155,14 +155,14 @@ export function computeYearsFromDates(experience: EnrichedExperience[]): number 
 }
 
 export function getExperienceLevel(years: number): ExperienceLevel {
-  if (years <= 3) return 'entry';
-  if (years <= 7) return 'mid';
+  if (years <= 5) return 'entry';
+  if (years <= 10) return 'mid';
   if (years <= 15) return 'senior';
   return 'executive';
 }
 
 export function getRecommendedPages(years: number): 1 | 2 | 3 {
-  if (years <= 7) return 1;
+  if (years <= 10) return 1;
   return 2;
 }
 
@@ -1432,11 +1432,17 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     const certifications = profile.certifications || [];
     const skillsData = profile.skills;
 
-    const summaryText =
+    let summaryText =
       tailored?.optimizedSummary ||
       activeRole?.tailoredSummary ||
       profile.careerContext?.summary ||
       '';
+
+    // Cap summary to ~3 sentences for 1-page resumes to save space
+    if (targetPages === 1 && summaryText.length > 400) {
+      const sentences = summaryText.match(/[^.!?]+[.!?]+/g) || [summaryText];
+      summaryText = sentences.slice(0, 3).join(' ').trim();
+    }
 
     const enhancedBulletsMap = new Map<string, string[]>();
     if (tailored?.enhancedBullets) {
@@ -1476,13 +1482,13 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
     // ---- Page Layout Constants (US Letter, tight margins) ----
     // US Letter: 8.5" x 11.0" = 12240 x 15840 twips
-    // Margins: 0.5" top/bottom (720 twips), 0.625" left/right (900 twips)
-    // Content width: 8.5" - 1.25" = 7.25" = 10440 twips
-    const MARGIN_TOP = 720;
-    const MARGIN_BOTTOM = 720;
-    const MARGIN_LEFT = 900;
-    const MARGIN_RIGHT = 900;
-    const TAB_STOP_RIGHT = convertInchesToTwip(7.25);
+    // Margins: 0.5" left/right (720 twips), 0.3" top, 0.25" bottom
+    // Content width: 8.5" - 1.0" = 7.5" = 10800 twips
+    const MARGIN_TOP = 432;
+    const MARGIN_BOTTOM = 360;
+    const MARGIN_LEFT = 720;
+    const MARGIN_RIGHT = 720;
+    const TAB_STOP_RIGHT = convertInchesToTwip(7.5);
 
     // Font sizes (half-points) — ATS-safe minimums per CLAUDE.md
     const NAME_SIZE = 36; // 18pt (CLAUDE.md: 18-22pt)
@@ -1500,7 +1506,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         border: {
           bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 1 },
         },
-        spacing: { before: 140, after: 30, line: 240 },
+        spacing: { before: 100, after: 20, line: 240 },
       });
     };
 
@@ -1526,7 +1532,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     const bulletParagraph = (text: string): Paragraph => {
       const cleanText = text.startsWith('\u2022') ? text.substring(1).trim() : text;
       return new Paragraph({
-        bullet: { level: 0 },
+        numbering: { reference: 'bullet-list', level: 0 },
         children: [new TextRun({ text: cleanText, size: BODY_SIZE, font: 'Calibri' })],
         spacing: { before: 0, after: 10, line: 240 },
       });
@@ -1573,7 +1579,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
                 alignment: AlignmentType.LEFT,
                 style: {
                   paragraph: {
-                    indent: { left: convertInchesToTwip(0.35), hanging: convertInchesToTwip(0.17) },
+                    indent: { left: convertInchesToTwip(0.25), hanging: convertInchesToTwip(0.14) },
                   },
                 },
               },
@@ -1736,7 +1742,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
                 new Paragraph({
                   children: parts,
                   alignment: AlignmentType.CENTER,
-                  spacing: { after: 40, line: 240 },
+                  spacing: { after: 20, line: 240 },
                 }),
               ];
             };
@@ -1756,7 +1762,6 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
               ...skillCategories.map(
                 (cat) =>
                   new Paragraph({
-                    indent: { left: 140 },
                     children: [
                       new TextRun({
                         text: `${cat.category}: `,
@@ -1792,7 +1797,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
                 // Spacer paragraph between entries (separate from title to avoid breaking tab stops)
                 const spacer: Paragraph[] =
-                  idx > 0 ? [new Paragraph({ spacing: { before: 60, after: 0, line: 240 } })] : [];
+                  idx > 0 ? [new Paragraph({ spacing: { before: 40, after: 0, line: 240 } })] : [];
 
                 // Line 1: Title (bold) ---- Date (right-aligned) — always spacingBefore: 0
                 const titleLine = alignedLine(
@@ -2164,7 +2169,6 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         'database concepts',
         'api design and development',
         'api design',
-        'system design',
         'web development',
         'agile methodologies',
         'software engineering',
@@ -2177,10 +2181,8 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         'data processing',
         'data processing and optimization',
         'cloud computing',
-        'design patterns',
         'sdlc',
         'oop',
-        'devops',
       ];
       if (exactSkip.includes(n)) return '__SKIP__';
 
@@ -2283,6 +2285,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
           'terraform',
           'jenkins',
           'ci/cd',
+          'devops',
           'lambda',
           'ec2',
           's3',
@@ -2386,22 +2389,60 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       )
         return 'Version Control & PM';
 
-      // APIs & Architecture
+      // APIs & Messaging
+      if (
+        ['rest', 'graphql', 'grpc', 'api', 'kafka', 'rabbitmq', 'soap', 'web services'].some((a) =>
+          n.includes(a)
+        )
+      )
+        return 'APIs & Messaging';
+
+      // Architecture & Design
       if (
         [
-          'rest',
-          'graphql',
-          'grpc',
-          'api',
           'microservices',
-          'kafka',
-          'rabbitmq',
-          'soap',
-          'web services',
           'architecture',
+          'system design',
+          'design patterns',
+          'solid',
+          'distributed systems',
+          'event-driven',
+          'event driven',
+          'cqrs',
+          'event sourcing',
+          'domain-driven',
+          'ddd',
+          'scalability',
+          'high availability',
+          'load balancing',
         ].some((a) => n.includes(a))
       )
-        return 'APIs & Architecture';
+        return 'Architecture & Design';
+
+      // Security
+      if (
+        [
+          'oauth',
+          'jwt',
+          'sso',
+          'encryption',
+          'owasp',
+          'security',
+          'authentication',
+          'authorization',
+          'rbac',
+          'zero trust',
+          'penetration',
+          'vulnerability',
+          'ssl',
+          'tls',
+          'saml',
+          'ldap',
+          'iam',
+          'identity',
+        ].some((s) => n.includes(s))
+      )
+        return 'Security';
 
       // Office & Productivity
       if (
@@ -2472,7 +2513,9 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       'Frontend Technologies',
       'Databases',
       'Cloud & DevOps',
-      'APIs & Architecture',
+      'APIs & Messaging',
+      'Architecture & Design',
+      'Security',
       'Testing & QA',
       'AI/ML Technologies',
       'Data & Analytics',

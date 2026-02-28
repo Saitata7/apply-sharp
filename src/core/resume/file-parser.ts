@@ -160,20 +160,22 @@ async function extractTextFromTXT(file: File): Promise<string> {
  * Normalize and clean extracted text
  */
 function normalizeText(text: string): string {
-  return text
-    // Normalize whitespace
-    .replace(/[\t\f\v]+/g, ' ')
-    // Normalize line endings
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    // Remove excessive newlines (more than 2)
-    .replace(/\n{3,}/g, '\n\n')
-    // Remove leading/trailing whitespace from lines
-    .split('\n')
-    .map((line) => line.trim())
-    .join('\n')
-    // Remove leading/trailing whitespace from document
-    .trim();
+  return (
+    text
+      // Normalize whitespace
+      .replace(/[\t\f\v]+/g, ' ')
+      // Normalize line endings
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      // Remove excessive newlines (more than 2)
+      .replace(/\n{3,}/g, '\n\n')
+      // Remove leading/trailing whitespace from lines
+      .split('\n')
+      .map((line) => line.trim())
+      .join('\n')
+      // Remove leading/trailing whitespace from document
+      .trim()
+  );
 }
 
 /**
@@ -250,7 +252,8 @@ function validateResumeContent(text: string): {
   }
 
   // Check for common job titles
-  const titlePatterns = /\b(engineer|developer|manager|analyst|designer|architect|lead|director|specialist|consultant|coordinator)\b/i;
+  const titlePatterns =
+    /\b(engineer|developer|manager|analyst|designer|architect|lead|director|specialist|consultant|coordinator)\b/i;
   if (titlePatterns.test(text)) {
     score += 1;
   }
@@ -308,9 +311,7 @@ export function extractBasicInfo(rawText: string): {
   // Also try to find LinkedIn mentioned in other formats
   // e.g., "LinkedIn: username" or "linkedin/username"
   if (!linkedIn) {
-    const linkedInAltMatch = rawText.match(
-      /linkedin[:\s]+(?:\/in\/)?([a-zA-Z0-9_-]{3,})/i
-    );
+    const linkedInAltMatch = rawText.match(/linkedin[:\s]+(?:\/in\/)?([a-zA-Z0-9_-]{3,})/i);
     if (linkedInAltMatch && linkedInAltMatch[1].length >= 3) {
       linkedIn = `https://www.linkedin.com/in/${linkedInAltMatch[1]}`;
     }
@@ -338,7 +339,9 @@ export function extractBasicInfo(rawText: string): {
     const cleaned = line.trim();
 
     // Skip lines that look like section headers or contact info
-    if (/^(experience|education|skills|summary|profile|contact|email|phone|address)/i.test(cleaned)) {
+    if (
+      /^(experience|education|skills|summary|profile|contact|email|phone|address)/i.test(cleaned)
+    ) {
       continue;
     }
     if (/@/.test(cleaned) || /linkedin|github|http/i.test(cleaned)) {
@@ -487,35 +490,4 @@ function extractSkillsFromText(text: string): string[] {
   return Array.from(skillsSet).sort();
 }
 
-/**
- * Calculate years of experience from text
- */
-export function estimateYearsOfExperience(rawText: string): number {
-  // Look for explicit years of experience mentions
-  const expMatch = rawText.match(/(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)/i);
-  if (expMatch) {
-    return parseInt(expMatch[1], 10);
-  }
-
-  // Calculate from date ranges
-  const dateRanges = rawText.matchAll(
-    /\b((?:19|20)\d{2})\s*[-–]\s*(present|current|(?:19|20)\d{2})/gi
-  );
-
-  let totalMonths = 0;
-  const currentYear = new Date().getFullYear();
-
-  for (const match of dateRanges) {
-    const startYear = parseInt(match[1], 10);
-    const endYear =
-      match[2].toLowerCase() === 'present' || match[2].toLowerCase() === 'current'
-        ? currentYear
-        : parseInt(match[2], 10);
-
-    if (endYear >= startYear) {
-      totalMonths += (endYear - startYear + 1) * 12;
-    }
-  }
-
-  return Math.round(totalMonths / 12);
-}
+// estimateYearsOfExperience is in text-utils.ts (single source of truth)
