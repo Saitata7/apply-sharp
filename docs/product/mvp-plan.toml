@@ -625,7 +625,7 @@ files       = [
     "src/background/message-handler.ts",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 # ============================================================================
 # PHASE 4: User Experience (Onboarding & Polish)
