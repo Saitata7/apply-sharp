@@ -3,6 +3,8 @@ import type { ResumeVersion } from '@shared/types/resume-version.types';
 interface ResumeVersionCardProps {
   version: ResumeVersion;
   onDelete: (id: string) => void;
+  canCompare?: boolean;
+  onCompare?: (id: string) => void;
 }
 
 function formatDate(date: Date | string): string {
@@ -20,7 +22,12 @@ const FORMAT_LABELS: Record<string, { label: string; color: string }> = {
   json: { label: 'JSON', color: 'amber' },
 };
 
-export default function ResumeVersionCard({ version, onDelete }: ResumeVersionCardProps) {
+export default function ResumeVersionCard({
+  version,
+  onDelete,
+  canCompare,
+  onCompare,
+}: ResumeVersionCardProps) {
   const fmt = FORMAT_LABELS[version.format] || {
     label: version.format.toUpperCase(),
     color: 'slate',
@@ -62,6 +69,30 @@ export default function ResumeVersionCard({ version, onDelete }: ResumeVersionCa
       </div>
 
       <div className="rv-card-actions">
+        {canCompare && onCompare && (
+          <button
+            className="btn btn-ghost btn-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompare(version.id);
+            }}
+            title="Compare with another version"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            Compare
+          </button>
+        )}
         <button
           className="btn btn-ghost btn-xs btn-danger-text"
           onClick={(e) => {

@@ -5,7 +5,13 @@
  */
 
 import { detectFormFields, type DetectedForm } from './autofill/form-detector';
-import { generateFillPreview, fillForm, highlightFilledFields, type FillPreview, type JobContext } from './autofill/filler';
+import {
+  generateFillPreview,
+  fillForm,
+  highlightFilledFields,
+  type FillPreview,
+  type JobContext,
+} from './autofill/filler';
 import { showAutofillSidebar, hideAutofillSidebar } from './autofill/autofill-sidebar';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import { escapeHtml } from '@shared/utils/dom-utils';
@@ -32,7 +38,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-async function handleDetectForm(): Promise<{ success: boolean; data?: DetectedForm; error?: string }> {
+async function handleDetectForm(): Promise<{
+  success: boolean;
+  data?: DetectedForm;
+  error?: string;
+}> {
   try {
     const form = detectFormFields();
     return {
@@ -60,7 +70,10 @@ async function handleAutofill(
         return { success: false, error: 'Extension context invalidated - refresh page' };
       }
       if (!response?.success || !response.data) {
-        showNotification('error', 'No profile found. Please set up your profile in ApplySharp settings.');
+        showNotification(
+          'error',
+          'No profile found. Please set up your profile in ApplySharp settings.'
+        );
         return { success: false, error: 'No profile found' };
       }
       profile = response.data as ResumeProfile;
@@ -78,7 +91,8 @@ async function handleAutofill(
       const mainJob = await getCurrentJobFromMainScript();
 
       // If main script doesn't have the job, try to get stored context (for navigation to application form)
-      let storedJob: { jobTitle?: string; companyName?: string; jobDescription?: string } | null = null;
+      let storedJob: { jobTitle?: string; companyName?: string; jobDescription?: string } | null =
+        null;
       if (!mainJob) {
         storedJob = await getStoredJobContext();
       }
@@ -87,7 +101,8 @@ async function handleAutofill(
       const jobContext: JobContext = {
         companyName: mainJob?.company || storedJob?.companyName || extractCompanyName(),
         jobTitle: mainJob?.title || storedJob?.jobTitle || extractJobTitle(),
-        jobDescription: mainJob?.description || storedJob?.jobDescription || extractJobDescription(),
+        jobDescription:
+          mainJob?.description || storedJob?.jobDescription || extractJobDescription(),
       };
 
       console.log('[Autofill] Job context:', {
@@ -108,7 +123,10 @@ async function handleAutofill(
       highlightFilledFields(result.filledFields);
       showNotification('success', `Filled ${result.filledFields.length} fields successfully!`);
     } else {
-      showNotification('warning', `Filled ${result.filledFields.length} fields. ${result.errors.join(', ')}`);
+      showNotification(
+        'warning',
+        `Filled ${result.filledFields.length} fields. ${result.errors.join(', ')}`
+      );
     }
 
     return {
@@ -175,7 +193,7 @@ function extractCompanyName(): string | undefined {
   }
 
   // Try to extract from URL (e.g., greenhouse.io/companies/acme)
-  const urlMatch = window.location.pathname.match(/companies?\/([^\/]+)/i);
+  const urlMatch = window.location.pathname.match(/companies?\/([^/]+)/i);
   if (urlMatch) {
     return urlMatch[1].replace(/-/g, ' ');
   }
@@ -225,7 +243,11 @@ function extractJobTitle(): string | undefined {
  * Get stored job context from chrome.storage.session
  * This persists when navigating from job page to application form
  */
-async function getStoredJobContext(): Promise<{ jobTitle?: string; companyName?: string; jobDescription?: string } | null> {
+async function getStoredJobContext(): Promise<{
+  jobTitle?: string;
+  companyName?: string;
+  jobDescription?: string;
+} | null> {
   try {
     const result = await chrome.storage.session.get('lastJobContext');
     if (result?.lastJobContext) {
@@ -251,10 +273,17 @@ async function getStoredJobContext(): Promise<{ jobTitle?: string; companyName?:
  * Try to get the current job from the main content script
  * This is more reliable as the main detector already handles dynamic content
  */
-async function getCurrentJobFromMainScript(): Promise<{ title?: string; company?: string; description?: string } | null> {
+async function getCurrentJobFromMainScript(): Promise<{
+  title?: string;
+  company?: string;
+  description?: string;
+} | null> {
   try {
     // Send message to the main content script (same tab)
-    const response = await new Promise<{ success: boolean; data?: { title?: string; company?: string; description?: string } }>((resolve) => {
+    const response = await new Promise<{
+      success: boolean;
+      data?: { title?: string; company?: string; description?: string };
+    }>((resolve) => {
       // Use window messaging since both scripts run in the same context
       const messageId = `jp-get-job-${Date.now()}`;
 
@@ -266,7 +295,7 @@ async function getCurrentJobFromMainScript(): Promise<{ title?: string; company?
       };
 
       window.addEventListener('message', handler);
-      window.postMessage({ type: 'JP_GET_CURRENT_JOB', messageId }, '*');
+      window.postMessage({ type: 'JP_GET_CURRENT_JOB', messageId }, window.location.origin);
 
       // Timeout after 500ms
       setTimeout(() => {
@@ -317,7 +346,13 @@ function extractJobDescription(): string | undefined {
   const lowerText = bodyText.toLowerCase();
 
   // Look for common job description markers
-  const markers = ['responsibilities', 'requirements', 'qualifications', 'what you\'ll do', 'about the role'];
+  const markers = [
+    'responsibilities',
+    'requirements',
+    'qualifications',
+    "what you'll do",
+    'about the role',
+  ];
   for (const marker of markers) {
     const idx = lowerText.indexOf(marker);
     if (idx > 0) {
@@ -388,9 +423,13 @@ function showNotification(type: 'success' | 'error' | 'warning', message: string
       }
     </style>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      ${type === 'success' ? '<polyline points="20,6 9,17 4,12"/>' :
-        type === 'error' ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>' :
-        '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'}
+      ${
+        type === 'success'
+          ? '<polyline points="20,6 9,17 4,12"/>'
+          : type === 'error'
+            ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
+            : '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+      }
     </svg>
     ${escapeHtml(message)}
   `;
@@ -402,4 +441,3 @@ function showNotification(type: 'success' | 'error' | 'warning', message: string
     setTimeout(() => notification.remove(), 300);
   }, 4000);
 }
-

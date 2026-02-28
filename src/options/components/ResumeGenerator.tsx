@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type {
   MasterProfile,
   GeneratedProfile,
@@ -137,6 +137,12 @@ export interface ResumeLayout {
   recommendedPages: 1 | 2 | 3;
 }
 
+export interface ContentExclusions {
+  excludedExperiences: Set<string>;
+  excludedProjects: Set<string>;
+  hiddenSections: Set<SectionType>;
+}
+
 // Compute actual years of experience from job start/end dates (sanity check on careerContext)
 export function computeYearsFromDates(experience: EnrichedExperience[]): number {
   if (!experience.length) return 0;
@@ -162,8 +168,9 @@ export function getExperienceLevel(years: number): ExperienceLevel {
 }
 
 export function getRecommendedPages(years: number): 1 | 2 | 3 {
-  if (years <= 10) return 1;
-  return 2;
+  if (years <= 5) return 1;
+  if (years <= 15) return 2;
+  return 3;
 }
 
 export function getSectionOrder(
@@ -352,6 +359,133 @@ export function computeResumeLayout(input: {
   };
 }
 
+// Section priority scoring — determines which sections to auto-trim when over page budget
+export function computeSectionPriorities(input: {
+  level: ExperienceLevel;
+  yearsOfExperience: number;
+  education: EnrichedEducation[];
+  projects: EnrichedProject[];
+  certifications: Certification[];
+  jdText?: string;
+}): Map<SectionType, number> {
+  const priorities = new Map<SectionType, number>();
+  priorities.set('name', 100);
+  priorities.set('contact', 100);
+  priorities.set('summary', 95);
+  priorities.set('skills', 90);
+  priorities.set('experience', 100);
+
+  // Education priority: high for entry-level, lower if graduated long ago
+  const now = new Date();
+  const gradYearsAgo =
+    input.education.length > 0
+      ? Math.max(
+          ...input.education.map((e) => {
+            const d = e.endDate ? new Date(e.endDate) : now;
+            return (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24 * 365);
+          })
+        )
+      : Infinity;
+
+  if (input.yearsOfExperience <= 3) priorities.set('education', 85);
+  else if (gradYearsAgo > 15) priorities.set('education', 40);
+  else priorities.set('education', 60);
+
+  // Certifications: higher if JD mentions cert-related keywords
+  const hasCertRelevance = input.jdText
+    ? input.certifications.some((c) =>
+        input.jdText!.toLowerCase().includes(c.name.toLowerCase().split(' ')[0])
+      )
+    : input.certifications.length > 0;
+  priorities.set('certifications', hasCertRelevance ? 70 : 30);
+
+  // Projects: high for entry, low for senior+
+  if (input.level === 'entry') priorities.set('projects', 75);
+  else if (input.level === 'mid') priorities.set('projects', 50);
+  else priorities.set('projects', 10);
+
+  return priorities;
+}
+
+// Page satisfaction — auto-trim lowest-priority sections when content exceeds target pages
+export function applyPageSatisfaction(
+  layout: ResumeLayout,
+  exclusions: ContentExclusions,
+  experience: EnrichedExperience[],
+  projects: EnrichedProject[],
+  priorities: Map<SectionType, number>,
+  targetPages: number
+): ResumeLayout {
+  const LINES_PER_PAGE = 52;
+  const maxLines = targetPages * LINES_PER_PAGE;
+
+  const sectionLines = new Map<SectionType, number>();
+  sectionLines.set('name', 2);
+  sectionLines.set('contact', 2);
+  sectionLines.set('summary', 4);
+  sectionLines.set('skills', 6);
+
+  // Experience lines: header + per role (title + company + bullets*2 + spacer)
+  const activeExps = experience.filter(
+    (e) => !exclusions.excludedExperiences.has(e.id || e.company)
+  );
+  let expLines = 2;
+  for (const exp of activeExps) {
+    const roleLayout = layout.experienceRoles.find((r) => r.expId === (exp.id || exp.company));
+    expLines += 3 + (roleLayout?.maxBullets || 3) * 2;
+  }
+  sectionLines.set('experience', expLines);
+
+  sectionLines.set('education', 2 + layout.educationEntries.length * 3);
+
+  const certSection = layout.sections.find((s) => s.type === 'certifications');
+  sectionLines.set('certifications', certSection?.visible ? 3 : 0);
+
+  const activeProjects = projects.filter((p) => !exclusions.excludedProjects.has(p.id || p.name));
+  sectionLines.set('projects', activeProjects.length > 0 ? 2 + activeProjects.length * 5 : 0);
+
+  // Sum visible section lines
+  let totalLines = 0;
+  for (const section of layout.sections) {
+    if (section.visible && !exclusions.hiddenSections.has(section.type)) {
+      totalLines += sectionLines.get(section.type) || 0;
+    }
+  }
+
+  if (totalLines <= maxLines) return layout;
+
+  // Over budget — hide lowest-priority trimmable sections first
+  const UNTOUCHABLE: SectionType[] = ['name', 'contact', 'experience', 'summary', 'skills'];
+  const trimmable = layout.sections
+    .filter(
+      (s) => s.visible && !UNTOUCHABLE.includes(s.type) && !exclusions.hiddenSections.has(s.type)
+    )
+    .sort((a, b) => (priorities.get(a.type) || 0) - (priorities.get(b.type) || 0));
+
+  const newSections = [...layout.sections];
+  for (const trim of trimmable) {
+    if (totalLines <= maxLines) break;
+    const idx = newSections.findIndex((s) => s.type === trim.type);
+    if (idx >= 0) {
+      newSections[idx] = { ...newSections[idx], visible: false };
+      totalLines -= sectionLines.get(trim.type) || 0;
+    }
+  }
+
+  // If still over, reduce bullet budgets on oldest roles
+  const newRoles = [...layout.experienceRoles];
+  if (totalLines > maxLines) {
+    for (let i = newRoles.length - 1; i >= 0 && totalLines > maxLines; i--) {
+      if (newRoles[i].isEarlyCareer || newRoles[i].maxBullets <= 1) continue;
+      const reduce = Math.min(2, newRoles[i].maxBullets - 1);
+      newRoles[i] = { ...newRoles[i], maxBullets: newRoles[i].maxBullets - reduce };
+      totalLines -= reduce * 2;
+    }
+  }
+
+  return { ...layout, sections: newSections, experienceRoles: newRoles };
+}
+
 // Format date from "2021-01" to "January 2021" — shared between DOCX and PDF generators
 export function formatResumeDate(dateStr: string | undefined): string {
   if (!dateStr) return '';
@@ -514,14 +648,6 @@ export function normalizeSkillName(name: string): string {
       .join(', ');
   }
 
-  // Handle "grafana and loki" → "Grafana, Loki"
-  if (lower.includes(' and ')) {
-    return trimmed
-      .split(/\s+and\s+/i)
-      .map((part) => normalizeSkillName(part.trim()))
-      .join(', ');
-  }
-
   // If it's a multi-word phrase like "test-driven" → Title Case
   if (/^[a-z]/.test(trimmed) && trimmed.length > 2) {
     return trimmed
@@ -560,6 +686,25 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
   const [lastGeneratedFormat, setLastGeneratedFormat] = useState<string | null>(null);
   const [showMatchedKeywords, setShowMatchedKeywords] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [originalScore, setOriginalScore] = useState<number>(0);
+  const [exclusions, setExclusions] = useState<ContentExclusions>({
+    excludedExperiences: new Set(),
+    excludedProjects: new Set(),
+    hiddenSections: new Set(),
+  });
+  const [showContentControls, setShowContentControls] = useState(false);
+  const analyzeJobDescriptionRef = useRef<() => Promise<void>>();
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isAnalyzing && !isGenerating && !isTailoring) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isAnalyzing, isGenerating, isTailoring, onClose]);
 
   // Page count control — use actual job dates as ground truth, careerContext as fallback
   const computedYears = useMemo(
@@ -570,26 +715,54 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
   const recommendedPages = getRecommendedPages(yearsOfExp);
   const [targetPages, setTargetPages] = useState<number>(recommendedPages);
 
-  // Layout engine — computes section order, bullet budgets, visibility rules
-  const layout = useMemo(
-    () =>
-      computeResumeLayout({
-        yearsOfExperience: yearsOfExp,
-        targetPages,
-        experience: profile.experience || [],
-        education: profile.education || [],
-        projects: profile.projects || [],
-        certifications: profile.certifications || [],
-      }),
-    [
-      yearsOfExp,
+  // Layout engine — computes section order, bullet budgets, visibility rules,
+  // then applies user exclusions and page satisfaction auto-trimming
+  const layout = useMemo(() => {
+    const base = computeResumeLayout({
+      yearsOfExperience: yearsOfExp,
       targetPages,
-      profile.experience,
-      profile.education,
-      profile.projects,
-      profile.certifications,
-    ]
-  );
+      experience: profile.experience || [],
+      education: profile.education || [],
+      projects: profile.projects || [],
+      certifications: profile.certifications || [],
+    });
+
+    // Apply user exclusions — hide toggled-off sections
+    const sections = base.sections.map((s) =>
+      exclusions.hiddenSections.has(s.type) ? { ...s, visible: false } : s
+    );
+
+    // Compute priorities for page satisfaction
+    const priorities = computeSectionPriorities({
+      level: base.experienceLevel,
+      yearsOfExperience: yearsOfExp,
+      education: profile.education || [],
+      projects: profile.projects || [],
+      certifications: profile.certifications || [],
+      jdText: jobDescription || undefined,
+    });
+
+    const withExclusions = { ...base, sections };
+
+    // Apply page satisfaction — auto-trim if over budget
+    return applyPageSatisfaction(
+      withExclusions,
+      exclusions,
+      profile.experience || [],
+      profile.projects || [],
+      priorities,
+      targetPages
+    );
+  }, [
+    yearsOfExp,
+    targetPages,
+    profile.experience,
+    profile.education,
+    profile.projects,
+    profile.certifications,
+    exclusions,
+    jobDescription,
+  ]);
 
   // Get max bullets for a role from layout engine
   const getMaxBulletsForRole = (expId: string): number => {
@@ -620,7 +793,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
   // Analyze JD and find best matching role
   // Calculate profile keyword counts - reusable for both AI and local analysis
-  const calculateProfileCounts = (): Record<string, number> => {
+  const calculateProfileCounts = useCallback((): Record<string, number> => {
     const counts: Record<string, number> = {};
 
     // Helper to count keyword in text
@@ -732,9 +905,13 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       }
     });
 
-    console.log('[ResumeGenerator] Profile counts calculated:', counts);
+    console.debug(
+      '[ResumeGenerator] Profile counts calculated:',
+      Object.keys(counts).length,
+      'entries'
+    );
     return counts;
-  };
+  }, [profile.experience, profile.skills, generatedProfiles]);
 
   // Add profile counts to matched keywords
   const enrichWithProfileCounts = (
@@ -825,6 +1002,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       setIsAnalyzing(false);
     }
   };
+  analyzeJobDescriptionRef.current = analyzeJobDescription;
 
   // Local keyword-based analysis (fallback) - REAL SCORES ONLY
   const analyzeLocally = (jd: string): JDAnalysis => {
@@ -1206,7 +1384,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
           (response.data.addedToAtsKeywords?.length || 0);
         if (totalAdded > 0) {
           setEnhanceSuccess(`Added ${totalAdded} keywords to your profile!`);
-          setTimeout(() => analyzeJobDescription(), 500);
+          setTimeout(() => analyzeJobDescriptionRef.current?.(), 500);
         } else {
           await enhanceLocally(keywordsToAdd);
         }
@@ -1346,6 +1524,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       setTailoringProgress('Enhancing bullet points with JD keywords...');
 
       if (response.success && response.data) {
+        setOriginalScore(currentScore);
         setTailoredContent(response.data);
         setCurrentScore(response.data.newScore);
         return response.data;
@@ -1412,6 +1591,27 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
       setLastGeneratedFormat(format);
       setShowSaveVersion(true);
+
+      // Auto-save resume version
+      try {
+        await sendMessage({
+          type: 'SAVE_RESUME_VERSION',
+          payload: {
+            profileId: profile.id,
+            roleProfileId: activeRole?.id,
+            format,
+            name: `${activeRole?.targetRole || 'Resume'} - ${new Date().toLocaleDateString()}`,
+            contentSnapshot: JSON.stringify({
+              role: activeRole?.targetRole,
+              summary: activeRole?.tailoredSummary,
+              format,
+            }),
+            atsScore: activeRole?.atsScore,
+          },
+        });
+      } catch {
+        // Non-blocking: version save failure shouldn't affect download
+      }
     } catch (err) {
       console.error('[ResumeGenerator] Failed to generate resume:', err);
       setError(`Failed to generate resume: ${err instanceof Error ? err.message : String(err)}`);
@@ -1757,209 +1957,228 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
             ];
 
             // TECHNICAL SKILLS — Inline format: "Category: skill1, skill2, skill3"
-            const buildSkills = (): Paragraph[] => [
-              sectionHeader('TECHNICAL SKILLS'),
-              ...skillCategories.map(
-                (cat) =>
-                  new Paragraph({
+            const buildSkills = (): Paragraph[] => {
+              if (skillCategories.length === 0) return [];
+              return [
+                sectionHeader('TECHNICAL SKILLS'),
+                ...skillCategories.map(
+                  (cat) =>
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `${cat.category}: `,
+                          bold: true,
+                          size: BODY_SIZE,
+                          font: 'Calibri',
+                        }),
+                        new TextRun({
+                          text: cat.skills.join(', '),
+                          size: BODY_SIZE,
+                          font: 'Calibri',
+                        }),
+                      ],
+                      spacing: { before: 0, after: 10, line: 240 },
+                    })
+                ),
+              ];
+            };
+
+            // WORK EXPERIENCE — Title first (bold, 11pt) with date, Company (italic, 10pt) below
+            const buildExperience = (): Paragraph[] => {
+              const filtered = experience.filter(
+                (exp) => !exclusions.excludedExperiences.has(exp.id || exp.company)
+              );
+              if (filtered.length === 0) return [];
+              return [
+                sectionHeader('WORK EXPERIENCE'),
+                ...filtered.flatMap((exp, idx) => {
+                  const expId = exp.id || exp.company;
+                  const earlyCareer = isEarlyCareerRole(expId);
+                  const bullets = getBullets(exp);
+                  const env = getEnv(exp);
+                  const startDate = formatResumeDate(exp.startDate);
+                  const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
+                  const dateRange = `${startDate} \u2013 ${endDate}`;
+
+                  // Location: prefer "City, ST" format
+                  const location = exp.location || '';
+
+                  // Spacer paragraph between entries (separate from title to avoid breaking tab stops)
+                  const spacer: Paragraph[] =
+                    idx > 0
+                      ? [new Paragraph({ spacing: { before: 40, after: 0, line: 240 } })]
+                      : [];
+
+                  // Line 1: Title (bold) ---- Date (right-aligned) — always spacingBefore: 0
+                  const titleLine = alignedLine(
+                    [
+                      new TextRun({
+                        text: exp.title,
+                        bold: true,
+                        italics: true,
+                        size: TITLE_SIZE,
+                        font: 'Calibri',
+                      }),
+                    ],
+                    dateRange,
+                    0,
+                    0
+                  );
+
+                  // Line 2: Company — Location (italic, 10pt)
+                  const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
+                  const companyLine = new Paragraph({
                     children: [
                       new TextRun({
-                        text: `${cat.category}: `,
+                        text: companyText,
+                        italics: true,
+                        size: BODY_SIZE,
+                        font: 'Calibri',
+                      }),
+                    ],
+                    spacing: { before: 0, after: 20, line: 240 },
+                  });
+
+                  // Early Career: title/company/dates only, no bullets
+                  if (earlyCareer) {
+                    return [...spacer, titleLine, companyLine];
+                  }
+
+                  const result: Paragraph[] = [
+                    ...spacer,
+                    titleLine,
+                    companyLine,
+                    ...bullets.map((b) => bulletParagraph(b)),
+                  ];
+
+                  // Environment line — skip for 1-page to save space
+                  if (env && targetPages > 1) {
+                    result.push(
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: 'Environment: ',
+                            bold: true,
+                            size: BODY_SIZE,
+                            font: 'Calibri',
+                          }),
+                          new TextRun({ text: env, size: BODY_SIZE, font: 'Calibri' }),
+                        ],
+                        spacing: { before: 10, after: 0, line: 240 },
+                      })
+                    );
+                  }
+
+                  return result;
+                }),
+              ];
+            };
+
+            // EDUCATION — Degree (bold) — Institution inline, concentration indented
+            const buildEducation = (): Paragraph[] => {
+              if (education.length === 0) return [];
+              return [
+                sectionHeader('EDUCATION'),
+                ...education.flatMap((edu) => {
+                  const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
+                  const gradDate = formatResumeDate(edu.endDate);
+
+                  // Avoid double "in": "M.S. in Computer Science in Software Development"
+                  const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
+                  const degreeText = degreeHasIn
+                    ? edu.degree
+                    : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+
+                  // Line 1: Degree (bold, 10pt) — Institution (9pt)  ---- Date
+                  const degreeLine = alignedLine(
+                    [
+                      new TextRun({
+                        text: degreeText,
                         bold: true,
                         size: BODY_SIZE,
                         font: 'Calibri',
                       }),
                       new TextRun({
-                        text: cat.skills.join(', '),
-                        size: BODY_SIZE,
+                        text: ` \u2014 ${edu.institution}`,
+                        size: SMALL_SIZE,
                         font: 'Calibri',
                       }),
                     ],
-                    spacing: { before: 0, after: 10, line: 240 },
-                  })
-              ),
-            ];
-
-            // WORK EXPERIENCE — Title first (bold, 11pt) with date, Company (italic, 10pt) below
-            const buildExperience = (): Paragraph[] => [
-              sectionHeader('WORK EXPERIENCE'),
-              ...experience.flatMap((exp, idx) => {
-                const expId = exp.id || exp.company;
-                const earlyCareer = isEarlyCareerRole(expId);
-                const bullets = getBullets(exp);
-                const env = getEnv(exp);
-                const startDate = formatResumeDate(exp.startDate);
-                const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
-                const dateRange = `${startDate} \u2013 ${endDate}`;
-
-                // Location: prefer "City, ST" format
-                const location = exp.location || '';
-
-                // Spacer paragraph between entries (separate from title to avoid breaking tab stops)
-                const spacer: Paragraph[] =
-                  idx > 0 ? [new Paragraph({ spacing: { before: 40, after: 0, line: 240 } })] : [];
-
-                // Line 1: Title (bold) ---- Date (right-aligned) — always spacingBefore: 0
-                const titleLine = alignedLine(
-                  [
-                    new TextRun({
-                      text: exp.title,
-                      bold: true,
-                      italics: true,
-                      size: TITLE_SIZE,
-                      font: 'Calibri',
-                    }),
-                  ],
-                  dateRange,
-                  0,
-                  0
-                );
-
-                // Line 2: Company — Location (italic, 10pt)
-                const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
-                const companyLine = new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: companyText,
-                      italics: true,
-                      size: BODY_SIZE,
-                      font: 'Calibri',
-                    }),
-                  ],
-                  spacing: { before: 0, after: 20, line: 240 },
-                });
-
-                // Early Career: title/company/dates only, no bullets
-                if (earlyCareer) {
-                  return [...spacer, titleLine, companyLine];
-                }
-
-                const result: Paragraph[] = [
-                  ...spacer,
-                  titleLine,
-                  companyLine,
-                  ...bullets.map((b) => bulletParagraph(b)),
-                ];
-
-                // Environment line — skip for 1-page to save space
-                if (env && targetPages > 1) {
-                  result.push(
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: 'Environment: ',
-                          bold: true,
-                          size: BODY_SIZE,
-                          font: 'Calibri',
-                        }),
-                        new TextRun({ text: env, size: BODY_SIZE, font: 'Calibri' }),
-                      ],
-                      spacing: { before: 10, after: 0, line: 240 },
-                    })
+                    eduLayout?.showGraduationDate && gradDate ? gradDate : '',
+                    0,
+                    0
                   );
-                }
 
-                return result;
-              }),
-            ];
+                  const result: Paragraph[] = [degreeLine];
 
-            // EDUCATION — Degree (bold) — Institution inline, concentration indented
-            const buildEducation = (): Paragraph[] => [
-              sectionHeader('EDUCATION'),
-              ...education.flatMap((edu) => {
-                const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
-                const gradDate = formatResumeDate(edu.endDate);
+                  // GPA — only if layout says to show
+                  if (eduLayout?.showGpa && edu.gpa) {
+                    result.push(
+                      new Paragraph({
+                        indent: { left: 140 },
+                        children: [
+                          new TextRun({
+                            text: `GPA: ${edu.gpa}`,
+                            italics: true,
+                            size: SMALL_SIZE,
+                            font: 'Calibri',
+                          }),
+                        ],
+                        spacing: { after: 0, line: 240 },
+                      })
+                    );
+                  }
 
-                // Avoid double "in": "M.S. in Computer Science in Software Development"
-                const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
-                const degreeText = degreeHasIn
-                  ? edu.degree
-                  : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+                  // Coursework — only if layout says to show
+                  if (eduLayout?.showCoursework && edu.relevantCoursework?.length) {
+                    result.push(
+                      new Paragraph({
+                        indent: { left: 140 },
+                        children: [
+                          new TextRun({
+                            text: 'Relevant Coursework: ',
+                            bold: true,
+                            size: SMALL_SIZE,
+                            font: 'Calibri',
+                          }),
+                          new TextRun({
+                            text: edu.relevantCoursework.join(', '),
+                            size: SMALL_SIZE,
+                            font: 'Calibri',
+                          }),
+                        ],
+                        spacing: { after: 0, line: 240 },
+                      })
+                    );
+                  }
 
-                // Line 1: Degree (bold, 10pt) — Institution (9pt)  ---- Date
-                const degreeLine = alignedLine(
-                  [
-                    new TextRun({ text: degreeText, bold: true, size: BODY_SIZE, font: 'Calibri' }),
-                    new TextRun({
-                      text: ` \u2014 ${edu.institution}`,
-                      size: SMALL_SIZE,
-                      font: 'Calibri',
-                    }),
-                  ],
-                  eduLayout?.showGraduationDate && gradDate ? gradDate : '',
-                  0,
-                  0
-                );
+                  // Honors — only if layout says to show
+                  if (eduLayout?.showHonors && edu.honors?.length) {
+                    result.push(
+                      new Paragraph({
+                        indent: { left: 140 },
+                        children: [
+                          new TextRun({
+                            text: 'Honors: ',
+                            bold: true,
+                            size: SMALL_SIZE,
+                            font: 'Calibri',
+                          }),
+                          new TextRun({
+                            text: edu.honors.join(', '),
+                            size: SMALL_SIZE,
+                            font: 'Calibri',
+                          }),
+                        ],
+                        spacing: { after: 0, line: 240 },
+                      })
+                    );
+                  }
 
-                const result: Paragraph[] = [degreeLine];
-
-                // GPA — only if layout says to show
-                if (eduLayout?.showGpa && edu.gpa) {
-                  result.push(
-                    new Paragraph({
-                      indent: { left: 140 },
-                      children: [
-                        new TextRun({
-                          text: `GPA: ${edu.gpa}`,
-                          italics: true,
-                          size: SMALL_SIZE,
-                          font: 'Calibri',
-                        }),
-                      ],
-                      spacing: { after: 0, line: 240 },
-                    })
-                  );
-                }
-
-                // Coursework — only if layout says to show
-                if (eduLayout?.showCoursework && edu.relevantCoursework?.length) {
-                  result.push(
-                    new Paragraph({
-                      indent: { left: 140 },
-                      children: [
-                        new TextRun({
-                          text: 'Relevant Coursework: ',
-                          bold: true,
-                          size: SMALL_SIZE,
-                          font: 'Calibri',
-                        }),
-                        new TextRun({
-                          text: edu.relevantCoursework.join(', '),
-                          size: SMALL_SIZE,
-                          font: 'Calibri',
-                        }),
-                      ],
-                      spacing: { after: 0, line: 240 },
-                    })
-                  );
-                }
-
-                // Honors — only if layout says to show
-                if (eduLayout?.showHonors && edu.honors?.length) {
-                  result.push(
-                    new Paragraph({
-                      indent: { left: 140 },
-                      children: [
-                        new TextRun({
-                          text: 'Honors: ',
-                          bold: true,
-                          size: SMALL_SIZE,
-                          font: 'Calibri',
-                        }),
-                        new TextRun({
-                          text: edu.honors.join(', '),
-                          size: SMALL_SIZE,
-                          font: 'Calibri',
-                        }),
-                      ],
-                      spacing: { after: 0, line: 240 },
-                    })
-                  );
-                }
-
-                return result;
-              }),
-            ];
+                  return result;
+                }),
+              ];
+            };
 
             // CERTIFICATIONS — inline with date
             const buildCertifications = (): Paragraph[] => {
@@ -1990,8 +2209,10 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
             // PROJECTS
             const buildProjects = (): Paragraph[] => {
-              const projects = profile.projects;
-              if (!projects?.length) return [];
+              const projects = (profile.projects || []).filter(
+                (p) => !exclusions.excludedProjects.has(p.id || p.name)
+              );
+              if (!projects.length) return [];
               return [
                 sectionHeader('PROJECTS'),
                 ...projects.flatMap((proj, idx) => {
@@ -2772,10 +2993,14 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       };
 
       const renderExperience = () => {
+        const filtered = experience.filter(
+          (exp) => !exclusions.excludedExperiences.has(exp.id || exp.company)
+        );
+        if (filtered.length === 0) return;
         pdfSectionHeader('WORK EXPERIENCE');
         pdf.setFontSize(bodyFs);
 
-        experience.forEach((exp, idx) => {
+        filtered.forEach((exp, idx) => {
           const expId = exp.id || exp.company;
           const earlyCareer = isEarlyCareerRole(expId);
           const startDate = formatResumeDate(exp.startDate);
@@ -2830,6 +3055,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       };
 
       const renderEducation = () => {
+        if (education.length === 0) return;
         pdfSectionHeader('EDUCATION');
         pdf.setFontSize(bodyFs);
 
@@ -2887,7 +3113,9 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       };
 
       const renderProjects = () => {
-        const projects = profile.projects || [];
+        const projects = (profile.projects || []).filter(
+          (p) => !exclusions.excludedProjects.has(p.id || p.name)
+        );
         if (projects.length === 0) return;
         pdfSectionHeader('PROJECTS');
         pdf.setFontSize(bodyFs);
@@ -2964,7 +3192,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       pdf.save(`${fileName}.pdf`);
     } catch (error) {
       console.error('[ResumeGenerator] PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
+      setError('Failed to generate PDF. Please try again.');
     }
   };
 
@@ -3052,16 +3280,18 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
         ].filter(Boolean),
       },
       skills: skills.map((s) => ({ name: s })),
-      work: experience.map((exp) => ({
-        company: exp.company,
-        position: exp.title,
-        location: exp.location,
-        startDate: exp.startDate,
-        endDate: exp.isCurrent ? 'Present' : exp.endDate,
-        highlights: exp.achievements
-          ?.slice(0, 4)
-          .map((a) => (typeof a === 'string' ? a : a.statement)),
-      })),
+      work: experience
+        .filter((exp) => !exclusions.excludedExperiences.has(exp.id || exp.company))
+        .map((exp) => ({
+          company: exp.company,
+          position: exp.title,
+          location: exp.location,
+          startDate: exp.startDate,
+          endDate: exp.isCurrent ? 'Present' : exp.endDate,
+          highlights: exp.achievements
+            ?.slice(0, 4)
+            .map((a) => (typeof a === 'string' ? a : a.statement)),
+        })),
       education: education.map((edu) => ({
         institution: edu.institution,
         area: edu.field,
@@ -3205,95 +3435,107 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
         </div>
       ),
 
-      skills: () => (
-        <div key="skills">
-          <div style={sectionHeaderStyle}>TECHNICAL SKILLS</div>
-          {skillCategories.map((cat) => (
-            <div key={cat.category} style={{ paddingLeft: '8px', margin: '2px 0' }}>
-              <strong>{cat.category}:</strong> {cat.skills.join(', ')}
-            </div>
-          ))}
-        </div>
-      ),
-
-      experience: () => (
-        <div key="experience">
-          <div style={sectionHeaderStyle}>WORK EXPERIENCE</div>
-          {experience.map((exp, idx) => {
-            const expId = exp.id || exp.company;
-            const earlyCareer = isEarlyCareerRole(expId);
-            const bullets = previewGetBullets(exp);
-            const env = previewGetEnv(exp);
-            const startDate = formatResumeDate(exp.startDate);
-            const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
-            const location = exp.location || '';
-            const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
-
-            return (
-              <div key={expId + idx} style={{ marginTop: idx > 0 ? '10px' : '0' }}>
-                {/* Title (bold, 11pt) ---- Date */}
-                <div style={{ ...alignedRowStyle }}>
-                  <span style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '10pt' }}>
-                    {exp.title}
-                  </span>
-                  <span>{`${startDate} \u2013 ${endDate}`}</span>
-                </div>
-                {/* Company — Location (italic) */}
-                <div style={{ fontStyle: 'italic', marginBottom: earlyCareer ? '0' : '3px' }}>
-                  {companyText}
-                </div>
-                {!earlyCareer && (
-                  <>
-                    <ul style={{ margin: '0', paddingLeft: '20px', listStyleType: 'disc' }}>
-                      {bullets.map((b, bi) => (
-                        <li key={bi} style={{ margin: '1px 0' }}>
-                          {b.startsWith('\u2022') ? b.substring(1).trim() : b}
-                        </li>
-                      ))}
-                    </ul>
-                    {env && (
-                      <div style={{ marginTop: '2px' }}>
-                        <strong>Environment:</strong> {env}
-                      </div>
-                    )}
-                  </>
-                )}
+      skills: () => {
+        if (skillCategories.length === 0) return null;
+        return (
+          <div key="skills">
+            <div style={sectionHeaderStyle}>TECHNICAL SKILLS</div>
+            {skillCategories.map((cat) => (
+              <div key={cat.category} style={{ paddingLeft: '8px', margin: '2px 0' }}>
+                <strong>{cat.category}:</strong> {cat.skills.join(', ')}
               </div>
-            );
-          })}
-        </div>
-      ),
+            ))}
+          </div>
+        );
+      },
 
-      education: () => (
-        <div key="education">
-          <div style={sectionHeaderStyle}>EDUCATION</div>
-          {education.map((edu) => {
-            const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
-            const gradDate = formatResumeDate(edu.endDate);
-            const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
-            const degreeText = degreeHasIn
-              ? edu.degree
-              : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+      experience: () => {
+        const filtered = experience.filter(
+          (exp) => !exclusions.excludedExperiences.has(exp.id || exp.company)
+        );
+        if (filtered.length === 0) return null;
+        return (
+          <div key="experience">
+            <div style={sectionHeaderStyle}>WORK EXPERIENCE</div>
+            {filtered.map((exp, idx) => {
+              const expId = exp.id || exp.company;
+              const earlyCareer = isEarlyCareerRole(expId);
+              const bullets = previewGetBullets(exp);
+              const env = previewGetEnv(exp);
+              const startDate = formatResumeDate(exp.startDate);
+              const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
+              const location = exp.location || '';
+              const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
 
-            return (
-              <div key={edu.id} style={{ marginBottom: '4px' }}>
-                <div style={alignedRowStyle}>
-                  <span>
-                    <strong>{degreeText}</strong>
-                    <span style={{ fontSize: '9pt' }}> \u2014 {edu.institution}</span>
-                  </span>
-                  {eduLayout?.showGraduationDate && gradDate && <span>{gradDate}</span>}
-                </div>
-                {eduLayout?.showGpa && edu.gpa && (
-                  <div style={{ paddingLeft: '8px', fontStyle: 'italic', fontSize: '9pt' }}>
-                    GPA: {edu.gpa}
+              return (
+                <div key={expId + idx} style={{ marginTop: idx > 0 ? '10px' : '0' }}>
+                  {/* Title (bold, 11pt) ---- Date */}
+                  <div style={{ ...alignedRowStyle }}>
+                    <span style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '10pt' }}>
+                      {exp.title}
+                    </span>
+                    <span>{`${startDate} \u2013 ${endDate}`}</span>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ),
+                  {/* Company — Location (italic) */}
+                  <div style={{ fontStyle: 'italic', marginBottom: earlyCareer ? '0' : '3px' }}>
+                    {companyText}
+                  </div>
+                  {!earlyCareer && (
+                    <>
+                      <ul style={{ margin: '0', paddingLeft: '20px', listStyleType: 'disc' }}>
+                        {bullets.map((b, bi) => (
+                          <li key={bi} style={{ margin: '1px 0' }}>
+                            {b.startsWith('\u2022') ? b.substring(1).trim() : b}
+                          </li>
+                        ))}
+                      </ul>
+                      {env && (
+                        <div style={{ marginTop: '2px' }}>
+                          <strong>Environment:</strong> {env}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
+
+      education: () => {
+        if (education.length === 0) return null;
+        return (
+          <div key="education">
+            <div style={sectionHeaderStyle}>EDUCATION</div>
+            {education.map((edu) => {
+              const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
+              const gradDate = formatResumeDate(edu.endDate);
+              const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
+              const degreeText = degreeHasIn
+                ? edu.degree
+                : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+
+              return (
+                <div key={edu.id} style={{ marginBottom: '4px' }}>
+                  <div style={alignedRowStyle}>
+                    <span>
+                      <strong>{degreeText}</strong>
+                      <span style={{ fontSize: '9pt' }}> \u2014 {edu.institution}</span>
+                    </span>
+                    {eduLayout?.showGraduationDate && gradDate && <span>{gradDate}</span>}
+                  </div>
+                  {eduLayout?.showGpa && edu.gpa && (
+                    <div style={{ paddingLeft: '8px', fontStyle: 'italic', fontSize: '9pt' }}>
+                      GPA: {edu.gpa}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
 
       certifications: () => {
         if (certs.length === 0) return null;
@@ -3317,8 +3559,10 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
       },
 
       projects: () => {
-        const projects = profile.projects;
-        if (!projects?.length) return null;
+        const projects = (profile.projects || []).filter(
+          (p) => !exclusions.excludedProjects.has(p.id || p.name)
+        );
+        if (!projects.length) return null;
         return (
           <div key="projects">
             <div style={sectionHeaderStyle}>PROJECTS</div>
@@ -3536,6 +3780,211 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                     </span>
                   )}
                 </div>
+
+                {/* Content Controls — section/experience/project toggles */}
+                <div style={{ marginTop: '12px' }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowContentControls(!showContentControls)}
+                    style={{
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 8px',
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18" />
+                    </svg>
+                    Content Controls
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      {showContentControls ? '▲' : '▼'}
+                    </span>
+                  </button>
+
+                  {showContentControls && (
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        padding: '12px',
+                        background: '#f8fafc',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      {/* Section Toggles */}
+                      <div style={{ marginBottom: '10px' }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                            color: '#475569',
+                            marginBottom: '6px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Sections
+                        </div>
+                        {layout.sections
+                          .filter((s) => !['name', 'contact'].includes(s.type))
+                          .map((section) => {
+                            const locked = ['summary', 'skills', 'experience'].includes(
+                              section.type
+                            );
+                            const userHidden = exclusions.hiddenSections.has(section.type);
+                            const autoHidden = !section.visible && !userHidden;
+                            return (
+                              <label
+                                key={section.type}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '3px 0',
+                                  cursor: locked ? 'not-allowed' : 'pointer',
+                                  opacity: locked ? 0.6 : 1,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!userHidden && section.visible}
+                                  disabled={locked}
+                                  onChange={() => {
+                                    setExclusions((prev) => {
+                                      const next = new Set(prev.hiddenSections);
+                                      if (next.has(section.type)) next.delete(section.type);
+                                      else next.add(section.type);
+                                      return { ...prev, hiddenSections: next };
+                                    });
+                                  }}
+                                />
+                                <span>{section.headerText || section.type}</span>
+                                {locked && (
+                                  <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                                    (required)
+                                  </span>
+                                )}
+                                {autoHidden && (
+                                  <span style={{ fontSize: '0.65rem', color: '#f59e0b' }}>
+                                    (auto-hidden to fit {targetPages}pg)
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
+                      </div>
+
+                      {/* Experience Toggles */}
+                      {(profile.experience?.length || 0) > 1 && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                              color: '#475569',
+                              marginBottom: '6px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Experience
+                          </div>
+                          {(profile.experience || []).map((exp) => {
+                            const expId = exp.id || exp.company;
+                            const excluded = exclusions.excludedExperiences.has(expId);
+                            return (
+                              <label
+                                key={expId}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '3px 0',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!excluded}
+                                  onChange={() => {
+                                    setExclusions((prev) => {
+                                      const next = new Set(prev.excludedExperiences);
+                                      if (next.has(expId)) next.delete(expId);
+                                      else next.add(expId);
+                                      return { ...prev, excludedExperiences: next };
+                                    });
+                                  }}
+                                />
+                                <span>
+                                  {exp.title} @ {exp.company}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Project Toggles */}
+                      {(profile.projects?.length || 0) > 0 && (
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                              color: '#475569',
+                              marginBottom: '6px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Projects
+                          </div>
+                          {(profile.projects || []).map((proj) => {
+                            const projId = proj.id || proj.name;
+                            const excluded = exclusions.excludedProjects.has(projId);
+                            return (
+                              <label
+                                key={projId}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '3px 0',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!excluded}
+                                  onChange={() => {
+                                    setExclusions((prev) => {
+                                      const next = new Set(prev.excludedProjects);
+                                      if (next.has(projId)) next.delete(projId);
+                                      else next.add(projId);
+                                      return { ...prev, excludedProjects: next };
+                                    });
+                                  }}
+                                />
+                                <span>{proj.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="format-options">
                   <button
                     className="format-card"
@@ -3576,6 +4025,37 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                     padding: '16px',
                   }}
                 >
+                  {analysis && !tailoredContent && (
+                    <div
+                      style={{
+                        background: '#fef3c7',
+                        border: '1px solid #f59e0b',
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        marginBottom: '12px',
+                        fontSize: '13px',
+                        color: '#92400e',
+                      }}
+                    >
+                      Preview shows base content. Download will include AI-tailored summary and
+                      enhanced bullets.
+                    </div>
+                  )}
+                  {tailoredContent && (
+                    <div
+                      style={{
+                        background: '#d1fae5',
+                        border: '1px solid #10b981',
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        marginBottom: '12px',
+                        fontSize: '13px',
+                        color: '#065f46',
+                      }}
+                    >
+                      Showing AI-tailored content (score: {tailoredContent.newScore}%)
+                    </div>
+                  )}
                   {renderResumePreview()}
                 </div>
               )}
@@ -3675,11 +4155,43 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
               <div className="match-score-card">
                 <div className="match-score-header">
                   <h3>Strategic Match Score</h3>
-                  <span
-                    className={`score-value ${currentScore >= 70 ? 'good' : currentScore >= 50 ? 'medium' : 'low'}`}
-                  >
-                    {currentScore}%
-                  </span>
+                  {tailoredContent && originalScore > 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          color: '#94a3b8',
+                          fontSize: '0.9rem',
+                          textDecoration: 'line-through',
+                        }}
+                      >
+                        {originalScore}%
+                      </span>
+                      <span style={{ color: '#94a3b8', fontSize: '1rem' }}>→</span>
+                      <span
+                        className={`score-value ${currentScore >= 70 ? 'good' : currentScore >= 50 ? 'medium' : 'low'}`}
+                      >
+                        {currentScore}%
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color: '#22c55e',
+                          background: '#dcfce7',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        +{currentScore - originalScore}
+                      </span>
+                    </div>
+                  ) : (
+                    <span
+                      className={`score-value ${currentScore >= 70 ? 'good' : currentScore >= 50 ? 'medium' : 'low'}`}
+                    >
+                      {currentScore}%
+                    </span>
+                  )}
                 </div>
                 <div className="score-bar">
                   <div
@@ -3959,6 +4471,37 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                     padding: '16px',
                   }}
                 >
+                  {analysis && !tailoredContent && (
+                    <div
+                      style={{
+                        background: '#fef3c7',
+                        border: '1px solid #f59e0b',
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        marginBottom: '12px',
+                        fontSize: '13px',
+                        color: '#92400e',
+                      }}
+                    >
+                      Preview shows base content. Download will include AI-tailored summary and
+                      enhanced bullets.
+                    </div>
+                  )}
+                  {tailoredContent && (
+                    <div
+                      style={{
+                        background: '#d1fae5',
+                        border: '1px solid #10b981',
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        marginBottom: '12px',
+                        fontSize: '13px',
+                        color: '#065f46',
+                      }}
+                    >
+                      Showing AI-tailored content (score: {tailoredContent.newScore}%)
+                    </div>
+                  )}
                   {renderResumePreview()}
                 </div>
               )}

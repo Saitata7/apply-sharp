@@ -36,7 +36,7 @@ export function showSidebar(job: ExtractedJob, platform: JobPlatform): void {
   document.body.appendChild(overlayElement);
 
   // Load saved position or use default
-  const savedTop = localStorage.getItem('jp-panel-top');
+  const savedTop = sessionStorage.getItem('jp-panel-top');
   if (savedTop) {
     overlayElement.style.top = savedTop;
   }
@@ -59,7 +59,9 @@ export function showSidebar(job: ExtractedJob, platform: JobPlatform): void {
   attachDeadlineListeners(overlayElement);
 
   // Scan for requirement gaps (async, updates UI when done)
-  scanAndShowRequirementGaps();
+  scanAndShowRequirementGaps().catch((err) => {
+    console.debug('[Sidebar] Requirement gap scan failed:', err);
+  });
 }
 
 export function hideSidebar(): void {
@@ -377,8 +379,11 @@ function attachDeadlineListeners(overlay: HTMLElement): void {
   });
 
   saveBtn?.addEventListener('click', () => {
-    if (!input.value || !currentJob) return;
-    currentJob.applicationDeadline = new Date(input.value);
+    const trimmedValue = input.value?.trim();
+    if (!trimmedValue || !currentJob) return;
+    const parsed = new Date(trimmedValue);
+    if (isNaN(parsed.getTime())) return;
+    currentJob.applicationDeadline = parsed;
     renderDeadline(overlay, currentJob.applicationDeadline);
     if (inputRow) inputRow.style.display = 'none';
     // Show the deadline row if it was hidden (no auto-detected deadline)
@@ -821,7 +826,16 @@ function attachEventListeners(
 
   // Cover Letter
   overlay.querySelector('#jp-cover-letter-btn')?.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'GENERATE_COVER_LETTER', payload: { job } });
+    chrome.runtime
+      .sendMessage({
+        type: 'GENERATE_COVER_LETTER',
+        payload: {
+          jobDescription: job.description || '',
+          companyName: job.company || '',
+          jobTitle: job.title || '',
+        },
+      })
+      .catch((err) => console.warn('[ApplySharp] Cover letter request failed:', err?.message));
   });
 
   // Settings
@@ -957,7 +971,7 @@ function setupDrag(overlay: HTMLElement, handleSelector: string): void {
       overlayElement.style.transition = 'transform 0.25s ease';
       document.body.style.userSelect = '';
       // Save position
-      localStorage.setItem('jp-panel-top', overlayElement.style.top);
+      sessionStorage.setItem('jp-panel-top', overlayElement.style.top);
     }
   });
 }

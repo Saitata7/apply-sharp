@@ -49,7 +49,7 @@ export default function App() {
   async function checkCurrentTab() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab.id) {
+      if (tab?.id) {
         const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_JOB' });
         if (response?.success && response.data) {
           setCurrentJob(response.data);
@@ -61,12 +61,16 @@ export default function App() {
   }
 
   async function handleProfileChange(profileId: string) {
-    const response = await sendMessage<string, ResumeProfile>({
-      type: 'SET_CURRENT_PROFILE',
-      payload: profileId,
-    });
-    if (response.success && response.data) {
-      setCurrentProfile(response.data);
+    try {
+      const response = await sendMessage<string, ResumeProfile>({
+        type: 'SET_CURRENT_PROFILE',
+        payload: profileId,
+      });
+      if (response.success && response.data) {
+        setCurrentProfile(response.data);
+      }
+    } catch (error) {
+      console.error('[Popup] Failed to change profile:', error);
     }
   }
 
@@ -162,7 +166,7 @@ export default function App() {
             {recentJobs.map((job) => (
               <a
                 key={job.id}
-                href={job.url}
+                href={job.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="job-card"

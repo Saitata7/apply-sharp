@@ -69,9 +69,10 @@ export class AutoImprover {
   private improvements: Map<string, AutoImprovement> = new Map();
   private lastAnalysis: number = 0;
   private analysisInterval = 24 * 60 * 60 * 1000; // Daily
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.initialize();
+    this.initPromise = this.initialize();
   }
 
   private async initialize(): Promise<void> {
@@ -84,10 +85,10 @@ export class AutoImprover {
         }
       }
 
-      // Run analysis if needed
+      // Run analysis if needed (call internal to avoid initPromise deadlock)
       const now = Date.now();
       if (now - this.lastAnalysis > this.analysisInterval) {
-        await this.runFullAnalysis();
+        await this.runFullAnalysisInternal();
       }
     } catch (error) {
       console.debug('[AutoImprover] Initialization failed:', (error as Error).message);
@@ -98,6 +99,11 @@ export class AutoImprover {
    * Run complete analysis and generate improvements
    */
   async runFullAnalysis(): Promise<AutoImprovement[]> {
+    await this.initPromise;
+    return this.runFullAnalysisInternal();
+  }
+
+  private async runFullAnalysisInternal(): Promise<AutoImprovement[]> {
     console.log('[AutoImprover] Running full analysis...');
     this.lastAnalysis = Date.now();
 
@@ -110,106 +116,118 @@ export class AutoImprover {
 
     // 1. Keyword-based improvements
     for (const kw of keywordImprovements.keywordsToEmphasize.slice(0, 5)) {
-      newImprovements.push(this.createImprovement({
-        type: 'keyword_emphasize',
-        priority: 'high',
-        title: `Emphasize "${kw}" more`,
-        description: `This keyword has been performing well. Consider using it more prominently in your applications.`,
-        action: {
-          type: 'modify',
-          target: 'skills',
-          data: { keyword: kw, action: 'emphasize' },
-        },
-        impact: 'Higher response rates on applications using this keyword',
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'keyword_emphasize',
+          priority: 'high',
+          title: `Emphasize "${kw}" more`,
+          description: `This keyword has been performing well. Consider using it more prominently in your applications.`,
+          action: {
+            type: 'modify',
+            target: 'skills',
+            data: { keyword: kw, action: 'emphasize' },
+          },
+          impact: 'Higher response rates on applications using this keyword',
+          autoApplicable: false,
+        })
+      );
     }
 
     // 2. Keywords to de-emphasize
     for (const kw of keywordImprovements.keywordsToDeemphasize.slice(0, 3)) {
-      newImprovements.push(this.createImprovement({
-        type: 'keyword_remove',
-        priority: 'medium',
-        title: `Consider removing or replacing "${kw}"`,
-        description: `This keyword hasn't been helping your applications. Consider replacing with a trending alternative.`,
-        action: {
-          type: 'remove',
-          target: 'skills',
-          data: { keyword: kw, action: 'remove' },
-        },
-        impact: 'Cleaner resume with higher-impact keywords',
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'keyword_remove',
+          priority: 'medium',
+          title: `Consider removing or replacing "${kw}"`,
+          description: `This keyword hasn't been helping your applications. Consider replacing with a trending alternative.`,
+          action: {
+            type: 'remove',
+            target: 'skills',
+            data: { keyword: kw, action: 'remove' },
+          },
+          impact: 'Cleaner resume with higher-impact keywords',
+          autoApplicable: false,
+        })
+      );
     }
 
     // 3. Emerging keywords to add
     for (const kw of keywordImprovements.emergingToAdd.slice(0, 3)) {
-      newImprovements.push(this.createImprovement({
-        type: 'keyword_add',
-        priority: 'high',
-        title: `Add emerging skill: "${kw}"`,
-        description: `This skill is trending in 2025 job postings and showing strong performance.`,
-        action: {
-          type: 'add',
-          target: 'skills',
-          data: { keyword: kw, category: 'emerging' },
-        },
-        impact: 'Stay ahead of hiring trends',
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'keyword_add',
+          priority: 'high',
+          title: `Add emerging skill: "${kw}"`,
+          description: `This skill is trending in 2025 job postings and showing strong performance.`,
+          action: {
+            type: 'add',
+            target: 'skills',
+            data: { keyword: kw, category: 'emerging' },
+          },
+          impact: 'Stay ahead of hiring trends',
+          autoApplicable: false,
+        })
+      );
     }
 
     // 4. Platform-specific improvements
     for (const [platform, insight] of Object.entries(keywordImprovements.platformInsights)) {
       const strategy = getPlatformStrategy(platform);
-      newImprovements.push(this.createImprovement({
-        type: 'platform_specific',
-        priority: 'medium',
-        title: `${strategy.name} optimization`,
-        description: insight,
-        action: {
-          type: 'info',
-          target: 'strategy',
-          data: { platform, strategy: strategy.matchingType },
-        },
-        impact: `Better ATS matching on ${strategy.name}`,
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'platform_specific',
+          priority: 'medium',
+          title: `${strategy.name} optimization`,
+          description: insight,
+          action: {
+            type: 'info',
+            target: 'strategy',
+            data: { platform, strategy: strategy.matchingType },
+          },
+          impact: `Better ATS matching on ${strategy.name}`,
+          autoApplicable: false,
+        })
+      );
     }
 
     // 5. Response rate based improvements
     if (stats.responseRate < 0.1) {
-      newImprovements.push(this.createImprovement({
-        type: 'strategy_shift',
-        priority: 'critical',
-        title: 'Low response rate detected',
-        description: `Your response rate is ${Math.round(stats.responseRate * 100)}%. Consider tailoring resumes more closely to job descriptions and using more exact keyword matches.`,
-        action: {
-          type: 'modify',
-          target: 'resume',
-          data: { recommendation: 'increase_keyword_matching' },
-        },
-        impact: 'Could significantly improve response rates',
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'strategy_shift',
+          priority: 'critical',
+          title: 'Low response rate detected',
+          description: `Your response rate is ${Math.round(stats.responseRate * 100)}%. Consider tailoring resumes more closely to job descriptions and using more exact keyword matches.`,
+          action: {
+            type: 'modify',
+            target: 'resume',
+            data: { recommendation: 'increase_keyword_matching' },
+          },
+          impact: 'Could significantly improve response rates',
+          autoApplicable: false,
+        })
+      );
     }
 
     // 6. Timing insights
     if (stats.avgResponseTimeHours > 0) {
       const avgDays = Math.round(stats.avgResponseTimeHours / 24);
-      newImprovements.push(this.createImprovement({
-        type: 'timing_insight',
-        priority: 'low',
-        title: `Average response time: ${avgDays} days`,
-        description: `Companies typically respond within ${avgDays} days. Consider following up after this period.`,
-        action: {
-          type: 'info',
-          target: 'strategy',
-          data: { avgResponseDays: avgDays },
-        },
-        impact: 'Better follow-up timing',
-        autoApplicable: false,
-      }));
+      newImprovements.push(
+        this.createImprovement({
+          type: 'timing_insight',
+          priority: 'low',
+          title: `Average response time: ${avgDays} days`,
+          description: `Companies typically respond within ${avgDays} days. Consider following up after this period.`,
+          action: {
+            type: 'info',
+            target: 'strategy',
+            data: { avgResponseDays: avgDays },
+          },
+          impact: 'Better follow-up timing',
+          autoApplicable: false,
+        })
+      );
     }
 
     // Save new improvements (don't duplicate)
@@ -259,7 +277,7 @@ export class AutoImprover {
    */
   getActiveImprovements(): AutoImprovement[] {
     return Array.from(this.improvements.values())
-      .filter(i => !i.dismissed && !i.appliedAt)
+      .filter((i) => !i.dismissed && !i.appliedAt)
       .sort((a, b) => {
         const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
@@ -270,14 +288,16 @@ export class AutoImprover {
    * Get improvements by type
    */
   getByType(type: ImprovementType): AutoImprovement[] {
-    return Array.from(this.improvements.values())
-      .filter(i => i.type === type && !i.dismissed && !i.appliedAt);
+    return Array.from(this.improvements.values()).filter(
+      (i) => i.type === type && !i.dismissed && !i.appliedAt
+    );
   }
 
   /**
    * Mark improvement as applied
    */
   async markApplied(id: string): Promise<void> {
+    await this.initPromise;
     const imp = this.improvements.get(id);
     if (imp) {
       imp.appliedAt = Date.now();
@@ -289,6 +309,7 @@ export class AutoImprover {
    * Dismiss improvement
    */
   async dismiss(id: string): Promise<void> {
+    await this.initPromise;
     const imp = this.improvements.get(id);
     if (imp) {
       imp.dismissed = true;
@@ -300,6 +321,7 @@ export class AutoImprover {
    * Get comprehensive learning insights
    */
   async getLearningInsights(): Promise<LearningInsights> {
+    await this.initPromise;
     const stats = await outcomeTracker.getStats();
     const bestKeywords = await outcomeTracker.getBestPerformingKeywords();
     const keywordData = await adaptiveKeywordDB.getAutoImprovements();
@@ -315,25 +337,31 @@ export class AutoImprover {
     let responseRateTrend: 'up' | 'stable' | 'down' = 'stable';
     if (stats.weeklyTrend.length >= 4) {
       const recent = stats.weeklyTrend.slice(-4);
-      const recentAvg = recent.reduce((sum, w) =>
-        sum + (w.applications > 0 ? w.responses / w.applications : 0), 0) / 4;
+      const recentAvg =
+        recent.reduce(
+          (sum, w) => sum + (w.applications > 0 ? w.responses / w.applications : 0),
+          0
+        ) / 4;
 
       const older = stats.weeklyTrend.slice(0, 4);
-      const olderAvg = older.reduce((sum, w) =>
-        sum + (w.applications > 0 ? w.responses / w.applications : 0), 0) / 4;
+      const olderAvg =
+        older.reduce((sum, w) => sum + (w.applications > 0 ? w.responses / w.applications : 0), 0) /
+        4;
 
       if (recentAvg > olderAvg * 1.1) responseRateTrend = 'up';
       else if (recentAvg < olderAvg * 0.9) responseRateTrend = 'down';
     }
 
     // Weekly progress
-    const lastWeek = stats.weeklyTrend.length > 0
-      ? stats.weeklyTrend[stats.weeklyTrend.length - 1]
-      : { applications: 0, responses: 0, interviews: 0 };
+    const lastWeek =
+      stats.weeklyTrend.length > 0
+        ? stats.weeklyTrend[stats.weeklyTrend.length - 1]
+        : { applications: 0, responses: 0, interviews: 0 };
 
-    const prevWeek = stats.weeklyTrend.length > 1
-      ? stats.weeklyTrend[stats.weeklyTrend.length - 2]
-      : { applications: 0, responses: 0, interviews: 0 };
+    const prevWeek =
+      stats.weeklyTrend.length > 1
+        ? stats.weeklyTrend[stats.weeklyTrend.length - 2]
+        : { applications: 0, responses: 0, interviews: 0 };
 
     let weeklyTrend: 'up' | 'stable' | 'down' = 'stable';
     if (lastWeek.responses > prevWeek.responses) weeklyTrend = 'up';
@@ -363,17 +391,18 @@ export class AutoImprover {
     const platformRecommendations: Record<string, string> = {};
     for (const [platform, pStats] of Object.entries(stats.byPlatform)) {
       const strategy = getPlatformStrategy(platform);
-      const responseRate = pStats.applications > 0
-        ? pStats.responses / pStats.applications
-        : 0;
+      const responseRate = pStats.applications > 0 ? pStats.responses / pStats.applications : 0;
 
       if (responseRate < 0.1 && pStats.applications >= 5) {
         if (strategy.keywordFlexibility === 'strict') {
-          platformRecommendations[platform] = 'Use EXACT phrases from job descriptions - this platform requires precise matching';
+          platformRecommendations[platform] =
+            'Use EXACT phrases from job descriptions - this platform requires precise matching';
         } else if (strategy.matchingType === 'frequency') {
-          platformRecommendations[platform] = 'Repeat key skills 2-3 times throughout resume for better ranking';
+          platformRecommendations[platform] =
+            'Repeat key skills 2-3 times throughout resume for better ranking';
         } else {
-          platformRecommendations[platform] = 'Focus on demonstrating achievements with measurable results';
+          platformRecommendations[platform] =
+            'Focus on demonstrating achievements with measurable results';
         }
       } else if (responseRate >= 0.3 && pStats.applications >= 3) {
         platformRecommendations[platform] = `Strong performance! Keep using current approach`;
@@ -384,7 +413,7 @@ export class AutoImprover {
       overallHealth,
       responseRate: stats.responseRate,
       responseRateTrend,
-      topPerformingKeywords: bestKeywords.slice(0, 5).map(k => k.keyword),
+      topPerformingKeywords: bestKeywords.slice(0, 5).map((k) => k.keyword),
       underperformingKeywords: keywordData.keywordsToDeemphasize,
       platformRecommendations,
       nextActions,
@@ -410,6 +439,7 @@ export class AutoImprover {
     platformTips: string[];
     score: number;
   }> {
+    await this.initPromise;
     // Get keyword recommendations
     const keywordRecs = adaptiveKeywordDB.getRecommendations(
       jobKeywords,
@@ -425,13 +455,11 @@ export class AutoImprover {
     const platformTips = strategy.recommendations.slice(0, 3);
 
     // Calculate predicted score based on keyword match + historical performance
-    const matchedCount = jobKeywords.filter(jk =>
-      resumeKeywords.some(rk => rk.toLowerCase() === jk.toLowerCase())
+    const matchedCount = jobKeywords.filter((jk) =>
+      resumeKeywords.some((rk) => rk.toLowerCase() === jk.toLowerCase())
     ).length;
 
-    const matchRate = jobKeywords.length > 0
-      ? matchedCount / jobKeywords.length
-      : 0;
+    const matchRate = jobKeywords.length > 0 ? matchedCount / jobKeywords.length : 0;
 
     // Adjust based on platform type
     let score = Math.round(matchRate * 100);
@@ -454,7 +482,7 @@ export class AutoImprover {
       const data = Array.from(this.improvements.values());
       await chrome.storage.local.set({
         [STORAGE_KEY]: data,
-        'auto_improver_last_analysis': this.lastAnalysis,
+        auto_improver_last_analysis: this.lastAnalysis,
       });
     } catch (error) {
       console.debug('[AutoImprover] Failed to save to storage:', (error as Error).message);

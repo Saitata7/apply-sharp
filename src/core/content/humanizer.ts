@@ -6,7 +6,7 @@
 
 import type { AIService } from '@/ai';
 import type { CareerContext } from '@shared/types/master-profile.types';
-import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
+import { PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 
 // Common AI phrases to avoid
 const AI_PHRASES = [
@@ -47,11 +47,11 @@ const PHRASE_ALTERNATIVES: Record<string, string[]> = {
   'results-driven': ['focused on outcomes', 'goal-oriented'],
   'highly motivated': ['eager', 'ready', 'committed'],
   'proven track record': ['experience with', 'history of'],
-  'leverage': ['use', 'apply', 'bring'],
-  'utilize': ['use', 'apply'],
+  leverage: ['use', 'apply', 'bring'],
+  utilize: ['use', 'apply'],
   'cutting-edge': ['modern', 'current', 'new'],
-  'seamless': ['smooth', 'easy', 'straightforward'],
-  'robust': ['solid', 'strong', 'reliable'],
+  seamless: ['smooth', 'easy', 'straightforward'],
+  robust: ['solid', 'strong', 'reliable'],
 };
 
 export interface HumanizerOptions {
@@ -108,10 +108,10 @@ ${content}
 Return ONLY the rewritten content, nothing else.`;
 
   try {
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.7, maxTokens: 1500 }
-    );
+    const response = await aiService.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.7,
+      maxTokens: 1500,
+    });
 
     return response.content.trim();
   } catch (error) {
@@ -139,9 +139,12 @@ export function humanizeWithRules(content: string): string {
   // Remove common AI patterns
   const patternsToSimplify = [
     // "I am writing to" → just start with the content
-    { pattern: /^I am writing to (express my interest in|apply for|inquire about)/i, replacement: "I'm applying for" },
+    {
+      pattern: /^I am writing to (express my interest in|apply for|inquire about)/i,
+      replacement: "I'm applying for",
+    },
     // "I would like to express" → direct statement
-    { pattern: /I would like to express (my|that)/gi, replacement: "I" },
+    { pattern: /I would like to express (my|that)/gi, replacement: 'I' },
     // "Proven track record of" → "experience with"
     { pattern: /proven track record of/gi, replacement: 'experience with' },
     // "Extensive experience in" → "experience in"
@@ -192,9 +195,7 @@ function addContractions(text: string): string {
   let result = text;
   for (const [pattern, replacement] of contractions) {
     // Only apply contractions in about 70% of cases for natural variation
-    result = result.replace(pattern, (match) =>
-      Math.random() > 0.3 ? replacement : match
-    );
+    result = result.replace(pattern, (match) => (Math.random() > 0.3 ? replacement : match));
   }
 
   return result;
@@ -251,125 +252,6 @@ function rephraseIStart(sentence: string): string {
   }
 
   return sentence;
-}
-
-/**
- * Generate humanized cover letter
- */
-export async function generateHumanizedCoverLetter(
-  companyName: string,
-  jobTitle: string,
-  jobDescription: string,
-  profileSummary: string,
-  writingStyle: CareerContext['writingStyle'],
-  aiService: AIService
-): Promise<string> {
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
-
-Write a cover letter that sounds like a real person wrote it, not AI.
-
-## Job Details
-Company: ${companyName}
-Position: ${jobTitle}
-${sanitizePromptInput(jobDescription.slice(0, 2000), 'job_description')}
-
-## Candidate Profile
-<candidate_profile>
-${profileSummary}
-</candidate_profile>
-
-## Writing Guidelines
-- Tone: ${writingStyle.tone}
-- Voice: ${writingStyle.preferredVoice}
-
-## Critical Rules - Sound Human
-1. Do NOT start with "I am excited/thrilled/passionate"
-2. Do NOT use phrases like "leverage my skills" or "proven track record"
-3. DO use contractions naturally (I'm, I've, don't)
-4. DO vary your sentence lengths - some short, some medium
-5. DO be specific about achievements, not generic
-6. DO start with something specific about the company or role
-7. Keep it to 3 paragraphs, ~250 words
-8. End confidently but not formulaically
-
-## Example of BAD (AI-sounding) opener:
-"I am thrilled to express my interest in the Software Engineer position at TechCorp. With my proven track record of delivering results and passionate commitment to excellence..."
-
-## Example of GOOD (human-sounding) opener:
-"The backend challenges TechCorp is tackling caught my attention - particularly the work on scaling real-time data pipelines. That's exactly what I've spent the last three years doing at my current company."
-
-Now write the cover letter. Return ONLY the letter text, no explanation.`;
-
-  try {
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.75, maxTokens: 1000 }
-    );
-
-    let letter = response.content.trim();
-
-    // Post-process to ensure humanization
-    letter = humanizeWithRules(letter);
-
-    return letter;
-  } catch (error) {
-    console.error('Cover letter generation failed:', error);
-    throw error;
-  }
-}
-
-/**
- * Generate humanized answer for application question
- */
-export async function generateHumanizedAnswer(
-  question: string,
-  profileContext: string,
-  jobContext: string,
-  writingStyle: CareerContext['writingStyle'],
-  aiService: AIService,
-  maxWords = 200
-): Promise<string> {
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
-
-Answer this job application question naturally, as a real person would.
-
-## Question
-<question>
-${question}
-</question>
-
-## About the Candidate
-<candidate_profile>
-${profileContext}
-</candidate_profile>
-
-## Job Context
-<job_context>
-${jobContext}
-</job_context>
-
-## Guidelines
-- Answer in ${writingStyle.preferredVoice} voice
-- Use ${writingStyle.tone} tone
-- Maximum ${maxWords} words
-- Be specific with examples
-- Use contractions naturally
-- Don't start with "I am passionate about" or similar
-- Sound authentic, not rehearsed
-
-Return ONLY the answer, nothing else.`;
-
-  try {
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.6, maxTokens: 500 }
-    );
-
-    return humanizeWithRules(response.content.trim());
-  } catch (error) {
-    console.error('Answer generation failed:', error);
-    throw error;
-  }
 }
 
 /**

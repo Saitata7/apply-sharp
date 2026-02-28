@@ -258,7 +258,7 @@ function validateDates(dates: string[], issues: FormatIssue[]): number {
   if (dates.length === 0) return 100;
 
   let score = 100;
-  const penaltyPerBad = Math.round(100 / dates.length);
+  const penaltyPerBad = Math.min(25, Math.round(100 / dates.length));
 
   for (const date of dates) {
     const trimmed = date.trim();

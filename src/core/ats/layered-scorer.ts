@@ -610,6 +610,7 @@ export function detectSkillAreas(jobDescription: string): SkillAreaWeight[] {
         mentions += matches.length;
 
         // Check if in requirements section
+        regex.lastIndex = 0; // Reset after .match() to avoid stale lastIndex
         if (requirementsSection && regex.test(requirementsSection)) {
           inRequirements = true;
         }
@@ -629,6 +630,8 @@ export function detectSkillAreas(jobDescription: string): SkillAreaWeight[] {
 
   // Calculate weights based on mentions
   const totalMentions = areas.reduce((sum, a) => sum + a.mentions, 0);
+
+  if (totalMentions === 0) return areas;
 
   for (const area of areas) {
     // Base weight from mention frequency
@@ -701,8 +704,10 @@ export function getSkillAreasForRole(
 
     // Normalize
     const totalWeight = defaultAreas.reduce((sum, a) => sum + a.weight, 0);
-    for (const area of defaultAreas) {
-      area.weight = Math.round((area.weight / totalWeight) * 100);
+    if (totalWeight > 0) {
+      for (const area of defaultAreas) {
+        area.weight = Math.round((area.weight / totalWeight) * 100);
+      }
     }
 
     defaultAreas.sort((a, b) => b.weight - a.weight);
@@ -1224,7 +1229,7 @@ function generateRecommendations(
 function getTier(score: number): 'excellent' | 'good' | 'moderate' | 'poor' {
   if (score >= 80) return 'excellent';
   if (score >= 60) return 'good';
-  if (score >= 40) return 'moderate';
+  if (score >= 40) return 'moderate'; // Type matches LayeredATSResult.tier
   return 'poor';
 }
 

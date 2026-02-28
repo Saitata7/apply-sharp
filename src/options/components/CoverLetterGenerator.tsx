@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { sendMessage } from '@shared/utils/messaging';
 import { Document, Packer, Paragraph, TextRun, convertInchesToTwip } from 'docx';
 
@@ -32,6 +32,7 @@ export default function CoverLetterGenerator({
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
 
@@ -39,6 +40,23 @@ export default function CoverLetterGenerator({
   const [editedText, setEditedText] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Track mounted state for timer cleanup
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isGenerating) onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isGenerating, onClose]);
 
   const currentText = isEditing ? editedText : result?.coverLetter || '';
   const wordCount = currentText.trim().split(/\s+/).filter(Boolean).length;
@@ -67,9 +85,18 @@ export default function CoverLetterGenerator({
     }
 
     setIsGenerating(true);
+    setGeneratingStep('Analyzing job description...');
     setError(null);
     setResult(null);
     setIsEditing(false);
+
+    // Show progressive steps for user feedback
+    const stepTimer = setTimeout(() => {
+      if (mountedRef.current) setGeneratingStep('Crafting your cover letter...');
+    }, 3000);
+    const stepTimer2 = setTimeout(() => {
+      if (mountedRef.current) setGeneratingStep('Polishing and finalizing...');
+    }, 8000);
 
     try {
       const response = await sendMessage<
@@ -94,7 +121,10 @@ export default function CoverLetterGenerator({
     } catch (err) {
       setError(`Generation failed: ${(err as Error).message}`);
     } finally {
+      clearTimeout(stepTimer);
+      clearTimeout(stepTimer2);
       setIsGenerating(false);
+      setGeneratingStep('');
     }
   }
 
@@ -162,11 +192,11 @@ export default function CoverLetterGenerator({
     URL.revokeObjectURL(url);
   }
 
-  function handleRegenerate() {
+  async function handleRegenerate() {
     setResult(null);
     setIsEditing(false);
     setEditedText('');
-    handleGenerate();
+    await handleGenerate();
   }
 
   return (
@@ -334,7 +364,7 @@ export default function CoverLetterGenerator({
             {isGenerating && (
               <div className="cl-loading">
                 <div className="cl-loading-spinner" />
-                <p>Analyzing job description...</p>
+                <p>{generatingStep || 'Analyzing job description...'}</p>
                 <span>Creating a tailored cover letter using your profile</span>
               </div>
             )}

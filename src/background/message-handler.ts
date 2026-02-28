@@ -36,8 +36,14 @@ import { DEPRECATED_GROQ_MODELS } from '@shared/constants/models';
 
 export async function handleMessage(
   message: Message,
-  _sender: chrome.runtime.MessageSender
+  sender: chrome.runtime.MessageSender
 ): Promise<MessageResponse> {
+  // Validate sender origin — only accept messages from our own extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[ApplySharp] Rejected message from unknown sender:', sender.id);
+    return { success: false, error: 'Unauthorized sender' };
+  }
+
   switch (message.type) {
     case 'GET_PROFILES':
       return handleGetProfiles();
@@ -105,7 +111,7 @@ export async function handleMessage(
       );
 
     case 'START_AUTOFILL':
-      return handleStartAutofill(_sender.tab?.id);
+      return handleStartAutofill(sender.tab?.id);
 
     case 'OPTIMIZE_RESUME':
       return handleOptimizeResume(message.payload as { job: ExtractedJob });
@@ -556,9 +562,11 @@ async function handleSaveJob(
       salary: jobData.salary,
       employmentType: jobData.employmentType || 'unknown',
       postedDate: jobData.postedDate,
-      applicationDeadline: jobData.applicationDeadline
-        ? new Date(jobData.applicationDeadline)
-        : undefined,
+      applicationDeadline: (() => {
+        if (!jobData.applicationDeadline) return undefined;
+        const d = new Date(jobData.applicationDeadline);
+        return isNaN(d.getTime()) ? undefined : d;
+      })(),
       sponsorshipStatus: jobData.sponsorshipStatus,
     };
 
@@ -702,25 +710,86 @@ async function handleStartAutofill(tabId?: number): Promise<MessageResponse> {
 }
 
 async function handleOptimizeResume(payload: { job: ExtractedJob }): Promise<MessageResponse> {
-  // This would use AI to suggest resume optimizations
-  // For now, return the keywords to add
   try {
-    const profile = await profileRepo.getDefault();
-    if (!profile?.rawResumeText) {
-      return { success: false, error: 'No resume text in profile' };
+    // Try MasterProfile first, fall back to legacy profile
+    const masterProfile = await masterProfileRepo.getActive();
+    const legacyProfile = !masterProfile ? await profileRepo.getDefault() : null;
+    const resumeText = masterProfile?.sourceDocument?.rawText || legacyProfile?.rawResumeText;
+
+    if (!resumeText) {
+      return { success: false, error: 'No resume found. Please upload your resume first.' };
     }
 
-    const keywords = getKeywordsToAdd(profile.rawResumeText, payload.job.description);
+    const keywords = getKeywordsToAdd(resumeText, payload.job.description);
 
+    // Try AI-powered optimization if available
+    const settings = await getSettingsWithMigrations();
+    if (settings?.ai?.provider) {
+      try {
+        const aiService = new AIService(settings.ai);
+        const isAvailable = await aiService.isAvailable();
+        if (isAvailable) {
+          const prompt = `${PROMPT_SAFETY_PREAMBLE}
+You are an expert resume strategist. Analyze this job posting and the candidate's resume, then provide specific, actionable optimization suggestions.
+
+Job Title: ${sanitizePromptInput(payload.job.title || '', 'job_title')}
+Company: ${sanitizePromptInput(payload.job.company || '', 'company')}
+Job Description: ${sanitizePromptInput(payload.job.description || '', 'job_description')}
+
+Resume Text: ${sanitizePromptInput(resumeText.slice(0, 3000), 'resume_text')}
+
+Missing Keywords: ${keywords.slice(0, 10).join(', ')}
+
+Return JSON:
+{
+  "suggestions": ["specific actionable suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4", "suggestion 5"],
+  "summaryTip": "one-sentence tip for improving the professional summary for this role",
+  "fitScore": 0-100
+}`;
+
+          const response = await aiService.chat([{ role: 'user', content: prompt }], {
+            temperature: 0.4,
+            maxTokens: 800,
+          });
+
+          const parsed = extractJSONFromResponse<{
+            suggestions?: string[];
+            summaryTip?: string;
+            fitScore?: number;
+          }>(response.content);
+          if (parsed && Array.isArray(parsed.suggestions)) {
+            return {
+              success: true,
+              data: {
+                keywordsToAdd: keywords,
+                suggestions: parsed.suggestions,
+                summaryTip: parsed.summaryTip || '',
+                fitScore: parsed.fitScore || null,
+                aiPowered: true,
+              },
+            };
+          }
+        }
+      } catch (aiError) {
+        console.warn('[OptimizeResume] AI optimization failed, using keyword fallback:', aiError);
+      }
+    }
+
+    // Fallback: keyword-based suggestions
     return {
       success: true,
       data: {
         keywordsToAdd: keywords,
         suggestions: [
-          `Add these keywords to improve your ATS score: ${keywords.slice(0, 5).join(', ')}`,
-          'Consider adding specific achievements with numbers',
-          'Tailor your summary to match the job requirements',
+          keywords.length > 0
+            ? `Add these missing keywords: ${keywords.slice(0, 5).join(', ')}`
+            : 'Your resume already contains the key terms from this job posting.',
+          'Quantify your achievements with specific numbers and metrics.',
+          'Tailor your professional summary to highlight skills matching this role.',
+          'Use action verbs that match the job description language.',
+          'Ensure your most relevant experience appears first.',
         ],
+        aiPowered: false,
       },
     };
   } catch (error) {
@@ -783,10 +852,16 @@ async function handleAnalyzeResume(payload: {
     const savedProfile = await masterProfileRepo.getActive();
     console.log('[MessageHandler] Verification - Active profile:', savedProfile?.id);
 
-    // SYNC: Also create a ResumeProfile for the Profile Manager
+    // SYNC: Also create/update a ResumeProfile for the Profile Manager
     // This ensures both systems stay in sync
     const existingProfiles = await profileRepo.getAll();
     const isFirstProfile = existingProfiles.length === 0;
+
+    // Check if a ResumeProfile already exists for this master profile (re-upload case)
+    const existingResumeProfile = existingProfiles.find(
+      (p) =>
+        p.rawResumeText === payload.rawText || p.name === (masterProfile.personal?.fullName || '')
+    );
 
     // Build location string from MasterProfile location object
     const locationStr =
@@ -853,8 +928,13 @@ async function handleAnalyzeResume(payload: {
       rawResumeText: payload.rawText,
     };
 
-    await profileRepo.create(resumeProfile);
-    console.log('[ApplySharp] Created synced ResumeProfile from MasterProfile');
+    if (existingResumeProfile) {
+      await profileRepo.update(existingResumeProfile.id, resumeProfile);
+      console.log('[ApplySharp] Updated existing ResumeProfile from MasterProfile');
+    } else {
+      await profileRepo.create(resumeProfile);
+      console.log('[ApplySharp] Created synced ResumeProfile from MasterProfile');
+    }
 
     return { success: true, data: masterProfile };
   } catch (error) {
@@ -1173,9 +1253,10 @@ Return ONLY valid JSON:
   });
 
   try {
-    const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const result = JSON.parse(jsonMatch[0]);
+    const result = extractJSONFromResponse<{ highPriority?: string[]; lowPriority?: string[] }>(
+      response.content
+    );
+    if (result) {
       return {
         highPriority: Array.isArray(result.highPriority) ? result.highPriority : [],
         lowPriority: Array.isArray(result.lowPriority) ? result.lowPriority : [],
@@ -1496,9 +1577,8 @@ Return ONLY valid JSON.`;
 
     // Parse the AI response
     try {
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
+      const result = extractJSONFromResponse(response.content);
+      if (result) {
         return { success: true, data: result };
       }
     } catch (error) {
@@ -1662,16 +1742,10 @@ Return ONLY valid JSON, no explanations.`;
     });
 
     // Parse the AI response
-    let updates;
-    try {
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        updates = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (error) {
-      console.debug('[MessageHandler] AI profile update parse failed:', (error as Error).message);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updates = extractJSONFromResponse<Record<string, any>>(response.content);
+    if (!updates) {
+      console.debug('[MessageHandler] AI profile update parse failed: No JSON found');
       return { success: false, error: 'Failed to parse AI response. Please try again.' };
     }
 
@@ -1772,8 +1846,9 @@ Return ONLY valid JSON, no explanations.`;
       });
 
       if (duplicateIndices.length > 1) {
-        // Remove all except the one to keep
-        const indexToKeep = duplicateIndices[keepIndex] ?? duplicateIndices[0];
+        // Remove all except the one to keep (clamp keepIndex to valid range)
+        const clampedKeepIndex = Math.max(0, Math.min(keepIndex, duplicateIndices.length - 1));
+        const indexToKeep = duplicateIndices[clampedKeepIndex] ?? duplicateIndices[0];
         updatedProfile.experience = updatedProfile.experience?.filter((_, idx) => {
           if (idx === indexToKeep) return true; // Keep this one
           return !duplicateIndices.includes(idx); // Remove other duplicates
@@ -1812,15 +1887,15 @@ Return ONLY valid JSON, no explanations.`;
         relevanceMap: {},
       };
       // Mark previous current job as not current
-      if (newExp.isCurrent && profile.experience?.[0]?.isCurrent) {
-        updatedProfile.experience = profile.experience.map((exp, i) =>
-          i === 0 ? { ...exp, isCurrent: false, endDate: newExp.startDate } : exp
-        );
+      const existingExperience = [...(profile.experience || [])];
+      if (newExp.isCurrent && existingExperience[0]?.isCurrent) {
+        existingExperience[0] = {
+          ...existingExperience[0],
+          isCurrent: false,
+          endDate: newExp.startDate,
+        };
       }
-      updatedProfile.experience = [
-        newExp,
-        ...(updatedProfile.experience || profile.experience || []),
-      ];
+      updatedProfile.experience = [newExp, ...existingExperience];
     }
 
     // Add achievements to current job
@@ -2214,7 +2289,7 @@ Return a JSON object:
 
 Return ONLY valid JSON.`;
 
-    let jdAnalysis = {
+    const jdAnalysis = {
       businessContext: {
         coreProblem: '',
         successIn6Months: '',
@@ -2254,10 +2329,23 @@ Return ONLY valid JSON.`;
         temperature: 0.2,
         maxTokens: 1500,
       });
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        jdAnalysis = { ...jdAnalysis, ...parsed };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed = extractJSONFromResponse<Record<string, any>>(response.content);
+      if (parsed) {
+        // Merge only known fields to preserve jdAnalysis type
+        if (parsed.businessContext)
+          jdAnalysis.businessContext = { ...jdAnalysis.businessContext, ...parsed.businessContext };
+        if (parsed.mustHaves) jdAnalysis.mustHaves = parsed.mustHaves;
+        if (parsed.niceToHaves) jdAnalysis.niceToHaves = parsed.niceToHaves;
+        if (parsed.senioritySignals)
+          jdAnalysis.senioritySignals = {
+            ...jdAnalysis.senioritySignals,
+            ...parsed.senioritySignals,
+          };
+        if (parsed.cultureSignals)
+          jdAnalysis.cultureSignals = { ...jdAnalysis.cultureSignals, ...parsed.cultureSignals };
+        if (parsed.hiddenRequirements) jdAnalysis.hiddenRequirements = parsed.hiddenRequirements;
+        if (parsed.redFlags) jdAnalysis.redFlags = parsed.redFlags;
         // Map to legacy fields for backwards compatibility
         jdAnalysis.requiredSkills = parsed.mustHaves?.map((m: { skill: string }) => m.skill) || [];
         jdAnalysis.preferredSkills =
@@ -2483,8 +2571,8 @@ Return ONLY valid JSON.`;
     // CULTURE FIT (10% weight) - industry overlap, company stage match
     const profileIndustries =
       masterProfile.careerContext?.industryExperience?.map((i) => i.toLowerCase()) || [];
-    const hasIndustryMatch = profileIndustries.length > 0; // Simplified - could be enhanced
-    const cultureScore = hasIndustryMatch ? 80 : 60;
+    const hasIndustryMatch = profileIndustries.some((ind) => cleanedJD.toLowerCase().includes(ind));
+    const cultureScore = hasIndustryMatch ? 85 : profileIndustries.length > 0 ? 65 : 50;
 
     // WEIGHTED TOTAL SCORE
     const matchScore = Math.round(
@@ -2781,9 +2869,9 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
         temperature: 0.3,
         maxTokens: 800,
       });
-      const jsonMatch = jdResponse.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jdAnalysis = JSON.parse(jsonMatch[0]);
+      const parsed = extractJSONFromResponse(jdResponse.content);
+      if (parsed) {
+        jdAnalysis = parsed as typeof jdAnalysis;
       }
     } catch (parseError) {
       console.warn('[OptimizeResume] JD analysis parse failed, continuing with basic approach');
@@ -2938,16 +3026,15 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
         { temperature: 0.5, maxTokens: 4000 } // Increased for more bullets per role
       );
       // Parse JSON response
-      const jsonMatch = bulletsResponse.content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        // Validate structure before using
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item) => item.expId && Array.isArray(item.bullets))
-        ) {
-          enhancedBullets = parsed;
-        }
+      const parsed = extractJSONFromResponse<Array<{ expId: string; bullets: string[] }>>(
+        bulletsResponse.content,
+        'array'
+      );
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item) => item.expId && Array.isArray(item.bullets))
+      ) {
+        enhancedBullets = parsed;
       }
     } catch (parseError) {
       // If parsing fails, keep original bullets
@@ -3667,6 +3754,23 @@ async function handleCreateApplication(
 ): Promise<MessageResponse> {
   try {
     const application = await applicationRepo.create(payload);
+
+    // Bridge to learning system so OutcomeTracker can track this application
+    try {
+      // Look up job details for learning system
+      const job = application.jobId ? await jobRepo.getById(application.jobId) : null;
+      await learningService.trackApplication({
+        jobId: application.jobId || application.id,
+        jobTitle: job?.title || '',
+        company: job?.company || '',
+        platform: job?.platform || 'unknown',
+        profileId: application.profileId || '',
+        keywordsUsed: [],
+      });
+    } catch {
+      // Non-blocking: learning system failure shouldn't break app creation
+    }
+
     return { success: true, data: application };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -3759,8 +3863,10 @@ async function handleBulkArchiveApplications(payload: {
   try {
     const all = await applicationRepo.getAll();
     const cutoff = Date.now() - payload.olderThanDays * 24 * 60 * 60 * 1000;
+    const PROTECTED_STATUSES = ['expired', 'offer', 'interview'];
     const toArchive = all.filter(
-      (app) => new Date(app.createdAt).getTime() < cutoff && app.status !== 'expired'
+      (app) =>
+        new Date(app.createdAt).getTime() < cutoff && !PROTECTED_STATUSES.includes(app.status)
     );
 
     let archived = 0;

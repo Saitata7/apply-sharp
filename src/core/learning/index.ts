@@ -3,20 +3,10 @@
  * Self-improving system that learns from application outcomes
  *
  * Components:
- * - SelfImproveEngine: Core learning algorithms
  * - AdaptiveKeywordDB: Keyword performance tracking
  * - OutcomeTracker: Application outcome tracking
  * - AutoImprover: Automatic recommendation generation
  */
-
-// Re-export types and classes
-export { SelfImproveEngine, getLearningEngine } from './self-improve-engine';
-export type {
-  ApplicationOutcome,
-  KeywordPerformance,
-  LearningInsights as EngineInsights,
-  ImprovementSuggestion,
-} from './self-improve-engine';
 
 export { AdaptiveKeywordDB, adaptiveKeywordDB } from './adaptive-keywords';
 export type {

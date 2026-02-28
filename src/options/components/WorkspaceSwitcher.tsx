@@ -28,12 +28,15 @@ export default function WorkspaceSwitcher() {
   // Get initials for avatar
   const getInitials = (name?: string) => {
     if (!name) return '?';
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return (
+      name
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || '?'
+    );
   };
 
   // Get color for workspace
@@ -46,9 +49,16 @@ export default function WorkspaceSwitcher() {
     return (
       <div className="workspace-switcher empty">
         <div className="workspace-empty-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
           </svg>
         </div>
         <span className="workspace-empty-text">No workspaces yet</span>
@@ -65,7 +75,9 @@ export default function WorkspaceSwitcher() {
       >
         <div
           className="workspace-avatar"
-          style={{ backgroundColor: getWorkspaceColor(allProfiles.findIndex(p => p.id === profile?.id)) }}
+          style={{
+            backgroundColor: getWorkspaceColor(allProfiles.findIndex((p) => p.id === profile?.id)),
+          }}
         >
           {getInitials(profile?.personal?.fullName)}
         </div>
@@ -86,7 +98,7 @@ export default function WorkspaceSwitcher() {
           stroke="currentColor"
           strokeWidth="2"
         >
-          <polyline points="6 9 12 15 18 9"/>
+          <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
@@ -109,25 +121,30 @@ export default function WorkspaceSwitcher() {
                   {getInitials(p.personal?.fullName)}
                 </div>
                 <div className="workspace-item-info">
-                  <span className="workspace-item-name">
-                    {p.personal?.fullName || 'Unnamed'}
-                  </span>
+                  <span className="workspace-item-name">{p.personal?.fullName || 'Unnamed'}</span>
                   <span className="workspace-item-meta">
-                    {p.generatedProfiles?.length || 0} roles • {p.skills?.technical?.length || 0} skills
+                    {p.generatedProfiles?.length || 0} roles • {p.skills?.technical?.length || 0}{' '}
+                    skills
                   </span>
                 </div>
                 {p.id === profile?.id && (
-                  <svg className="workspace-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"/>
+                  <svg
+                    className="workspace-check"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
               </button>
             ))}
           </div>
           <div className="workspace-dropdown-footer">
-            <span className="workspace-hint">
-              Upload a new resume to create another workspace
-            </span>
+            <span className="workspace-hint">Upload a new resume to create another workspace</span>
           </div>
         </div>
       )}

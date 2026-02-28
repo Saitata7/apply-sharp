@@ -174,10 +174,16 @@ export async function importData(exportData: ExportData): Promise<ImportResult> 
     }
   }
 
-  // Import settings (overwrite)
+  // Import settings (merge — preserve existing API keys)
   if (data.settings) {
     try {
-      await settingsRepo.save(data.settings);
+      const existing = await settingsRepo.get();
+      const merged = {
+        ...data.settings,
+        // Preserve existing AI credentials if they exist
+        ai: existing.ai?.provider ? { ...data.settings.ai, ...existing.ai } : data.settings.ai,
+      };
+      await settingsRepo.save(merged);
       result.imported.settings = true;
     } catch (e) {
       result.errors.push(`Failed to import settings: ${(e as Error).message}`);
@@ -203,7 +209,7 @@ export async function exportApplicationsCSV(): Promise<string> {
       formatCSVDate(app.appliedAt || app.createdAt),
       escapeCSV(job?.company || ''),
       escapeCSV(job?.title || ''),
-      app.status,
+      escapeCSV(app.status),
       escapeCSV(job?.url || ''),
       job?.platform || '',
       escapeCSV(app.userNotes || ''),

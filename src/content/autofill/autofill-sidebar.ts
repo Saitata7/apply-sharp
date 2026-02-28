@@ -5,7 +5,13 @@
 
 import type { DetectedForm, DetectedField } from './form-detector';
 import type { FillPreview, PreviewField, JobContext } from './filler';
-import { fillForm, generateFillPreview, requestAIAnswer } from './filler';
+import {
+  fillForm,
+  generateFillPreview,
+  requestAIAnswer,
+  undoFill,
+  type PreviousValue,
+} from './filler';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import { escapeHtml } from '@shared/utils/dom-utils';
 
@@ -35,7 +41,11 @@ export async function showAutofillSidebar(
   // Create sidebar
   sidebarElement = document.createElement('div');
   sidebarElement.id = 'jp-autofill-sidebar';
-  sidebarElement.innerHTML = generateSidebarHTML(currentPreview, form.fields, currentJobContext || undefined);
+  sidebarElement.innerHTML = generateSidebarHTML(
+    currentPreview,
+    form.fields,
+    currentJobContext || undefined
+  );
 
   document.body.appendChild(sidebarElement);
 
@@ -62,18 +72,24 @@ export function hideAutofillSidebar(): void {
   currentForm = null;
   currentProfile = null;
   currentPreview = null;
+  currentJobContext = null;
 }
 
 /**
  * Generate the sidebar HTML
  */
-function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], jobContext?: JobContext): string {
+function generateSidebarHTML(
+  preview: FillPreview,
+  formFields: DetectedField[],
+  jobContext?: JobContext
+): string {
   const requiredFields = preview.fields.filter((_f, i) => formFields[i]?.isRequired);
   const optionalFields = preview.fields.filter((_f, i) => !formFields[i]?.isRequired);
 
-  const requiredFilled = requiredFields.filter(f => f.suggestedValue || f.currentValue).length;
+  const requiredFilled = requiredFields.filter((f) => f.suggestedValue || f.currentValue).length;
   const totalRequired = requiredFields.length;
-  const completionPercent = totalRequired > 0 ? Math.round((requiredFilled / totalRequired) * 100) : 100;
+  const completionPercent =
+    totalRequired > 0 ? Math.round((requiredFilled / totalRequired) * 100) : 100;
 
   const hasJobContext = jobContext?.companyName || jobContext?.jobTitle;
 
@@ -402,6 +418,32 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
         margin-top: 10px;
       }
 
+      .jp-field-toggle {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #cbd5e1;
+        border-radius: 4px;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 3px;
+        position: relative;
+      }
+
+      .jp-field-toggle:checked {
+        background: #22c55e;
+        border-color: #22c55e;
+      }
+
+      .jp-field-toggle:checked::after {
+        content: '\\2713';
+        color: white;
+        font-size: 11px;
+        position: absolute;
+        top: -1px;
+        left: 1px;
+      }
+
       /* Job Context Section */
       .jp-job-context {
         padding: 10px 16px;
@@ -650,19 +692,23 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
         </div>
         <div class="jp-completion-text">
           <div class="main">${requiredFilled} of ${totalRequired} required fields</div>
-          <div class="sub">${preview.fields.filter(f => f.willFill).length} fields ready to fill</div>
+          <div class="sub">${preview.fields.filter((f) => f.willFill).length} fields ready to fill</div>
         </div>
       </div>
     </div>
 
     <div class="jp-job-context">
       <div class="jp-job-info">
-        ${hasJobContext ? `
+        ${
+          hasJobContext
+            ? `
           <div class="jp-job-title">${escapeHtml(jobContext?.jobTitle || 'Unknown Position')}</div>
           <div class="jp-job-company">${escapeHtml(jobContext?.companyName || 'Unknown Company')}</div>
-        ` : `
+        `
+            : `
           <div class="jp-job-missing">No job context detected</div>
-        `}
+        `
+        }
       </div>
       <button class="jp-edit-btn" id="jp-edit-context" title="Edit job context">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -673,7 +719,9 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
     </div>
 
     <div class="jp-sidebar-body">
-      ${requiredFields.length > 0 ? `
+      ${
+        requiredFields.length > 0
+          ? `
         <div class="jp-field-section">
           <div class="jp-section-header">
             Required
@@ -681,9 +729,13 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
           </div>
           ${requiredFields.map((field, idx) => generateFieldItemHTML(field, idx, true)).join('')}
         </div>
-      ` : ''}
+      `
+          : ''
+      }
 
-      ${optionalFields.length > 0 ? `
+      ${
+        optionalFields.length > 0
+          ? `
         <div class="jp-field-section">
           <div class="jp-section-header">
             Optional
@@ -691,7 +743,9 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
           </div>
           ${optionalFields.map((field, idx) => generateFieldItemHTML(field, requiredFields.length + idx, false)).join('')}
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
     <div class="jp-sidebar-footer">
@@ -700,7 +754,7 @@ function generateSidebarHTML(preview: FillPreview, formFields: DetectedField[], 
           <polyline points="20 6 9 17 4 12"/>
         </svg>
         Auto-Fill Fields
-        <span class="jp-fill-count">${preview.fields.filter(f => f.willFill).length}</span>
+        <span class="jp-fill-count">${preview.fields.filter((f) => f.willFill).length}</span>
       </button>
       <div class="jp-powered-by">Powered by ApplySharp • Local & Private</div>
     </div>
@@ -714,10 +768,22 @@ function generateFieldItemHTML(field: PreviewField, index: number, _isRequired: 
   const hasCurrent = !!field.currentValue;
   const willFill = field.willFill && !!field.suggestedValue;
   const isMissing = !hasCurrent && !field.suggestedValue;
-  const isCustomQuestion = ['customQuestion', 'additionalInfo', 'unknown'].includes(field.fieldType);
+  const isCustomQuestion = ['customQuestion', 'additionalInfo', 'unknown'].includes(
+    field.fieldType
+  );
 
-  const statusClass = willFill ? 'jp-filled' : hasCurrent ? 'jp-has-current' : isMissing ? 'jp-missing' : '';
-  const statusIconClass = willFill ? 'jp-status-filled' : hasCurrent ? 'jp-status-current' : 'jp-status-missing';
+  const statusClass = willFill
+    ? 'jp-filled'
+    : hasCurrent
+      ? 'jp-has-current'
+      : isMissing
+        ? 'jp-missing'
+        : '';
+  const statusIconClass = willFill
+    ? 'jp-status-filled'
+    : hasCurrent
+      ? 'jp-status-current'
+      : 'jp-status-missing';
 
   const getStatusIcon = () => {
     if (willFill) return '✓';
@@ -727,40 +793,68 @@ function generateFieldItemHTML(field: PreviewField, index: number, _isRequired: 
 
   const getSourceTag = () => {
     if (!field.suggestedValue) return '';
-    const basicFields = ['firstName', 'lastName', 'fullName', 'email', 'phone', 'linkedin', 'github', 'city', 'state', 'currentCompany', 'currentTitle'];
+    const basicFields = [
+      'firstName',
+      'lastName',
+      'fullName',
+      'email',
+      'phone',
+      'linkedin',
+      'github',
+      'city',
+      'state',
+      'currentCompany',
+      'currentTitle',
+    ];
     if (basicFields.includes(field.fieldType)) {
       return '<span class="jp-source-tag jp-tag-profile">Profile</span>';
     }
     return '<span class="jp-source-tag jp-tag-bank">Bank</span>';
   };
 
-  const truncate = (str: string, len: number) => str.length > len ? str.substring(0, len) + '...' : str;
+  const truncate = (str: string, len: number) =>
+    str.length > len ? str.substring(0, len) + '...' : str;
 
   return `
     <div class="jp-field-item ${statusClass}" data-field-index="${index}">
+      ${
+        willFill
+          ? `<input type="checkbox" class="jp-field-toggle" data-field-index="${index}" checked>`
+          : `
       <div class="jp-field-status ${statusIconClass}">
         <span style="font-size:10px">${getStatusIcon()}</span>
-      </div>
+      </div>`
+      }
       <div class="jp-field-content">
         <div class="jp-field-name">
           ${escapeHtml(field.label)}
           ${getSourceTag()}
         </div>
-        ${hasCurrent ? `
+        ${
+          hasCurrent
+            ? `
           <div class="jp-field-value">Current: ${escapeHtml(truncate(field.currentValue, 50))}</div>
-        ` : willFill ? `
+        `
+            : willFill
+              ? `
           <div class="jp-field-value jp-will-fill">Will fill: ${escapeHtml(truncate(field.suggestedValue, 50))}</div>
-        ` : `
+        `
+              : `
           <div class="jp-field-value">No matching data</div>
-          ${isCustomQuestion ? `
+          ${
+            isCustomQuestion
+              ? `
             <button class="jp-ai-btn" data-field-index="${index}" data-label="${escapeHtml(field.label)}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
               Generate with AI
             </button>
-          ` : ''}
-        `}
+          `
+              : ''
+          }
+        `
+        }
       </div>
     </div>
   `;
@@ -789,21 +883,43 @@ function attachSidebarListeners(): void {
     }
 
     try {
-      const result = await fillForm(currentForm, currentProfile, { jobContext: currentJobContext || undefined });
+      // Filter form to only include fields the user approved (checked toggles)
+      const excludedIndices = new Set<number>();
+      sidebarElement?.querySelectorAll('.jp-field-toggle').forEach((toggle) => {
+        const cb = toggle as HTMLInputElement;
+        if (!cb.checked) {
+          excludedIndices.add(parseInt(cb.dataset.fieldIndex || '0'));
+        }
+      });
+
+      const filteredForm: DetectedForm =
+        excludedIndices.size > 0
+          ? {
+              ...currentForm,
+              fields: currentForm.fields.filter((_f, i) => !excludedIndices.has(i)),
+            }
+          : currentForm;
+
+      const result = await fillForm(filteredForm, currentProfile, {
+        jobContext: currentJobContext || undefined,
+      });
 
       if (result.success) {
         showToast('success', `Filled ${result.filledFields.length} fields successfully!`);
         // Highlight filled fields
-        result.filledFields.forEach(field => {
+        result.filledFields.forEach((field) => {
           const el = field.element as HTMLElement;
           el.style.boxShadow = '0 0 0 2px #22c55e';
-          setTimeout(() => { el.style.boxShadow = ''; }, 3000);
+          setTimeout(() => {
+            el.style.boxShadow = '';
+          }, 3000);
         });
       } else {
         showToast('warning', `Filled ${result.filledFields.length} fields. Some errors occurred.`);
       }
 
-      hideAutofillSidebar();
+      // Show undo button instead of closing immediately
+      showUndoState(result.filledFields.length, result.previousValues);
     } catch (error) {
       console.error('[Autofill] Fill error:', error);
       showToast('error', 'Failed to fill fields');
@@ -814,14 +930,26 @@ function attachSidebarListeners(): void {
             <polyline points="20 6 9 17 4 12"/>
           </svg>
           Auto-Fill Fields
-          <span class="jp-fill-count">${currentPreview?.fields.filter(f => f.willFill).length || 0}</span>
+          <span class="jp-fill-count">${currentPreview?.fields.filter((f) => f.willFill).length || 0}</span>
         `;
       }
     }
   });
 
+  // Field toggle checkboxes — update willFill state and fill count
+  sidebarElement.querySelectorAll('.jp-field-toggle').forEach((toggle) => {
+    toggle.addEventListener('change', (e) => {
+      const checkbox = e.target as HTMLInputElement;
+      const idx = parseInt(checkbox.dataset.fieldIndex || '0');
+      if (currentPreview && currentPreview.fields[idx]) {
+        currentPreview.fields[idx].willFill = checkbox.checked;
+        updateSidebarStats();
+      }
+    });
+  });
+
   // AI Generate buttons
-  sidebarElement.querySelectorAll('.jp-ai-btn').forEach(btn => {
+  sidebarElement.querySelectorAll('.jp-ai-btn').forEach((btn) => {
     btn.addEventListener('click', handleAIGenerate);
   });
 }
@@ -845,6 +973,12 @@ async function handleAIGenerate(e: Event): Promise<void> {
       // Update preview data
       currentPreview.fields[fieldIndex].suggestedValue = answer;
       currentPreview.fields[fieldIndex].willFill = true;
+
+      // Guard: sidebar may have been closed during the async AI call
+      if (!sidebarElement || !sidebarElement.isConnected) {
+        showToast('success', 'Answer generated & saved!');
+        return;
+      }
 
       // Update UI
       const fieldItem = sidebarElement?.querySelector(`[data-field-index="${fieldIndex}"]`);
@@ -881,13 +1015,15 @@ async function handleAIGenerate(e: Event): Promise<void> {
     }
   } catch (error) {
     console.error('[Autofill] AI generation failed:', error);
-    button.disabled = false;
-    button.innerHTML = `
+    if (button.isConnected) {
+      button.disabled = false;
+      button.innerHTML = `
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
       </svg>
       Try Again
     `;
+    }
     showToast('error', 'Failed to generate. Check AI settings.');
   }
 }
@@ -898,14 +1034,19 @@ async function handleAIGenerate(e: Event): Promise<void> {
 function updateSidebarStats(): void {
   if (!sidebarElement || !currentPreview || !currentForm) return;
 
-  const requiredFields = currentPreview.fields.filter((_f, i) => currentForm!.fields[i]?.isRequired);
-  const requiredFilled = requiredFields.filter(f => f.suggestedValue || f.currentValue).length;
+  const requiredFields = currentPreview.fields.filter(
+    (_f, i) => currentForm!.fields[i]?.isRequired
+  );
+  const requiredFilled = requiredFields.filter((f) => f.suggestedValue || f.currentValue).length;
   const totalRequired = requiredFields.length;
-  const completionPercent = totalRequired > 0 ? Math.round((requiredFilled / totalRequired) * 100) : 100;
-  const toFill = currentPreview.fields.filter(f => f.willFill).length;
+  const completionPercent =
+    totalRequired > 0 ? Math.round((requiredFilled / totalRequired) * 100) : 100;
+  const toFill = currentPreview.fields.filter((f) => f.willFill).length;
 
   // Update progress ring
-  const progressCircle = sidebarElement.querySelector('.jp-completion-ring .progress') as SVGCircleElement;
+  const progressCircle = sidebarElement.querySelector(
+    '.jp-completion-ring .progress'
+  ) as SVGCircleElement;
   if (progressCircle) {
     progressCircle.style.strokeDashoffset = String(Math.PI * 40 * (1 - completionPercent / 100));
   }
@@ -992,8 +1133,12 @@ function showEditModal(): void {
   // Save button
   modal.querySelector('#jp-edit-save')?.addEventListener('click', () => {
     const jobTitle = (modal.querySelector('#jp-edit-job-title') as HTMLInputElement)?.value.trim();
-    const companyName = (modal.querySelector('#jp-edit-company-name') as HTMLInputElement)?.value.trim();
-    const jobDescription = (modal.querySelector('#jp-edit-jd') as HTMLTextAreaElement)?.value.trim();
+    const companyName = (
+      modal.querySelector('#jp-edit-company-name') as HTMLInputElement
+    )?.value.trim();
+    const jobDescription = (
+      modal.querySelector('#jp-edit-jd') as HTMLTextAreaElement
+    )?.value.trim();
 
     // Update current job context
     currentJobContext = {
@@ -1024,6 +1169,46 @@ function showEditModal(): void {
   setTimeout(() => {
     (modal.querySelector('#jp-edit-job-title') as HTMLInputElement)?.focus();
   }, 100);
+}
+
+/**
+ * Show undo state in the footer after a successful fill
+ */
+function showUndoState(filledCount: number, previousValues: PreviousValue[]): void {
+  if (!sidebarElement) return;
+
+  const footer = sidebarElement.querySelector('.jp-sidebar-footer');
+  if (!footer) return;
+
+  footer.innerHTML = `
+    <div style="text-align:center;color:#166534;font-size:14px;font-weight:600;margin-bottom:10px">
+      Filled ${filledCount} fields
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="jp-undo-btn" style="flex:1;padding:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H9"/><polyline points="7 14 3 10 7 6"/></svg>
+        Undo
+      </button>
+      <button id="jp-done-btn" style="flex:1;padding:12px;background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);border:none;border-radius:10px;color:white;font-size:14px;font-weight:600;cursor:pointer">
+        Done
+      </button>
+    </div>
+    <div class="jp-powered-by">Powered by ApplySharp • Local & Private</div>
+  `;
+
+  footer.querySelector('#jp-undo-btn')?.addEventListener('click', async () => {
+    const btn = footer.querySelector('#jp-undo-btn') as HTMLButtonElement;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Undoing...';
+    }
+
+    const restored = await undoFill(previousValues);
+    showToast('success', `Restored ${restored} fields to previous values`);
+    hideAutofillSidebar();
+  });
+
+  footer.querySelector('#jp-done-btn')?.addEventListener('click', hideAutofillSidebar);
 }
 
 /**
@@ -1059,9 +1244,13 @@ function showToast(type: 'success' | 'error' | 'warning', message: string): void
   `;
   toast.textContent = message;
 
-  const style = document.createElement('style');
-  style.textContent = `@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
-  toast.appendChild(style);
+  // Inject keyframe styles once globally
+  if (!document.getElementById('jp-toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'jp-toast-styles';
+    style.textContent = `@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
+    document.head.appendChild(style);
+  }
 
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);

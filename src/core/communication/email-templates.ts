@@ -164,6 +164,10 @@ function getTypeInstructions(payload: EmailGenerationPayload): string {
 - Ask for brief feedback if appropriate
 - Keep the door open for future opportunities
 - Keep it brief and dignified, 75-125 words`;
+
+    default:
+      return `Write a professional email for this job application context.
+- Be concise and professional, 100-175 words`;
   }
 }
 

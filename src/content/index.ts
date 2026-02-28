@@ -93,17 +93,22 @@ async function init() {
     showSidebar(currentJob, platformType);
 
     // Notify background script
-    chrome.runtime.sendMessage({
-      type: 'JOB_DETECTED',
-      payload: {
-        ...currentJob,
-        url,
-        platform: platformType,
-      },
-    }).catch((error) => {
-      // Extension context may be invalidated after update
-      console.log('[ApplySharp] Could not notify background:', error?.message || 'Extension context invalidated');
-    });
+    chrome.runtime
+      .sendMessage({
+        type: 'JOB_DETECTED',
+        payload: {
+          ...currentJob,
+          url,
+          platform: platformType,
+        },
+      })
+      .catch((error) => {
+        // Extension context may be invalidated after update
+        console.log(
+          '[ApplySharp] Could not notify background:',
+          error?.message || 'Extension context invalidated'
+        );
+      });
 
     // Auto-analyze if we have a profile
     autoAnalyzeIfReady();
@@ -126,7 +131,8 @@ async function autoAnalyzeIfReady() {
       if (sidebar) {
         const matchedEl = sidebar.querySelector('#jp-matched-keywords');
         if (matchedEl) {
-          matchedEl.innerHTML = '<span class="jp-tag jp-tag-placeholder">Upload resume first</span>';
+          matchedEl.innerHTML =
+            '<span class="jp-tag jp-tag-placeholder">Upload resume first</span>';
         }
       }
       return;
@@ -180,7 +186,8 @@ async function autoAnalyzeIfReady() {
       const matchedEl = sidebar.querySelector('#jp-matched-keywords');
       const analyzeBtn = sidebar.querySelector('#jp-analyze-btn') as HTMLButtonElement;
       if (matchedEl) {
-        matchedEl.innerHTML = '<span class="jp-tag jp-tag-placeholder" style="color: #ef4444;">Error - try Re-analyze</span>';
+        matchedEl.innerHTML =
+          '<span class="jp-tag jp-tag-placeholder" style="color: #ef4444;">Error - try Re-analyze</span>';
       }
       if (analyzeBtn) {
         analyzeBtn.textContent = 'Re-analyze';
@@ -252,14 +259,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case 'SAVE_CURRENT_JOB':
       if (currentJob) {
-        chrome.runtime.sendMessage({
-          type: 'SAVE_JOB',
-          payload: {
-            ...currentJob,
-            url: window.location.href,
-            platform: detectPlatform(window.location.href)?.platform || 'generic',
-          },
-        }).then(sendResponse).catch(() => sendResponse({ success: false, error: 'Failed to save' }));
+        chrome.runtime
+          .sendMessage({
+            type: 'SAVE_JOB',
+            payload: {
+              ...currentJob,
+              url: window.location.href,
+              platform: detectPlatform(window.location.href)?.platform || 'generic',
+            },
+          })
+          .then(sendResponse)
+          .catch(() => sendResponse({ success: false, error: 'Failed to save' }));
         return true;
       }
       sendResponse({ success: false, error: 'No job detected' });
@@ -268,24 +278,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     case 'ANALYZE_JOB':
       handleAnalyzeJob(message.payload)
         .then(sendResponse)
-        .catch(err => sendResponse({ success: false, error: err.message }));
+        .catch((err) => sendResponse({ success: false, error: err.message }));
       return true;
+
+    case 'ANALYZE_CURRENT_JOB':
+      if (currentJob) {
+        // Show sidebar with the current job and trigger analysis
+        showSidebar(currentJob, detectPlatform(window.location.href)?.platform || 'generic');
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No job detected on this page' });
+      }
+      return false;
 
     case 'START_AUTOFILL':
       handleAutofill(message.payload?.profile)
         .then(sendResponse)
-        .catch(err => sendResponse({ success: false, error: err.message }));
+        .catch((err) => sendResponse({ success: false, error: err.message }));
       return true;
 
     case 'PREVIEW_AUTOFILL':
       handlePreviewAutofill(message.payload?.profile)
         .then(sendResponse)
-        .catch(err => sendResponse({ success: false, error: err.message }));
+        .catch((err) => sendResponse({ success: false, error: err.message }));
       return true;
 
     case 'TOGGLE_SIDEBAR':
       if (currentJob) {
-        const sidebar = document.getElementById('applysharp-sidebar');
+        const sidebar = document.getElementById('applysharp-overlay');
         if (sidebar) {
           hideSidebar();
         } else {
@@ -315,7 +335,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-async function handleAnalyzeJob(payload: { job: ExtractedJob }): Promise<{ success: boolean; data?: unknown; error?: string }> {
+async function handleAnalyzeJob(payload: {
+  job: ExtractedJob;
+}): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const job = payload?.job || currentJob;
     if (!job) {
@@ -343,7 +365,9 @@ async function handleAnalyzeJob(payload: { job: ExtractedJob }): Promise<{ succe
   }
 }
 
-async function handleAutofill(profile?: ResumeProfile): Promise<{ success: boolean; data?: unknown; error?: string }> {
+async function handleAutofill(
+  profile?: ResumeProfile
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     // Get profile if not provided
     if (!profile) {
@@ -381,7 +405,9 @@ async function handleAutofill(profile?: ResumeProfile): Promise<{ success: boole
   }
 }
 
-async function handlePreviewAutofill(profile?: ResumeProfile): Promise<{ success: boolean; data?: unknown; error?: string }> {
+async function handlePreviewAutofill(
+  profile?: ResumeProfile
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     // Get profile if not provided
     if (!profile) {
@@ -399,7 +425,7 @@ async function handlePreviewAutofill(profile?: ResumeProfile): Promise<{ success
     }
 
     // Generate preview
-    const preview = generateFillPreview(form, profile);
+    const preview = await generateFillPreview(form, profile);
 
     return { success: true, data: preview };
   } catch (error) {
@@ -438,14 +464,19 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
 
   if (event.data?.type === 'JP_GET_CURRENT_JOB' && event.data?.messageId) {
-    window.postMessage({
-      type: 'JP_CURRENT_JOB_RESPONSE',
-      messageId: event.data.messageId,
-      job: currentJob ? {
-        title: currentJob.title,
-        company: currentJob.company,
-        description: currentJob.description,
-      } : null,
-    }, '*');
+    window.postMessage(
+      {
+        type: 'JP_CURRENT_JOB_RESPONSE',
+        messageId: event.data.messageId,
+        job: currentJob
+          ? {
+              title: currentJob.title,
+              company: currentJob.company,
+              description: currentJob.description,
+            }
+          : null,
+      },
+      window.location.origin
+    );
   }
 });

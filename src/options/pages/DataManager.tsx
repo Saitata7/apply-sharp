@@ -44,19 +44,23 @@ export default function DataManager() {
     clearMessages();
     setIsExporting(true);
 
-    const response = await sendMessage<undefined, ExportData>({
-      type: 'EXPORT_ALL_DATA',
-    });
+    try {
+      const response = await sendMessage<undefined, ExportData>({
+        type: 'EXPORT_ALL_DATA',
+      });
 
-    setIsExporting(false);
-
-    if (response.success && response.data) {
-      const json = JSON.stringify(response.data, null, 2);
-      const date = new Date().toISOString().split('T')[0];
-      downloadText(json, `applysharp-backup-${date}.json`, 'application/json');
-      setSuccessMessage('Data exported successfully');
-    } else {
-      setError(response.error || 'Failed to export data');
+      if (response.success && response.data) {
+        const json = JSON.stringify(response.data, null, 2);
+        const date = new Date().toISOString().split('T')[0];
+        downloadText(json, `applysharp-backup-${date}.json`, 'application/json');
+        setSuccessMessage('Data exported successfully');
+      } else {
+        setError(response.error || 'Failed to export data');
+      }
+    } catch (err) {
+      setError(`Export failed: ${(err as Error).message}`);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -118,19 +122,23 @@ export default function DataManager() {
     clearMessages();
     setIsImporting(true);
 
-    const response = await sendMessage<{ data: ExportData }, ImportResult>({
-      type: 'IMPORT_DATA',
-      payload: { data: importPreview },
-    });
+    try {
+      const response = await sendMessage<{ data: ExportData }, ImportResult>({
+        type: 'IMPORT_DATA',
+        payload: { data: importPreview },
+      });
 
-    setIsImporting(false);
-
-    if (response.success && response.data) {
-      setImportResult(response.data);
-      setImportPreview(null);
-      setImportFile(null);
-    } else {
-      setError(response.error || 'Import failed');
+      if (response.success && response.data) {
+        setImportResult(response.data);
+        setImportPreview(null);
+        setImportFile(null);
+      } else {
+        setError(response.error || 'Import failed');
+      }
+    } catch (err) {
+      setError(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setIsImporting(false);
     }
   };
 

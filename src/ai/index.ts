@@ -1,4 +1,10 @@
-import type { AIProviderInterface, ChatMessage, ChatOptions, ChatResponse, JobScoringResult } from '@shared/types/ai.types';
+import type {
+  AIProviderInterface,
+  ChatMessage,
+  ChatOptions,
+  ChatResponse,
+  JobScoringResult,
+} from '@shared/types/ai.types';
 import type { Job } from '@shared/types/job.types';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import type { AISettings } from '@shared/types/settings.types';
@@ -6,6 +12,8 @@ import { OllamaProvider } from './providers/ollama';
 import { OpenAIProvider } from './providers/openai';
 import { GroqProvider } from './providers/groq';
 import { JOB_SCORING_PROMPT, COVER_LETTER_PROMPT } from './prompts/templates';
+import { extractJSONFromResponse } from '@shared/utils/json-utils';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
 
 export class AIService {
   private provider: AIProviderInterface;
@@ -23,8 +31,12 @@ export class AIService {
       case 'openai':
         return new OpenAIProvider(this.settings.openai!);
       case 'anthropic':
-        // Use OpenAI-compatible endpoint for now
-        throw new Error('Anthropic provider coming soon - use OpenAI or Groq');
+        // Anthropic requires a different API format (Messages API with x-api-key header).
+        // For now, guide users to use OpenAI or Groq providers.
+        throw new Error(
+          'Anthropic is not yet supported. Please use OpenAI (supports Claude via API proxy) or Groq instead. ' +
+            'Go to AI Settings to switch your provider.'
+        );
       case 'groq':
         return new GroqProvider(this.settings.groq!);
       default:
@@ -37,21 +49,30 @@ export class AIService {
   }
 
   async scoreJobFit(job: Job, profile: ResumeProfile): Promise<JobScoringResult> {
-    const prompt = JOB_SCORING_PROMPT
-      .replace('{jobDescription}', job.description)
-      .replace('{candidateName}', profile.personal.fullName)
-      .replace('{candidateSummary}', profile.summary)
-      .replace('{skills}', [
-        ...profile.skills.technical,
-        ...profile.skills.tools,
-      ].join(', '))
-      .replace('{experience}', profile.experience.map((exp) =>
-        `${exp.title} at ${exp.company}: ${exp.description}`
-      ).join('\n'));
+    const prompt = JOB_SCORING_PROMPT.replace(
+      '{jobDescription}',
+      sanitizePromptInput(job.description, 'job_description')
+    )
+      .replace('{candidateName}', sanitizePromptInput(profile.personal.fullName, 'candidate_name'))
+      .replace('{candidateSummary}', sanitizePromptInput(profile.summary, 'candidate_summary'))
+      .replace(
+        '{skills}',
+        sanitizePromptInput(
+          [...profile.skills.technical, ...profile.skills.tools].join(', '),
+          'skills'
+        )
+      )
+      .replace(
+        '{experience}',
+        sanitizePromptInput(
+          profile.experience
+            .map((exp) => `${exp.title} at ${exp.company}: ${exp.description}`)
+            .join('\n'),
+          'experience'
+        )
+      );
 
-    const messages: ChatMessage[] = [
-      { role: 'user', content: prompt },
-    ];
+    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
 
     const response = await this.provider.chat(messages, {
       temperature: 0.3,
@@ -59,17 +80,14 @@ export class AIService {
     });
 
     try {
-      // Extract JSON from response
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
+      const result = extractJSONFromResponse<JobScoringResult>(response.content);
+      if (!result) {
         throw new Error('No JSON found in response');
       }
-
-      const result = JSON.parse(jsonMatch[0]) as JobScoringResult;
       return result;
     } catch (error) {
       console.error('Failed to parse scoring result:', error);
-      // Return default scores on parse failure
+      // Return default scores on parse failure (flagged as fallback)
       return {
         overallScore: 50,
         skillMatch: 50,
@@ -81,7 +99,8 @@ export class AIService {
         strengths: ['Unable to analyze'],
         gaps: ['Unable to analyze'],
         suggestions: ['Try again or check AI configuration'],
-        reasoning: 'Failed to parse AI response',
+        reasoning: 'Failed to parse AI response — using fallback scores',
+        isFallback: true,
       };
     }
   }
@@ -91,20 +110,28 @@ export class AIService {
 Name: ${profile.personal.fullName}
 Current/Recent Role: ${profile.experience[0]?.title || 'N/A'} at ${profile.experience[0]?.company || 'N/A'}
 Summary: ${profile.summary}
-Key Skills: ${profile.skills.technical.slice(0, 10).join(', ')}
+Key Skills: ${profile.skills?.technical?.slice(0, 10).join(', ') || 'N/A'}
 Notable Achievements:
-${profile.experience[0]?.achievements.slice(0, 3).map((a) => `- ${a}`).join('\n') || 'N/A'}
+${
+  profile.experience[0]?.achievements
+    ?.slice(0, 3)
+    .map((a) => `- ${a}`)
+    .join('\n') || 'N/A'
+}
     `.trim();
 
-    const prompt = COVER_LETTER_PROMPT
-      .replace('{company}', job.company)
-      .replace('{title}', job.title)
-      .replace('{jobDescription}', job.description.slice(0, 3000))
-      .replace('{candidateProfile}', profileSummary);
+    const prompt = COVER_LETTER_PROMPT.replace(
+      '{company}',
+      sanitizePromptInput(job.company, 'company')
+    )
+      .replace('{title}', sanitizePromptInput(job.title, 'job_title'))
+      .replace(
+        '{jobDescription}',
+        sanitizePromptInput(job.description.slice(0, 3000), 'job_description')
+      )
+      .replace('{candidateProfile}', sanitizePromptInput(profileSummary, 'candidate_profile'));
 
-    const messages: ChatMessage[] = [
-      { role: 'user', content: prompt },
-    ];
+    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
 
     const response = await this.provider.chat(messages, {
       temperature: this.settings.generation.temperature,
@@ -119,18 +146,21 @@ ${profile.experience[0]?.achievements.slice(0, 3).map((a) => `- ${a}`).join('\n'
 Name: ${profile.personal.fullName}
 Current/Recent Role: ${profile.experience[0]?.title || 'N/A'} at ${profile.experience[0]?.company || 'N/A'}
 Summary: ${profile.summary}
-Key Skills: ${profile.skills.technical.slice(0, 10).join(', ')}
+Key Skills: ${profile.skills?.technical?.slice(0, 10).join(', ') || 'N/A'}
     `.trim();
 
-    const prompt = COVER_LETTER_PROMPT
-      .replace('{company}', job.company)
-      .replace('{title}', job.title)
-      .replace('{jobDescription}', job.description.slice(0, 3000))
-      .replace('{candidateProfile}', profileSummary);
+    const prompt = COVER_LETTER_PROMPT.replace(
+      '{company}',
+      sanitizePromptInput(job.company, 'company')
+    )
+      .replace('{title}', sanitizePromptInput(job.title, 'job_title'))
+      .replace(
+        '{jobDescription}',
+        sanitizePromptInput(job.description.slice(0, 3000), 'job_description')
+      )
+      .replace('{candidateProfile}', sanitizePromptInput(profileSummary, 'candidate_profile'));
 
-    const messages: ChatMessage[] = [
-      { role: 'user', content: prompt },
-    ];
+    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
 
     for await (const chunk of this.provider.chatStream(messages, {
       temperature: this.settings.generation.temperature,

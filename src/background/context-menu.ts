@@ -15,6 +15,22 @@ export function setupContextMenus(): void {
       '*://jobs.lever.co/*',
       '*://*.lever.co/*',
       '*://*.myworkdayjobs.com/*',
+      '*://www.dice.com/*',
+      '*://www.monster.com/*',
+      '*://www.glassdoor.com/*',
+      '*://www.ziprecruiter.com/*',
+      '*://wellfound.com/*',
+      '*://*.ashbyhq.com/*',
+      '*://*.smartrecruiters.com/*',
+      '*://*.icims.com/*',
+      '*://*.taleo.net/*',
+      '*://*.bamboohr.com/*',
+      '*://*.applytojob.com/*',
+      '*://*.jobvite.com/*',
+      '*://*.breezy.hr/*',
+      '*://*.rippling.com/*',
+      '*://*.recruitee.com/*',
+      '*://*.workable.com/*',
     ],
   });
 
@@ -30,6 +46,22 @@ export function setupContextMenus(): void {
       '*://jobs.lever.co/*',
       '*://*.lever.co/*',
       '*://*.myworkdayjobs.com/*',
+      '*://www.dice.com/*',
+      '*://www.monster.com/*',
+      '*://www.glassdoor.com/*',
+      '*://www.ziprecruiter.com/*',
+      '*://wellfound.com/*',
+      '*://*.ashbyhq.com/*',
+      '*://*.smartrecruiters.com/*',
+      '*://*.icims.com/*',
+      '*://*.taleo.net/*',
+      '*://*.bamboohr.com/*',
+      '*://*.applytojob.com/*',
+      '*://*.jobvite.com/*',
+      '*://*.breezy.hr/*',
+      '*://*.rippling.com/*',
+      '*://*.recruitee.com/*',
+      '*://*.workable.com/*',
     ],
   });
 
@@ -38,16 +70,19 @@ export function setupContextMenus(): void {
     if (!tab?.id) return;
 
     const handleError = (action: string) => (error: Error) => {
-      console.warn(`[ApplySharp] Context menu ${action} failed:`, error?.message || 'Content script not available');
+      console.warn(
+        `[ApplySharp] Context menu ${action} failed:`,
+        error?.message || 'Content script not available'
+      );
     };
 
     switch (info.menuItemId) {
       case 'applysharp-save':
-        chrome.tabs.sendMessage(tab.id, { type: 'SAVE_CURRENT_JOB' })
-          .catch(handleError('save'));
+        chrome.tabs.sendMessage(tab.id, { type: 'SAVE_CURRENT_JOB' }).catch(handleError('save'));
         break;
       case 'applysharp-analyze':
-        chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_CURRENT_JOB' })
+        chrome.tabs
+          .sendMessage(tab.id, { type: 'ANALYZE_CURRENT_JOB' })
           .catch(handleError('analyze'));
         break;
     }

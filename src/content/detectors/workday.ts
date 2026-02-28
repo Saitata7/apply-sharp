@@ -195,11 +195,12 @@ export class WorkdayDetector implements JobDetector {
   // ---------------------------------------------------------------------------
 
   private extractSalaryFromDOM(): JobSalary | undefined {
-    // Collect text from common salary containers and the full description
-    const candidates = [
-      this.getText(['[data-automation-id="jobPostingDescription"]', '.css-kyg8or']),
-      document.body.innerText,
-    ];
+    // Collect text from common salary containers first (cheaper), then fall back to body text
+    const descriptionText = this.getText([
+      '[data-automation-id="jobPostingDescription"]',
+      '.css-kyg8or',
+    ]);
+    const candidates = descriptionText ? [descriptionText] : [document.body.innerText];
 
     for (const text of candidates) {
       if (!text) continue;

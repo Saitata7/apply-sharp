@@ -233,20 +233,15 @@ export function extractBasicInfo(rawText: string): {
   const phone = phoneMatch?.[0];
 
   // LinkedIn - handle various formats
-  // Matches: linkedin.com/in/username, www.linkedin.com/in/username, https://linkedin.com/in/username
-  // Also handles: linkedin.com/in/username/, trailing parameters, underscores in usernames
   const linkedInMatch = rawText.match(
     /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)\/?(?:\?[^\s]*)?/i
   );
-  const linkedIn = linkedInMatch ? `https://www.linkedin.com/in/${linkedInMatch[1]}` : undefined;
+  let linkedIn = linkedInMatch ? `https://www.linkedin.com/in/${linkedInMatch[1]}` : undefined;
 
-  // Also try to find LinkedIn mentioned in other formats
-  // e.g., "LinkedIn: username" or "linkedin/username"
-  let linkedInFallback: string | undefined;
   if (!linkedIn) {
     const linkedInAltMatch = rawText.match(/linkedin[:\s]+(?:\/in\/)?([a-zA-Z0-9_-]{3,})/i);
     if (linkedInAltMatch && linkedInAltMatch[1].length >= 3) {
-      linkedInFallback = `https://www.linkedin.com/in/${linkedInAltMatch[1]}`;
+      linkedIn = `https://www.linkedin.com/in/${linkedInAltMatch[1]}`;
     }
   }
 
@@ -254,43 +249,65 @@ export function extractBasicInfo(rawText: string): {
   const githubMatch = rawText.match(
     /(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)\/?(?:\?[^\s]*)?/i
   );
-  const github = githubMatch ? `https://github.com/${githubMatch[1]}` : undefined;
+  let github = githubMatch ? `https://github.com/${githubMatch[1]}` : undefined;
 
-  // Also try to find GitHub in other formats
-  let githubFallback: string | undefined;
   if (!github) {
     const githubAltMatch = rawText.match(/github[:\s]+([a-zA-Z0-9_-]{2,})/i);
     if (githubAltMatch && githubAltMatch[1].length >= 2) {
-      githubFallback = `https://github.com/${githubAltMatch[1]}`;
+      github = `https://github.com/${githubAltMatch[1]}`;
     }
   }
 
-  // Name (usually first line or near top)
+  // Name (usually first line or near top) - robust detection
   const lines = rawText.split('\n').filter((l) => l.trim());
   let name: string | undefined;
-  for (const line of lines.slice(0, 5)) {
-    // Check first 5 lines
+  for (const line of lines.slice(0, 10)) {
     const cleaned = line.trim();
-    // Name is usually 2-4 words, proper case, no special chars
+
+    // Skip lines that look like section headers or contact info
+    if (/^(experience|education|skills|summary|profile|contact|email|phone|address)/i.test(cleaned))
+      continue;
+    if (/@/.test(cleaned) || /linkedin|github|http/i.test(cleaned)) continue;
+    if (/^\d/.test(cleaned)) continue;
+
+    // Pattern 1: Title Case "John Smith"
     if (/^[A-Z][a-z]+(\s+[A-Z][a-z]+){1,3}$/.test(cleaned) && cleaned.length < 50) {
       name = cleaned;
       break;
+    }
+    // Pattern 2: ALL CAPS "JOHN SMITH"
+    if (/^[A-Z]+(\s+[A-Z]+){1,3}$/.test(cleaned) && cleaned.length > 3 && cleaned.length < 50) {
+      name = cleaned.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+      break;
+    }
+    // Pattern 3: Middle initial "John A. Smith"
+    if (/^[A-Z][a-z]+\s+[A-Z]\.?\s+[A-Z][a-z]+$/.test(cleaned)) {
+      name = cleaned;
+      break;
+    }
+    // Pattern 4: 2-4 capitalized words
+    const words = cleaned.split(/\s+/);
+    if (words.length >= 2 && words.length <= 4 && cleaned.length < 50) {
+      const looksLikeName = words.every((w) => /^[A-Z]/.test(w)) && !cleaned.includes(':');
+      if (looksLikeName) {
+        name = cleaned;
+        break;
+      }
     }
   }
 
   // Extract skills using common tech keywords
   const skills = extractSkillsFromText(rawText);
 
-  const finalLinkedIn = linkedIn || linkedInFallback;
-  const finalGithub = github || githubFallback;
+  console.debug('[BasicInfo] Extracted fields:', {
+    hasName: !!name,
+    hasEmail: !!email,
+    hasLinkedIn: !!linkedIn,
+    hasGithub: !!github,
+    skillsCount: skills.length,
+  });
 
-  console.log('[BasicInfo] Extracted name:', name);
-  console.log('[BasicInfo] Extracted email:', email);
-  console.log('[BasicInfo] Extracted linkedIn:', finalLinkedIn);
-  console.log('[BasicInfo] Extracted github:', finalGithub);
-  console.log('[BasicInfo] Extracted skills count:', skills.length);
-
-  return { email, phone, linkedIn: finalLinkedIn, github: finalGithub, name, skills };
+  return { email, phone, linkedIn, github, name, skills };
 }
 
 /**

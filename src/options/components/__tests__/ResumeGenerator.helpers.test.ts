@@ -149,16 +149,21 @@ describe('getExperienceLevel', () => {
 // ── getRecommendedPages ─────────────────────────────────────────────────
 
 describe('getRecommendedPages', () => {
-  it('returns 1 page for 0-10 years', () => {
+  it('returns 1 page for 0-5 years (entry level)', () => {
     expect(getRecommendedPages(0)).toBe(1);
+    expect(getRecommendedPages(3)).toBe(1);
     expect(getRecommendedPages(5)).toBe(1);
-    expect(getRecommendedPages(10)).toBe(1);
   });
 
-  it('returns 2 pages for 11+ years', () => {
-    expect(getRecommendedPages(11)).toBe(2);
+  it('returns 2 pages for 6-15 years (mid/senior)', () => {
+    expect(getRecommendedPages(6)).toBe(2);
+    expect(getRecommendedPages(10)).toBe(2);
     expect(getRecommendedPages(15)).toBe(2);
-    expect(getRecommendedPages(25)).toBe(2);
+  });
+
+  it('returns 3 pages for 16+ years (executive)', () => {
+    expect(getRecommendedPages(16)).toBe(3);
+    expect(getRecommendedPages(25)).toBe(3);
   });
 });
 

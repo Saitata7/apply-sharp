@@ -45,4 +45,5 @@ export interface JobScoringResult {
   gaps: string[];
   suggestions: string[];
   reasoning: string;
+  isFallback?: boolean;
 }

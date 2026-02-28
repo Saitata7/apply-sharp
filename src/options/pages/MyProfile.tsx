@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type {
   MasterProfile,
   GeneratedProfile,
@@ -36,6 +36,7 @@ export default function MyProfile() {
   });
   const [editCertifications, setEditCertifications] = useState<Certification[]>([]);
   const [newCertification, setNewCertification] = useState({ name: '', issuer: '', date: '' });
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // AI-powered update state
   const [updateContext, setUpdateContext] = useState('');
@@ -43,6 +44,19 @@ export default function MyProfile() {
   const [aiPreview, setAiPreview] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [selectedUpdateType, setSelectedUpdateType] = useState<string | null>(null);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    if (!showDeleteModal && !editSection) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeleting && !isSaving && !isProcessingAI) {
+        if (editSection) setEditSection(null);
+        else if (showDeleteModal) setShowDeleteModal(false);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [showDeleteModal, editSection, isDeleting, isSaving, isProcessingAI]);
 
   // Update type configurations with required fields
   const updateTypeConfigs: Record<
@@ -113,7 +127,11 @@ export default function MyProfile() {
       const success = await deleteWorkspace(profile.id);
       if (success) {
         setShowDeleteModal(false);
+      } else {
+        setSaveError('Failed to delete workspace. Please try again.');
       }
+    } catch {
+      setSaveError('Failed to delete workspace. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -149,6 +167,7 @@ export default function MyProfile() {
       setSelectedUpdateType(null);
     }
 
+    setSaveError(null);
     setEditSection(section);
   };
 
@@ -182,6 +201,8 @@ export default function MyProfile() {
 
       if (success) {
         setEditSection(null);
+      } else {
+        setSaveError('Failed to save personal info. Please try again.');
       }
     } finally {
       setIsSaving(false);
@@ -221,6 +242,8 @@ export default function MyProfile() {
 
       if (success) {
         setEditSection(null);
+      } else {
+        setSaveError('Failed to save certifications. Please try again.');
       }
     } finally {
       setIsSaving(false);
@@ -716,6 +739,21 @@ export default function MyProfile() {
               </button>
             </div>
             <div className="modal-body">
+              {saveError && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    marginBottom: 12,
+                    background: '#3b1219',
+                    border: '1px solid #ef4444',
+                    borderRadius: 6,
+                    color: '#ef4444',
+                    fontSize: 13,
+                  }}
+                >
+                  {saveError}
+                </div>
+              )}
               {(editSection === 'personal' || editSection === 'links') && (
                 <div className="edit-form">
                   <div className="form-section">
@@ -1194,6 +1232,40 @@ function ProfileOverview({
   profile: MasterProfile;
   onSave: (config: Partial<MasterProfile>) => Promise<boolean>;
 }) {
+  const [editingExpIdx, setEditingExpIdx] = useState<number | null>(null);
+  const [editExp, setEditExp] = useState({
+    title: '',
+    company: '',
+    location: '',
+    startDate: '',
+    endDate: '',
+    isCurrent: false,
+  });
+  const [savingExp, setSavingExp] = useState(false);
+
+  const startEditExp = (idx: number) => {
+    const exp = profile.experience![idx];
+    setEditExp({
+      title: exp.title || '',
+      company: exp.company || '',
+      location: exp.location || '',
+      startDate: exp.startDate || '',
+      endDate: exp.endDate || '',
+      isCurrent: exp.isCurrent || false,
+    });
+    setEditingExpIdx(idx);
+  };
+
+  const saveExp = async () => {
+    if (editingExpIdx === null || !profile.experience) return;
+    setSavingExp(true);
+    const updated = [...profile.experience];
+    updated[editingExpIdx] = { ...updated[editingExpIdx], ...editExp };
+    await onSave({ experience: updated });
+    setSavingExp(false);
+    setEditingExpIdx(null);
+  };
+
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '';
     const lower = dateStr.toLowerCase().trim();
@@ -1289,39 +1361,170 @@ function ProfileOverview({
           <div className="experience-timeline">
             {profile.experience.map((exp, i) => (
               <div key={exp.id || i} className="exp-card">
-                <div className="exp-header">
-                  <div className="exp-title">{exp.title}</div>
-                  <div className="exp-company">{exp.company}</div>
-                </div>
-                <div className="exp-details">
-                  {exp.location && <span className="exp-location">{exp.location}</span>}
-                  <span className="exp-dates">
-                    {formatDate(exp.startDate)} -{' '}
-                    {exp.isCurrent ? 'Present' : formatDate(exp.endDate)}
-                  </span>
-                </div>
-                {exp.achievements && exp.achievements.length > 0 && (
-                  <ul className="exp-achievements">
-                    {exp.achievements.slice(0, 4).map((achievement, j) => (
-                      <li key={j}>
-                        {typeof achievement === 'string' ? achievement : achievement.statement}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {exp.technologiesUsed && exp.technologiesUsed.length > 0 && (
-                  <div className="exp-tech">
-                    {exp.technologiesUsed.slice(0, 6).map((tech, j) => (
-                      <span key={j} className="tag tag-sm">
-                        {typeof tech === 'string' ? tech : tech.skill}
-                      </span>
-                    ))}
-                    {exp.technologiesUsed.length > 6 && (
-                      <span className="tag tag-sm tag-more">
-                        +{exp.technologiesUsed.length - 6} more
-                      </span>
-                    )}
+                {editingExpIdx === i ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={editExp.title}
+                      onChange={(e) => setEditExp({ ...editExp, title: e.target.value })}
+                      placeholder="Job Title"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={editExp.company}
+                      onChange={(e) => setEditExp({ ...editExp, company: e.target.value })}
+                      placeholder="Company"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '0.85rem',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={editExp.location}
+                        onChange={(e) => setEditExp({ ...editExp, location: e.target.value })}
+                        placeholder="Location"
+                        style={{
+                          flex: 1,
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.8rem',
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={editExp.startDate}
+                        onChange={(e) => setEditExp({ ...editExp, startDate: e.target.value })}
+                        placeholder="Start Date"
+                        style={{
+                          width: '100px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.8rem',
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={editExp.isCurrent ? '' : editExp.endDate}
+                        onChange={(e) =>
+                          setEditExp({ ...editExp, endDate: e.target.value, isCurrent: false })
+                        }
+                        placeholder={editExp.isCurrent ? 'Present' : 'End Date'}
+                        disabled={editExp.isCurrent}
+                        style={{
+                          width: '100px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.8rem',
+                        }}
+                      />
+                    </div>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.8rem',
+                        color: '#64748b',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editExp.isCurrent}
+                        onChange={(e) =>
+                          setEditExp({
+                            ...editExp,
+                            isCurrent: e.target.checked,
+                            endDate: e.target.checked ? '' : editExp.endDate,
+                          })
+                        }
+                      />
+                      Current position
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setEditingExpIdx(null)}
+                        disabled={savingExp}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={saveExp}
+                        disabled={savingExp}
+                      >
+                        {savingExp ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div
+                      className="exp-header"
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <div>
+                        <div className="exp-title">{exp.title}</div>
+                        <div className="exp-company">{exp.company}</div>
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => startEditExp(i)}
+                        title="Edit experience"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div className="exp-details">
+                      {exp.location && <span className="exp-location">{exp.location}</span>}
+                      <span className="exp-dates">
+                        {formatDate(exp.startDate)} -{' '}
+                        {exp.isCurrent ? 'Present' : formatDate(exp.endDate)}
+                      </span>
+                    </div>
+                    {exp.achievements && exp.achievements.length > 0 && (
+                      <ul className="exp-achievements">
+                        {exp.achievements.slice(0, 4).map((achievement, j) => (
+                          <li key={j}>
+                            {typeof achievement === 'string' ? achievement : achievement.statement}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {exp.technologiesUsed && exp.technologiesUsed.length > 0 && (
+                      <div className="exp-tech">
+                        {exp.technologiesUsed.slice(0, 6).map((tech, j) => (
+                          <span key={j} className="tag tag-sm">
+                            {typeof tech === 'string' ? tech : tech.skill}
+                          </span>
+                        ))}
+                        {exp.technologiesUsed.length > 6 && (
+                          <span className="tag tag-sm tag-more">
+                            +{exp.technologiesUsed.length - 6} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}
@@ -1864,6 +2067,7 @@ function ProfileAnswers({ profile }: { profile: MasterProfile }) {
 }
 
 function GeneratedProfiles({ profile }: { profile: MasterProfile }) {
+  const { refreshProfile } = useProfile();
   const [selectedProfile, setSelectedProfile] = useState<GeneratedProfile | null>(
     profile.generatedProfiles?.[0] || null
   );
@@ -1945,8 +2149,30 @@ function GeneratedProfiles({ profile }: { profile: MasterProfile }) {
             )}
 
             <div className="profile-actions">
-              <button className="btn btn-primary">Use This Profile</button>
-              <button className="btn btn-secondary">Export Resume</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (!profile || !selectedProfile) return;
+                  await sendMessage({
+                    type: 'SET_ACTIVE_ROLE_PROFILE',
+                    payload: { masterProfileId: profile.id, roleProfileId: selectedProfile.id },
+                  });
+                  await refreshProfile();
+                }}
+              >
+                Use This Profile
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  // Navigate to resume generator page (handled by parent App)
+                  window.dispatchEvent(
+                    new CustomEvent('applysharp-navigate', { detail: 'profiles' })
+                  );
+                }}
+              >
+                Export Resume
+              </button>
             </div>
           </>
         ) : (
@@ -2231,7 +2457,8 @@ function ProfileRecommendations({
   }
 
   // Calculate strength percentage
-  const strengthPercent = Math.round((completedItems.length / totalChecks) * 100);
+  const strengthPercent =
+    totalChecks > 0 ? Math.round((completedItems.length / totalChecks) * 100) : 0;
 
   // Separate warnings and suggestions
   const warnings = recommendations.filter((r) => r.type === 'warning');

@@ -59,14 +59,20 @@ export default function ResumeUpload() {
     ];
     const validExtensions = ['.pdf', '.docx', '.txt'];
 
-    const hasValidExtension = validExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext)
-    );
+    const hasValidExtension = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
 
     if (!validTypes.includes(file.type) && !hasValidExtension) {
       setState((prev) => ({
         ...prev,
         error: 'Please upload a PDF, DOCX, or TXT file',
+      }));
+      return;
+    }
+
+    if (file.size === 0) {
+      setState((prev) => ({
+        ...prev,
+        error: 'File is empty. Please upload a valid resume file.',
       }));
       return;
     }
@@ -132,6 +138,11 @@ export default function ResumeUpload() {
         },
       });
 
+      setState((prev) => ({
+        ...prev,
+        progress: { stage: 'generating', message: 'Creating workspace...', progress: 90 },
+      }));
+
       if (response.success && response.data) {
         // Update the shared profile state with new workspace
         setProfile(response.data);
@@ -187,20 +198,22 @@ export default function ResumeUpload() {
             <div className="pulse-ring"></div>
             <div className="pulse-ring delay-1"></div>
             <div className="pulse-ring delay-2"></div>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="12" cy="12" r="3" />
               <path d="M12 2a10 10 0 1 0 10 10" />
             </svg>
           </div>
           <h2>Creating New Workspace</h2>
-          <p className="analyzing-stage">
-            {state.progress?.message || 'Starting analysis...'}
-          </p>
+          <p className="analyzing-stage">{state.progress?.message || 'Starting analysis...'}</p>
           <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${state.progress?.progress || 5}%` }}
-            />
+            <div className="progress-fill" style={{ width: `${state.progress?.progress || 5}%` }} />
           </div>
           <p className="analyzing-hint">
             AI is extracting skills, building career context, and generating role profiles.
@@ -230,17 +243,12 @@ export default function ResumeUpload() {
           </div>
           <div className="workspaces-list">
             {allProfiles.map((p) => (
-              <div
-                key={p.id}
-                className={`workspace-badge ${p.id === profile?.id ? 'active' : ''}`}
-              >
+              <div key={p.id} className={`workspace-badge ${p.id === profile?.id ? 'active' : ''}`}>
                 <span className="workspace-badge-name">{p.personal?.fullName || 'Unnamed'}</span>
                 <span className="workspace-badge-meta">
                   {p.generatedProfiles?.length || 0} roles
                 </span>
-                {p.id === profile?.id && (
-                  <span className="workspace-badge-current">Current</span>
-                )}
+                {p.id === profile?.id && <span className="workspace-badge-current">Current</span>}
               </div>
             ))}
           </div>
@@ -263,7 +271,14 @@ export default function ResumeUpload() {
           {!state.file ? (
             <>
               <div className="upload-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
@@ -273,12 +288,7 @@ export default function ResumeUpload() {
                 Drag and drop your resume here, or{' '}
                 <label className="upload-link">
                   browse
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={handleFileSelect}
-                    hidden
-                  />
+                  <input type="file" accept=".pdf,.docx,.txt" onChange={handleFileSelect} hidden />
                 </label>
               </p>
               <p className="upload-hint">Supports PDF, DOCX, and TXT files (max 10MB)</p>
@@ -286,7 +296,14 @@ export default function ResumeUpload() {
           ) : (
             <div className="file-preview">
               <div className="file-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                 </svg>
@@ -304,7 +321,14 @@ export default function ResumeUpload() {
 
         {state.error && (
           <div className="error-message">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -316,7 +340,14 @@ export default function ResumeUpload() {
         {state.file && (
           <div className="upload-actions">
             <button className="btn btn-primary" onClick={analyzeResume}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M12 5v14M5 12h14" />
               </svg>
               Create New Workspace
@@ -328,7 +359,14 @@ export default function ResumeUpload() {
       <div className="info-cards">
         <div className="info-card">
           <div className="info-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
@@ -340,11 +378,18 @@ export default function ResumeUpload() {
 
         <div className="info-card">
           <div className="info-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="6" cy="6" r="3"/>
-              <path d="M6 9v12"/>
-              <path d="M6 15h7a3 3 0 0 0 3-3V9"/>
-              <circle cx="16" cy="6" r="3"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="6" cy="6" r="3" />
+              <path d="M6 9v12" />
+              <path d="M6 15h7a3 3 0 0 0 3-3V9" />
+              <circle cx="16" cy="6" r="3" />
             </svg>
           </div>
           <h3>Role Branches</h3>
@@ -353,7 +398,14 @@ export default function ResumeUpload() {
 
         <div className="info-card">
           <div className="info-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </div>

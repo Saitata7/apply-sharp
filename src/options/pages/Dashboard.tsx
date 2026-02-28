@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { sendMessage } from '@shared/utils/messaging';
 import type { ApplicationStatus } from '@shared/types/application.types';
 import type { ApplicationWithJob } from '../components/applications/ApplicationCard';
+import type { Job } from '@shared/types/job.types';
 import { useProfile } from '../context/ProfileContext';
 import StatsSummary from '../components/analytics/StatsSummary';
 import FunnelChart from '../components/analytics/FunnelChart';
@@ -14,13 +15,19 @@ interface DashboardProps {
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const { profile, allProfiles } = useProfile();
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
+  const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [learningInsights, setLearningInsights] = useState<{
     topKeywords?: { keyword: string; score: number }[];
   } | null>(null);
+  const [improvements, setImprovements] = useState<
+    Array<{ type: string; title: string; description: string; priority: string }>
+  >([]);
 
   useEffect(() => {
-    Promise.all([loadApplications(), loadInsights()]).finally(() => setLoading(false));
+    Promise.all([loadApplications(), loadInsights(), loadSavedJobs(), loadImprovements()]).finally(
+      () => setLoading(false)
+    );
   }, []);
 
   async function loadApplications() {
@@ -52,6 +59,36 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   }
 
+  async function loadImprovements() {
+    try {
+      const response = await sendMessage<
+        void,
+        Array<{ type: string; title: string; description: string; priority: string }>
+      >({
+        type: 'GET_IMPROVEMENTS',
+      });
+      if (response.success && response.data) {
+        setImprovements(response.data.slice(0, 3));
+      }
+    } catch {
+      // Non-critical
+    }
+  }
+
+  async function loadSavedJobs() {
+    try {
+      const response = await sendMessage<number, Job[]>({
+        type: 'GET_RECENT_JOBS',
+        payload: 50,
+      });
+      if (response.success && response.data) {
+        setSavedJobs(response.data);
+      }
+    } catch {
+      // Non-critical
+    }
+  }
+
   const stats = useMemo(() => {
     const total = applications.length;
     if (total === 0) return { total: 0, responseRate: 0, interviewRate: 0, offerRate: 0 };
@@ -66,9 +103,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     return {
       total,
-      responseRate: Math.round((responded / total) * 100),
-      interviewRate: Math.round((interviewed / total) * 100),
-      offerRate: Math.round((offers / total) * 100),
+      responseRate: total > 0 ? Math.round((responded / total) * 100) : 0,
+      interviewRate: total > 0 ? Math.round((interviewed / total) * 100) : 0,
+      offerRate: total > 0 ? Math.round((offers / total) * 100) : 0,
     };
   }, [applications]);
 
@@ -95,6 +132,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       .slice(0, 5);
   }, [applications]);
 
+  const [aiConfigured, setAiConfigured] = useState(false);
+
+  useEffect(() => {
+    sendMessage<void, { provider?: string }>({ type: 'GET_SETTINGS' })
+      .then((res) => {
+        if (res?.success && res.data?.provider) {
+          setAiConfigured(true);
+        }
+      })
+      .catch(() => {
+        /* non-critical */
+      });
+  }, []);
+
   const profileCompleteness = useMemo(() => {
     if (!profile) return { score: 0, items: [] as { label: string; done: boolean }[] };
     const items = [
@@ -106,22 +157,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       },
       {
         label: 'AI provider configured',
-        done: false, // checked below
+        done: aiConfigured,
       },
     ];
-    // Check AI settings
-    try {
-      sendMessage<void, { provider?: string }>({ type: 'GET_SETTINGS' }).then((res) => {
-        if (res?.success && res.data?.provider) {
-          items[3].done = true;
-        }
-      });
-    } catch {
-      // non-critical
-    }
     const done = items.filter((i) => i.done).length;
     return { score: Math.round((done / items.length) * 100), items };
-  }, [profile]);
+  }, [profile, aiConfigured]);
 
   if (loading) {
     return (
@@ -175,7 +216,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </span>
                   </div>
                   <span className={`dashboard-status dashboard-status--${app.status}`}>
-                    {app.status.replace('_', ' ')}
+                    {app.status.replaceAll('_', ' ')}
                   </span>
                 </div>
               ))}
@@ -183,6 +224,61 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           )}
         </div>
       </div>
+
+      {savedJobs.length > 0 && (
+        <div className="analytics-card" style={{ marginBottom: '1.5rem' }}>
+          <h3 className="analytics-card-title">Saved Jobs ({savedJobs.length})</h3>
+          <div className="dashboard-recent-list">
+            {savedJobs.slice(0, 10).map((job) => (
+              <div key={job.id} className="dashboard-recent-item">
+                <div className="dashboard-recent-info">
+                  <span className="dashboard-recent-title">{job.title}</span>
+                  <span className="dashboard-recent-company">
+                    {job.company} {job.location ? `\u00B7 ${job.location}` : ''}
+                  </span>
+                </div>
+                {job.url && (
+                  <a
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dashboard-status"
+                    style={{ textDecoration: 'none', fontSize: '0.75rem' }}
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            ))}
+            {savedJobs.length > 10 && (
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+                ...and {savedJobs.length - 10} more
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {improvements.length > 0 && (
+        <div className="analytics-card" style={{ marginBottom: '1.5rem' }}>
+          <h3 className="analytics-card-title">Learning Suggestions</h3>
+          <div className="dashboard-recent-list">
+            {improvements.map((imp) => (
+              <div key={`${imp.type}-${imp.title}`} className="dashboard-recent-item">
+                <div className="dashboard-recent-info">
+                  <span className="dashboard-recent-title">{imp.title}</span>
+                  <span className="dashboard-recent-company">{imp.description}</span>
+                </div>
+                <span
+                  className={`dashboard-status dashboard-status--${imp.priority === 'high' ? 'interview' : 'submitted'}`}
+                >
+                  {imp.priority}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="analytics-grid">
         <TopKeywords keywords={topKeywords.slice(0, 5)} />

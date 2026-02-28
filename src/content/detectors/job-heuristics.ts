@@ -70,10 +70,25 @@ export function detectJobPage(): JobPageSignals {
   const pageTitle = document.title.toLowerCase();
   const h1Text = document.querySelector('h1')?.textContent?.toLowerCase() || '';
   const titlePatterns = [
-    /engineer/i, /developer/i, /designer/i, /manager/i, /analyst/i,
-    /specialist/i, /coordinator/i, /director/i, /lead/i, /architect/i,
-    /consultant/i, /administrator/i, /scientist/i, /researcher/i,
-    /associate/i, /intern/i, /senior/i, /junior/i, /staff/i,
+    /engineer/i,
+    /developer/i,
+    /designer/i,
+    /manager/i,
+    /analyst/i,
+    /specialist/i,
+    /coordinator/i,
+    /director/i,
+    /lead/i,
+    /architect/i,
+    /consultant/i,
+    /administrator/i,
+    /scientist/i,
+    /researcher/i,
+    /associate/i,
+    /intern/i,
+    /senior/i,
+    /junior/i,
+    /staff/i,
   ];
 
   for (const pattern of titlePatterns) {
@@ -88,14 +103,14 @@ export function detectJobPage(): JobPageSignals {
   const bodyText = document.body.innerText.toLowerCase();
   const sectionKeywords = [
     { keywords: ['requirements', 'qualifications', 'what you need'], weight: 10 },
-    { keywords: ['responsibilities', 'what you\'ll do', 'you will'], weight: 10 },
+    { keywords: ['responsibilities', "what you'll do", 'you will'], weight: 10 },
     { keywords: ['benefits', 'perks', 'what we offer'], weight: 5 },
     { keywords: ['about the role', 'about this position', 'job description'], weight: 10 },
     { keywords: ['years of experience', 'years experience'], weight: 10 },
   ];
 
   for (const { keywords, weight } of sectionKeywords) {
-    if (keywords.some(kw => bodyText.includes(kw))) {
+    if (keywords.some((kw) => bodyText.includes(kw))) {
       signals.push(`Section keyword found: ${keywords[0]}`);
       score += weight;
     }
@@ -140,10 +155,14 @@ function extractSchemaJobPosting(): JobPostingSchema | null {
       const data = JSON.parse(script.textContent || '');
       const jobPosting = findJobPosting(data);
       if (jobPosting) {
-        const hiringOrg = jobPosting.hiringOrganization as Record<string, unknown> | string | undefined;
-        const companyName = typeof hiringOrg === 'object' && hiringOrg
-          ? (hiringOrg.name as string)
-          : (hiringOrg as string | undefined);
+        const hiringOrg = jobPosting.hiringOrganization as
+          | Record<string, unknown>
+          | string
+          | undefined;
+        const companyName =
+          typeof hiringOrg === 'object' && hiringOrg
+            ? (hiringOrg.name as string)
+            : (hiringOrg as string | undefined);
 
         const empType = jobPosting.employmentType;
         const employmentTypeStr = Array.isArray(empType)
@@ -220,7 +239,10 @@ function extractLocation(jobLocation: unknown): string | undefined {
   if (typeof jobLocation === 'string') return jobLocation;
 
   if (Array.isArray(jobLocation)) {
-    return jobLocation.map(loc => extractLocation(loc)).filter(Boolean).join(', ');
+    return jobLocation
+      .map((loc) => extractLocation(loc))
+      .filter(Boolean)
+      .join(', ');
   }
 
   const loc = jobLocation as Record<string, unknown>;
@@ -231,7 +253,7 @@ function extractLocation(jobLocation: unknown): string | undefined {
       .join(', ');
   }
 
-  return loc.name as string || undefined;
+  return (loc.name as string) || undefined;
 }
 
 /**
@@ -308,152 +330,4 @@ function findApplyButton(): HTMLElement | null {
   }
 
   return null;
-}
-
-/**
- * Extract job data from page using heuristics
- */
-export function extractJobFromPage(): {
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  employmentType?: string;
-  salary?: string;
-} {
-  const signals = detectJobPage();
-
-  // If we have schema data, use it
-  if (signals.schemaData) {
-    return {
-      title: signals.schemaData.title || extractTitle(),
-      company: signals.schemaData.company || extractCompany(),
-      location: signals.schemaData.location || extractLocationFromPage(),
-      description: signals.schemaData.description || extractDescription(),
-      employmentType: signals.schemaData.employmentType,
-      salary: signals.schemaData.salary,
-    };
-  }
-
-  // Otherwise, extract from page
-  return {
-    title: extractTitle(),
-    company: extractCompany(),
-    location: extractLocationFromPage(),
-    description: extractDescription(),
-  };
-}
-
-/**
- * Extract job title from page
- */
-function extractTitle(): string {
-  // Try h1 first
-  const h1 = document.querySelector('h1');
-  if (h1?.textContent?.trim()) {
-    return h1.textContent.trim();
-  }
-
-  // Try page title
-  const pageTitle = document.title;
-  // Remove common suffixes
-  return pageTitle
-    .replace(/\s*[\|\-–—]\s*.+$/, '')
-    .replace(/\s*at\s+.+$/i, '')
-    .trim();
-}
-
-/**
- * Extract company name from page
- */
-function extractCompany(): string {
-  // Try common selectors
-  const selectors = [
-    '[class*="company-name"]',
-    '[class*="companyName"]',
-    '[class*="employer"]',
-    '[data-testid*="company"]',
-    '.company',
-    '.employer-name',
-  ];
-
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el?.textContent?.trim()) {
-      return el.textContent.trim();
-    }
-  }
-
-  // Try meta tags
-  const ogSiteName = document.querySelector('meta[property="og:site_name"]');
-  if (ogSiteName?.getAttribute('content')) {
-    return ogSiteName.getAttribute('content')!;
-  }
-
-  // Try to extract from title (e.g., "Software Engineer at Company Name")
-  const title = document.title;
-  const atMatch = title.match(/\bat\s+([^|\-–—]+)/i);
-  if (atMatch) {
-    return atMatch[1].trim();
-  }
-
-  // Fallback to domain
-  return window.location.hostname.replace('www.', '').split('.')[0];
-}
-
-/**
- * Extract location from page
- */
-function extractLocationFromPage(): string {
-  const selectors = [
-    '[class*="location"]',
-    '[class*="Location"]',
-    '[data-testid*="location"]',
-    '.job-location',
-    '.location',
-  ];
-
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el?.textContent?.trim()) {
-      const text = el.textContent.trim();
-      // Filter out very long text (probably not just location)
-      if (text.length < 100) {
-        return text;
-      }
-    }
-  }
-
-  return 'Location not specified';
-}
-
-/**
- * Extract job description from page
- */
-function extractDescription(): string {
-  // Try common description containers
-  const selectors = [
-    '[class*="job-description"]',
-    '[class*="jobDescription"]',
-    '[class*="description"]',
-    '[data-testid*="description"]',
-    '.job-details',
-    '.posting-description',
-    'article',
-    'main',
-  ];
-
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el?.textContent?.trim()) {
-      const text = el.textContent.trim();
-      // Must be substantial
-      if (text.length > 200) {
-        return text;
-      }
-    }
-  }
-
-  // Fallback: get body text
-  return document.body.innerText.substring(0, 5000);
 }

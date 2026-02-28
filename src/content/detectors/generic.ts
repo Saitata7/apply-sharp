@@ -16,14 +16,19 @@ export class GenericDetector implements JobDetector {
 
   getJobId(): string | null {
     // Use URL hash as ID
-    return `generic-${btoa(window.location.href).slice(0, 20)}`;
+    try {
+      return `generic-${btoa(encodeURIComponent(window.location.href)).slice(0, 20)}`;
+    } catch {
+      // Fallback for any encoding edge cases
+      return `generic-${window.location.pathname.replace(/\W/g, '').slice(0, 20)}`;
+    }
   }
 
   async extract(): Promise<ExtractedJob> {
     // For sites that load content dynamically, wait for content
     const isDynamicSite = this.isDynamicContentSite();
     if (isDynamicSite) {
-      console.log('[ApplySharp] Detected dynamic content site, waiting for content to load...');
+      console.debug('[ApplySharp] Detected dynamic content site, waiting for content to load...');
       await this.waitForDynamicContent();
     }
 
@@ -59,14 +64,14 @@ export class GenericDetector implements JobDetector {
 
       // Check if content is already loaded
       if (this.hasJobContent()) {
-        console.log('[ApplySharp] Content already loaded');
+        console.debug('[ApplySharp] Content already loaded');
         resolve();
         return;
       }
 
       const observer = new MutationObserver(() => {
         if (this.hasJobContent()) {
-          console.log('[ApplySharp] Dynamic content loaded after', Date.now() - startTime, 'ms');
+          console.debug('[ApplySharp] Dynamic content loaded after', Date.now() - startTime, 'ms');
           observer.disconnect();
           // Small delay to let any final rendering complete
           setTimeout(resolve, 200);
@@ -82,8 +87,8 @@ export class GenericDetector implements JobDetector {
       // Timeout fallback
       setTimeout(() => {
         observer.disconnect();
-        console.log('[ApplySharp] Dynamic content wait timed out after', timeout, 'ms');
-        resolve();
+        console.debug('[ApplySharp] Dynamic content wait timed out after', timeout, 'ms');
+        setTimeout(resolve, 200); // Match mutation settle delay
       }, timeout);
     });
   }
@@ -106,14 +111,14 @@ export class GenericDetector implements JobDetector {
       'experience',
       'skills',
       'about the role',
-      'what you\'ll do',
-      'what we\'re looking for',
+      "what you'll do",
+      "what we're looking for",
       'job description',
       'apply now',
       'apply for this job',
     ];
 
-    const matchCount = jobKeywords.filter(kw => lowerText.includes(kw)).length;
+    const matchCount = jobKeywords.filter((kw) => lowerText.includes(kw)).length;
 
     // Need at least 2 job-related keywords
     return matchCount >= 2;
@@ -163,15 +168,12 @@ export class GenericDetector implements JobDetector {
       description: description || '',
     };
 
-    // Debug logging - print key values directly for easier viewing
-    console.log('[ApplySharp] Generic extraction:');
-    console.log('  - Title found:', title ? `"${title}"` : 'NO (fallback used)');
-    console.log('  - Company found:', company ? `"${company}"` : 'NO (fallback used)');
-    console.log('  - Location:', location || 'not found');
-    console.log('  - Description length:', description?.length || 0);
-    console.log('  - Description preview:', description?.substring(0, 200) || 'EMPTY');
-    console.log('  - Final title:', result.title);
-    console.log('  - Final company:', result.company);
+    console.debug('[ApplySharp] Generic extraction:', {
+      title: result.title,
+      company: result.company,
+      location: location || 'not found',
+      descriptionLength: description?.length || 0,
+    });
 
     return result;
   }
@@ -181,39 +183,34 @@ export class GenericDetector implements JobDetector {
     // This is more reliable than generic h1 which might be a logo
     const bodyText = document.body.innerText;
 
-    // Debug: Check if key fields exist in body
-    const hasDesiredSkills = bodyText.includes('Desired Skills');
-    const hasRole = bodyText.includes('Role');
-    console.log('[ApplySharp] Title search - Desired Skills in page:', hasDesiredSkills, ', Role in page:', hasRole);
-
     // Pattern 1: "Desired Skills: X" or "Desired Skills   X" (tabs/spaces)
-    const desiredSkillsMatch = bodyText.match(/Desired Skills[\s:\-]*([A-Za-z][A-Za-z\s\+\#\.]+?)(?:\n|$)/i);
+    const desiredSkillsMatch = bodyText.match(
+      /Desired Skills[\s:=-]*([A-Za-z][A-Za-z\s+#.]+?)(?:\n|$)/i
+    );
     // Pattern 2: "Role: X" or "Role   X" - be more flexible
-    const roleMatch = bodyText.match(/\bRole[\s:\-]*([A-Za-z][A-Za-z\s]+?)(?:\n|$)/i);
-
-    console.log('[ApplySharp] Desired Skills match:', desiredSkillsMatch ? desiredSkillsMatch[1] : 'NOT FOUND');
-    console.log('[ApplySharp] Role match:', roleMatch ? roleMatch[1] : 'NOT FOUND');
+    const roleMatch = bodyText.match(/\bRole[\s:=-]*([A-Za-z][A-Za-z\s]+?)(?:\n|$)/i);
 
     if (desiredSkillsMatch && roleMatch) {
       const skill = desiredSkillsMatch[1].trim();
       const role = roleMatch[1].trim();
       if (skill && role && skill.length < 50 && role.length < 50) {
-        console.log('[ApplySharp] Constructed title from Desired Skills + Role:', `${skill} ${role}`);
         return `${skill} ${role}`;
       }
     }
     if (desiredSkillsMatch) {
       const skill = desiredSkillsMatch[1].trim();
       if (skill && skill.length < 50 && skill.length > 1) {
-        console.log('[ApplySharp] Constructed title from Desired Skills:', `${skill} Developer`);
         return `${skill} Developer`;
       }
     }
 
     // Pattern 2: Look for "Job Title: X" or "Position: X" in body text
-    const jobTitleMatch = bodyText.match(/(?:Job Title|Position|Title)\s*[:\-]?\s*([^\n]+)/i);
-    if (jobTitleMatch && jobTitleMatch[1].trim().length > 3 && jobTitleMatch[1].trim().length < 100) {
-      console.log('[ApplySharp] Found title from Job Title field:', jobTitleMatch[1].trim());
+    const jobTitleMatch = bodyText.match(/(?:Job Title|Position|Title)\s*[:=-]?\s*([^\n]+)/i);
+    if (
+      jobTitleMatch &&
+      jobTitleMatch[1].trim().length > 3 &&
+      jobTitleMatch[1].trim().length < 100
+    ) {
       return jobTitleMatch[1].trim();
     }
 
@@ -245,7 +242,7 @@ export class GenericDetector implements JobDetector {
         const el = document.querySelector(selector);
         const text = el?.textContent?.trim();
         if (text && text.length > 3 && text.length < 150) {
-          console.log('[ApplySharp] Found title from selector:', selector, '=', text);
+          console.debug('[ApplySharp] Found title from selector:', selector, '=', text);
           return text;
         }
       } catch {
@@ -260,8 +257,12 @@ export class GenericDetector implements JobDetector {
       const text = h1.textContent?.trim() || '';
       const lowerText = text.toLowerCase();
       // Skip if it looks like branding
-      if (text.length > 3 && text.length < 150 && !brandingTerms.some(term => lowerText.includes(term))) {
-        console.log('[ApplySharp] Found title from h1:', text);
+      if (
+        text.length > 3 &&
+        text.length < 150 &&
+        !brandingTerms.some((term) => lowerText.includes(term))
+      ) {
+        console.debug('[ApplySharp] Found title from h1:', text);
         return text;
       }
     }
@@ -277,7 +278,7 @@ export class GenericDetector implements JobDetector {
           if (label === 'role' || label === 'job title' || label === 'position') {
             const value = cells[i + 1]?.textContent?.trim();
             if (value && value.length > 0 && value.length < 200) {
-              console.log('[ApplySharp] Found title from table:', value);
+              console.debug('[ApplySharp] Found title from table:', value);
               return value;
             }
           }
@@ -289,7 +290,7 @@ export class GenericDetector implements JobDetector {
     const pageTitle = document.title;
     const pageTitleMatch = pageTitle.match(/^([^|–—-]+)/);
     if (pageTitleMatch && pageTitleMatch[1].trim().length > 3) {
-      console.log('[ApplySharp] Using page title as fallback:', pageTitleMatch[1].trim());
+      console.debug('[ApplySharp] Using page title as fallback:', pageTitleMatch[1].trim());
       return pageTitleMatch[1].trim();
     }
 
@@ -325,7 +326,11 @@ export class GenericDetector implements JobDetector {
     for (const selector of companySelectors) {
       try {
         const el = document.querySelector(selector);
-        if (el?.textContent && el.textContent.trim().length > 0 && el.textContent.trim().length < 100) {
+        if (
+          el?.textContent &&
+          el.textContent.trim().length > 0 &&
+          el.textContent.trim().length < 100
+        ) {
           return el.textContent.trim();
         }
       } catch {
@@ -354,7 +359,10 @@ export class GenericDetector implements JobDetector {
     }
 
     // Check for TCS/iBegin branding
-    if (window.location.hostname.includes('tcsapps.com') || window.location.hostname.includes('tcs.com')) {
+    if (
+      window.location.hostname.includes('tcsapps.com') ||
+      window.location.hostname.includes('tcs.com')
+    ) {
       return 'Tata Consultancy Services';
     }
 
@@ -385,7 +393,7 @@ export class GenericDetector implements JobDetector {
     // FIRST: Look for actual job requirement sentences in body text
     // This is the most reliable way to find job content regardless of HTML structure
     const requirementSentences = bodyText.match(
-      /(?:^|\n)\s*[•\-\*]?\s*(?:Strong|Experience|Knowledge|Understanding|Proficien|Ability|Hands)[^\n]*(?:experience|years|knowledge|Java|Python|Spring|REST|API|SQL|AWS|cloud|agile)[^\n]*/gi
+      /(?:^|\n)\s*[•\-*]?\s*(?:Strong|Experience|Knowledge|Understanding|Proficien|Ability|Hands)[^\n]*(?:experience|years|knowledge|Java|Python|Spring|REST|API|SQL|AWS|cloud|agile)[^\n]*/gi
     );
 
     if (requirementSentences && requirementSentences.length >= 3) {
@@ -400,7 +408,12 @@ export class GenericDetector implements JobDetector {
         const contextStart = Math.max(0, startIdx - 100);
         const contextEnd = Math.min(bodyText.length, endIdx + 500);
         const content = bodyText.substring(contextStart, contextEnd);
-        console.log('[ApplySharp] Found job content via requirement sentences, count:', requirementSentences.length, 'length:', content.length);
+        console.debug(
+          '[ApplySharp] Found job content via requirement sentences, count:',
+          requirementSentences.length,
+          'length:',
+          content.length
+        );
         return content.trim();
       }
     }
@@ -417,16 +430,22 @@ export class GenericDetector implements JobDetector {
       const lowerText = text.toLowerCase();
       if (
         text.length > 200 &&
-        (lowerText.includes('experience') || lowerText.includes('knowledge') ||
-         lowerText.includes('java') || lowerText.includes('python') || lowerText.includes('spring'))
+        (lowerText.includes('experience') ||
+          lowerText.includes('knowledge') ||
+          lowerText.includes('java') ||
+          lowerText.includes('python') ||
+          lowerText.includes('spring'))
       ) {
         const parent = list.parentElement;
         const parentText = getCleanText(parent);
         if (parentText.length > text.length && parentText.length < 10000) {
-          console.log('[ApplySharp] Found job content via bullet list, length:', parentText.length);
+          console.debug(
+            '[ApplySharp] Found job content via bullet list, length:',
+            parentText.length
+          );
           return parentText;
         }
-        console.log('[ApplySharp] Found job content via bullet list, length:', text.length);
+        console.debug('[ApplySharp] Found job content via bullet list, length:', text.length);
         return text;
       }
     }
@@ -468,7 +487,12 @@ export class GenericDetector implements JobDetector {
 
     candidates.sort((a, b) => b.score - a.score);
     if (candidates.length > 0) {
-      console.log('[ApplySharp] Found job content via scoring, score:', candidates[0].score, 'length:', candidates[0].text.length);
+      console.debug(
+        '[ApplySharp] Found job content via scoring, score:',
+        candidates[0].score,
+        'length:',
+        candidates[0].text.length
+      );
       return candidates[0].text;
     }
 
@@ -480,22 +504,33 @@ export class GenericDetector implements JobDetector {
       let content = bodyText.substring(jdIndex, Math.min(bodyText.length, jdIndex + 5000));
 
       // Try to stop at footer markers
-      const footerMarkers = ['Cookie Policy', 'Privacy Notice', 'Terms And Conditions', 'Legal', 'Save Job', 'Apply By'];
+      const footerMarkers = [
+        'Cookie Policy',
+        'Privacy Notice',
+        'Terms And Conditions',
+        'Legal',
+        'Save Job',
+        'Apply By',
+      ];
       for (const marker of footerMarkers) {
         const markerIdx = content.indexOf(marker);
-        if (markerIdx > 200) { // Must have some content before the marker
+        if (markerIdx > 200) {
+          // Must have some content before the marker
           content = content.substring(0, markerIdx);
           break;
         }
       }
 
       if (content.length > 300) {
-        console.log('[ApplySharp] Found job content from Job Description marker, length:', content.length);
+        console.debug(
+          '[ApplySharp] Found job content from Job Description marker, length:',
+          content.length
+        );
         return content.trim();
       }
     }
 
-    console.log('[ApplySharp] Using full body fallback, length:', bodyText.length);
+    console.debug('[ApplySharp] Using full body fallback, length:', bodyText.length);
     return bodyText.substring(0, 10000);
   }
 

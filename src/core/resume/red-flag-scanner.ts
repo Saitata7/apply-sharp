@@ -139,9 +139,9 @@ function detectEmploymentGaps(experience: EnrichedExperience[]): RedFlag[] {
   const flags: RedFlag[] = [];
 
   // Sort by start date ascending
-  const sorted = [...experience].sort(
-    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-  );
+  const sorted = [...experience]
+    .filter((e) => e.startDate && !isNaN(new Date(e.startDate).getTime()))
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   for (let i = 0; i < sorted.length - 1; i++) {
     const current = sorted[i];
@@ -306,9 +306,9 @@ function detectTitleRegression(experience: EnrichedExperience[]): RedFlag[] {
   const flags: RedFlag[] = [];
 
   // Sort by start date ascending (oldest first)
-  const sorted = [...experience].sort(
-    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-  );
+  const sorted = [...experience]
+    .filter((e) => e.startDate && !isNaN(new Date(e.startDate).getTime()))
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   for (let i = 0; i < sorted.length - 1; i++) {
     const current = sorted[i];

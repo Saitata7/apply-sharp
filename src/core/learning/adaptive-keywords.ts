@@ -18,10 +18,10 @@ export interface KeywordEntry {
   industry: string[];
 
   // Performance metrics
-  globalScore: number;           // 0-100, overall effectiveness
-  platformScores: Record<string, number>;  // Per-platform scores
-  successRate: number;           // Applications that got responses
-  interviewRate: number;         // Applications that got interviews
+  globalScore: number; // 0-100, overall effectiveness
+  platformScores: Record<string, number>; // Per-platform scores
+  successRate: number; // Applications that got responses
+  interviewRate: number; // Applications that got interviews
 
   // Trend tracking
   trend: 'rising' | 'stable' | 'declining';
@@ -70,9 +70,10 @@ const STORAGE_KEY = 'adaptive_keywords';
 export class AdaptiveKeywordDB {
   private keywords: Map<string, KeywordEntry> = new Map();
   private industryClusters: Map<string, IndustryCluster> = new Map();
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.initializeFromDefaults();
+    this.initPromise = this.initializeFromDefaults();
   }
 
   /**
@@ -156,15 +157,15 @@ export class AdaptiveKeywordDB {
    */
   private buildSemanticRelationships(): void {
     const relationships: Record<string, string[]> = {
-      'react': ['javascript', 'typescript', 'redux', 'next.js', 'frontend'],
-      'python': ['django', 'fastapi', 'flask', 'pandas', 'numpy'],
+      react: ['javascript', 'typescript', 'redux', 'next.js', 'frontend'],
+      python: ['django', 'fastapi', 'flask', 'pandas', 'numpy'],
       'node.js': ['javascript', 'express', 'typescript', 'backend'],
-      'aws': ['cloud', 'docker', 'kubernetes', 'terraform', 'devops'],
+      aws: ['cloud', 'docker', 'kubernetes', 'terraform', 'devops'],
       'machine learning': ['python', 'tensorflow', 'pytorch', 'data science', 'ai'],
-      'docker': ['kubernetes', 'containerization', 'devops', 'ci/cd'],
-      'postgresql': ['sql', 'database', 'backend', 'data'],
-      'leadership': ['management', 'team leadership', 'mentoring', 'communication'],
-      'agile': ['scrum', 'kanban', 'project management', 'sprint'],
+      docker: ['kubernetes', 'containerization', 'devops', 'ci/cd'],
+      postgresql: ['sql', 'database', 'backend', 'data'],
+      leadership: ['management', 'team leadership', 'mentoring', 'communication'],
+      agile: ['scrum', 'kanban', 'project management', 'sprint'],
     };
 
     for (const [keyword, related] of Object.entries(relationships)) {
@@ -178,11 +179,8 @@ export class AdaptiveKeywordDB {
   /**
    * Record keyword usage in an application
    */
-  async recordUsage(
-    keywords: string[],
-    platform: string,
-    _jobRole: string
-  ): Promise<void> {
+  async recordUsage(keywords: string[], platform: string, _jobRole: string): Promise<void> {
+    await this.initPromise;
     for (const keyword of keywords) {
       const key = keyword.toLowerCase();
       const entry = this.keywords.get(key);
@@ -227,6 +225,7 @@ export class AdaptiveKeywordDB {
     platform: string,
     outcome: 'no_response' | 'rejected' | 'interview' | 'offer'
   ): Promise<void> {
+    await this.initPromise;
     const outcomeScores: Record<string, number> = {
       no_response: -5,
       rejected: -2,
@@ -243,15 +242,14 @@ export class AdaptiveKeywordDB {
       if (entry) {
         // Update global score with dampening
         const dampening = Math.min(1, 10 / (entry.usageCount + 1));
-        entry.globalScore = Math.max(0, Math.min(100,
-          entry.globalScore + (scoreChange * dampening)
-        ));
+        entry.globalScore = Math.max(0, Math.min(100, entry.globalScore + scoreChange * dampening));
 
         // Update platform-specific score
         const platformScore = entry.platformScores[platform] || 50;
-        entry.platformScores[platform] = Math.max(0, Math.min(100,
-          platformScore + (scoreChange * 1.5 * dampening)
-        ));
+        entry.platformScores[platform] = Math.max(
+          0,
+          Math.min(100, platformScore + scoreChange * 1.5 * dampening)
+        );
 
         // Update success/interview rates
         if (outcome === 'interview' || outcome === 'offer') {
@@ -302,7 +300,7 @@ export class AdaptiveKeywordDB {
     _industry?: string
   ): KeywordRecommendation[] {
     const recommendations: KeywordRecommendation[] = [];
-    const resumeSet = new Set(resumeKeywords.map(k => k.toLowerCase()));
+    const resumeSet = new Set(resumeKeywords.map((k) => k.toLowerCase()));
 
     for (const jobKeyword of jobKeywords) {
       const key = jobKeyword.toLowerCase();
@@ -315,7 +313,7 @@ export class AdaptiveKeywordDB {
       const globalScore = entry?.globalScore || 50;
 
       // Calculate expected impact
-      const expectedImpact = (platformScore * 0.6 + globalScore * 0.4);
+      const expectedImpact = platformScore * 0.6 + globalScore * 0.4;
 
       // Determine priority
       let priority: 'critical' | 'high' | 'medium' | 'low';
@@ -418,13 +416,14 @@ export class AdaptiveKeywordDB {
     platformInsights: Record<string, string>;
     emergingToAdd: string[];
   }> {
+    await this.initPromise;
     const keywordsToEmphasize: string[] = [];
     const keywordsToDeemphasize: string[] = [];
     const emergingToAdd: string[] = [];
     const platformInsights: Record<string, string> = {};
 
     // Analyze all keywords
-    for (const [_key, entry] of this.keywords.entries()) {
+    for (const [, entry] of this.keywords.entries()) {
       if (entry.trend === 'rising' && entry.globalScore > 70) {
         keywordsToEmphasize.push(entry.keyword);
       }
@@ -442,10 +441,10 @@ export class AdaptiveKeywordDB {
     const platforms = ['greenhouse', 'lever', 'workday', 'linkedin', 'indeed'];
     for (const platform of platforms) {
       const topKeywords = Array.from(this.keywords.values())
-        .filter(e => (e.platformScores[platform] || 0) > 70)
+        .filter((e) => (e.platformScores[platform] || 0) > 70)
         .sort((a, b) => (b.platformScores[platform] || 0) - (a.platformScores[platform] || 0))
         .slice(0, 3)
-        .map(e => e.keyword);
+        .map((e) => e.keyword);
 
       if (topKeywords.length > 0) {
         platformInsights[platform] = `Focus on: ${topKeywords.join(', ')}`;
@@ -501,11 +500,12 @@ export class AdaptiveKeywordDB {
    * Run this periodically (e.g., daily)
    */
   async applyTimeDecay(): Promise<void> {
+    await this.initPromise;
     const now = Date.now();
     const DECAY_THRESHOLD = 30 * 24 * 60 * 60 * 1000; // 30 days
     const DECAY_FACTOR = 0.95;
 
-    for (const [_key, entry] of this.keywords.entries()) {
+    for (const [, entry] of this.keywords.entries()) {
       const age = now - entry.lastUpdated;
 
       if (age > DECAY_THRESHOLD) {
@@ -515,7 +515,8 @@ export class AdaptiveKeywordDB {
         entry.globalScore = Math.max(30, entry.globalScore * decay);
 
         for (const platform of Object.keys(entry.platformScores)) {
-          entry.platformScores[platform] = Math.max(30,
+          entry.platformScores[platform] = Math.max(
+            30,
             (entry.platformScores[platform] || 50) * decay
           );
         }
@@ -532,7 +533,7 @@ export class AdaptiveKeywordDB {
    */
   getByCategory(category: KeywordCategory): KeywordEntry[] {
     return Array.from(this.keywords.values())
-      .filter(e => e.category === category)
+      .filter((e) => e.category === category)
       .sort((a, b) => b.globalScore - a.globalScore);
   }
 
@@ -542,9 +543,10 @@ export class AdaptiveKeywordDB {
   search(query: string): KeywordEntry[] {
     const q = query.toLowerCase();
     return Array.from(this.keywords.values())
-      .filter(e =>
-        e.keyword.toLowerCase().includes(q) ||
-        e.variations.some(v => v.toLowerCase().includes(q))
+      .filter(
+        (e) =>
+          e.keyword.toLowerCase().includes(q) ||
+          e.variations.some((v) => v.toLowerCase().includes(q))
       )
       .sort((a, b) => b.globalScore - a.globalScore);
   }

@@ -496,6 +496,7 @@ function extractWeightedKeywords(jobDescription: string): KeywordWithWeight[] {
     const matches = text.match(pattern);
     if (matches && matches.length > 0) {
       const frequency = matches.length;
+      pattern.lastIndex = 0; // Reset after .match() to avoid stale lastIndex
       const inRequirements = requirementsSection ? pattern.test(requirementsSection) : false;
 
       // Calculate weight: base 1 + frequency bonus + requirements bonus

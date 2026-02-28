@@ -45,10 +45,10 @@ export interface MasterProfile {
   certifications: Certification[];
 
   // Answer bank for common questions
-  answerBank: AnswerBank;
+  answerBank?: AnswerBank;
 
   // Autofill preferences
-  autofillData: ExtendedAutofillData;
+  autofillData?: ExtendedAutofillData;
 
   // Generated role-specific profiles
   generatedProfiles: GeneratedProfile[];

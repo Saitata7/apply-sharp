@@ -24,47 +24,31 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     name: 'Indeed',
     platform: 'indeed',
-    urlPatterns: [
-      /indeed\.com\/viewjob/,
-      /indeed\.com\/rc\/clk/,
-      /indeed\.com\/jobs\?.*vjk=/,
-    ],
+    urlPatterns: [/indeed\.com\/viewjob/, /indeed\.com\/rc\/clk/, /indeed\.com\/jobs\?.*vjk=/],
     icon: 'indeed',
   },
   {
     name: 'Dice',
     platform: 'dice',
-    urlPatterns: [
-      /dice\.com\/job-detail\//,
-      /dice\.com\/jobs\//,
-    ],
+    urlPatterns: [/dice\.com\/job-detail\//, /dice\.com\/jobs\//],
     icon: 'dice',
   },
   {
     name: 'Monster',
     platform: 'monster',
-    urlPatterns: [
-      /monster\.com\/job-openings\//,
-      /monster\.com\/jobs\//,
-    ],
+    urlPatterns: [/monster\.com\/job-openings\//, /monster\.com\/jobs\//],
     icon: 'monster',
   },
   {
     name: 'ZipRecruiter',
     platform: 'generic',
-    urlPatterns: [
-      /ziprecruiter\.com\/jobs\//,
-      /ziprecruiter\.com\/c\/.*\/job\//,
-    ],
+    urlPatterns: [/ziprecruiter\.com\/jobs\//, /ziprecruiter\.com\/c\/.*\/job\//],
     icon: 'ziprecruiter',
   },
   {
     name: 'Glassdoor',
     platform: 'generic',
-    urlPatterns: [
-      /glassdoor\.com\/job-listing\//,
-      /glassdoor\.com\/Job\//,
-    ],
+    urlPatterns: [/glassdoor\.com\/job-listing\//, /glassdoor\.com\/Job\//],
     icon: 'glassdoor',
   },
   {
@@ -92,10 +76,7 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     name: 'Lever',
     platform: 'lever',
-    urlPatterns: [
-      /jobs\.lever\.co\/[\w-]+\/[\w-]+/,
-      /[\w-]+\.lever\.co\/[\w-]+/,
-    ],
+    urlPatterns: [/jobs\.lever\.co\/[\w-]+\/[\w-]+/, /[\w-]+\.lever\.co\/[\w-]+/],
     icon: 'lever',
   },
   {
@@ -111,37 +92,25 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     name: 'Ashby',
     platform: 'generic',
-    urlPatterns: [
-      /jobs\.ashbyhq\.com\/[\w-]+\/[\w-]+/,
-      /[\w-]+\.ashbyhq\.com\/[\w-]+/,
-    ],
+    urlPatterns: [/jobs\.ashbyhq\.com\/[\w-]+\/[\w-]+/, /[\w-]+\.ashbyhq\.com\/[\w-]+/],
     icon: 'ashby',
   },
   {
     name: 'SmartRecruiters',
     platform: 'generic',
-    urlPatterns: [
-      /jobs\.smartrecruiters\.com\/[\w-]+\/[\w-]+/,
-      /careers\.smartrecruiters\.com\//,
-    ],
+    urlPatterns: [/jobs\.smartrecruiters\.com\/[\w-]+\/[\w-]+/, /careers\.smartrecruiters\.com\//],
     icon: 'smartrecruiters',
   },
   {
     name: 'iCIMS',
     platform: 'generic',
-    urlPatterns: [
-      /\.icims\.com\/jobs\//,
-      /careers-[\w-]+\.icims\.com\//,
-    ],
+    urlPatterns: [/\.icims\.com\/jobs\//, /careers-[\w-]+\.icims\.com\//],
     icon: 'icims',
   },
   {
     name: 'Taleo',
     platform: 'generic',
-    urlPatterns: [
-      /\.taleo\.net\/careersection\//,
-      /taleo\.net\/.*\/jobdetail/,
-    ],
+    urlPatterns: [/\.taleo\.net\/careersection\//, /taleo\.net\/.*\/jobdetail/],
     icon: 'taleo',
   },
   {
@@ -158,80 +127,55 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     name: 'JazzHR',
     platform: 'generic',
-    urlPatterns: [
-      /[\w-]+\.applytojob\.com\/apply\//,
-      /app\.jazz\.co\/apply\//,
-    ],
+    urlPatterns: [/[\w-]+\.applytojob\.com\/apply\//, /app\.jazz\.co\/apply\//],
     icon: 'jazzhr',
   },
   {
     name: 'Jobvite',
     platform: 'generic',
-    urlPatterns: [
-      /jobs\.jobvite\.com\/[\w-]+\/job\//,
-      /[\w-]+\.jobvite\.com\/[\w-]+\/job\//,
-    ],
+    urlPatterns: [/jobs\.jobvite\.com\/[\w-]+\/job\//, /[\w-]+\.jobvite\.com\/[\w-]+\/job\//],
     icon: 'jobvite',
   },
   {
     name: 'Breezy',
     platform: 'generic',
-    urlPatterns: [
-      /[\w-]+\.breezy\.hr\/p\//,
-    ],
+    urlPatterns: [/[\w-]+\.breezy\.hr\/p\//],
     icon: 'breezy',
   },
   {
     name: 'Rippling',
     platform: 'generic',
-    urlPatterns: [
-      /[\w-]+\.rippling\.com\/careers\//,
-      /ats\.rippling\.com\/[\w-]+\/jobs\//,
-    ],
+    urlPatterns: [/[\w-]+\.rippling\.com\/careers\//, /ats\.rippling\.com\/[\w-]+\/jobs\//],
     icon: 'rippling',
   },
   {
     name: 'Recruitee',
     platform: 'generic',
-    urlPatterns: [
-      /[\w-]+\.recruitee\.com\/o\//,
-    ],
+    urlPatterns: [/[\w-]+\.recruitee\.com\/o\//],
     icon: 'recruitee',
   },
   {
     name: 'Workable',
     platform: 'generic',
-    urlPatterns: [
-      /apply\.workable\.com\/[\w-]+\/j\//,
-      /[\w-]+\.workable\.com\/j\//,
-    ],
+    urlPatterns: [/apply\.workable\.com\/[\w-]+\/j\//, /[\w-]+\.workable\.com\/j\//],
     icon: 'workable',
   },
   {
     name: 'TCS iBegin',
     platform: 'generic',
-    urlPatterns: [
-      /ibegin\.tcsapps\.com\/candidate\/jobs\//,
-      /tcsapps\.com\/.*\/jobs\//,
-    ],
+    urlPatterns: [/ibegin\.tcsapps\.com\/candidate\/jobs\//, /tcsapps\.com\/.*\/jobs\//],
     icon: 'tcs',
   },
   {
     name: 'Oracle HCM',
     platform: 'generic',
-    urlPatterns: [
-      /\.oraclecloud\.com\/hcmUI\/.*Requisition/,
-      /\.oraclecloud\.com\/.*\/job\//,
-    ],
+    urlPatterns: [/\.oraclecloud\.com\/hcmUI\/.*Requisition/, /\.oraclecloud\.com\/.*\/job\//],
     icon: 'oracle',
   },
   {
     name: 'SuccessFactors',
     platform: 'generic',
-    urlPatterns: [
-      /\.successfactors\.com\/career/,
-      /jobs\.sap\.com\//,
-    ],
+    urlPatterns: [/\.successfactors\.com\/career/, /jobs\.sap\.com\//],
     icon: 'sap',
   },
 ];
@@ -244,7 +188,7 @@ export const JOB_URL_PATTERNS = [
   /\/careers?\//i,
   /\/positions?\//i,
   /\/openings?\//i,
-  /\/vacancyi?e?s?\//i,
+  /\/vacanc(?:y|ies)\//i,
   /\/opportunity/i,
   /\/job-/i,
   /\/career-/i,
@@ -271,5 +215,5 @@ export function detectPlatform(url: string): PlatformConfig | null {
  * Check if URL looks like a job page (generic detection)
  */
 export function looksLikeJobUrl(url: string): boolean {
-  return JOB_URL_PATTERNS.some(pattern => pattern.test(url));
+  return JOB_URL_PATTERNS.some((pattern) => pattern.test(url));
 }

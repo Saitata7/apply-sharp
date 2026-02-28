@@ -256,26 +256,28 @@ CRITICAL RULES:
 
 Return ONLY valid JSON, no other text.`;
 
-  const answersResponse = await aiService.chat([{ role: 'user', content: answersPrompt }], {
-    temperature: 0.5,
-    maxTokens: 3500,
-  });
+  let answers: PreparedAnswer[] = [];
+  try {
+    const answersResponse = await aiService.chat([{ role: 'user', content: answersPrompt }], {
+      temperature: 0.5,
+      maxTokens: 3500,
+    });
 
-  if (!answersResponse?.content) {
-    throw new Error('Failed to generate interview answers');
-  }
-
-  const answersData = extractJSONFromResponse<{ answers: PreparedAnswer[] }>(
-    answersResponse.content
-  );
-
-  if (!answersData?.answers?.length) {
-    throw new Error('Failed to parse interview answers from AI response');
+    if (answersResponse?.content) {
+      const answersData = extractJSONFromResponse<{ answers: PreparedAnswer[] }>(
+        answersResponse.content
+      );
+      if (answersData?.answers?.length) {
+        answers = answersData.answers;
+      }
+    }
+  } catch (error) {
+    console.warn('[InterviewPrep] Answer generation failed, returning questions only:', error);
   }
 
   return {
     questions: questionsData.questions,
-    answers: answersData.answers,
+    answers,
     companyInsights: questionsData.companyInsights || [],
     generalTips: questionsData.generalTips || [],
     estimatedPrepTime: questionsData.questions.length * 5,

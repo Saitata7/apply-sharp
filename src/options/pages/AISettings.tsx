@@ -62,7 +62,11 @@ export default function AISettings() {
       ai: {
         ...settings.ai,
         ollama: {
-          ...settings.ai.ollama!,
+          ...(settings.ai.ollama || {
+            baseUrl: 'http://localhost:11434',
+            model: 'llama3.2',
+            contextLength: 4096,
+          }),
           [field]: value,
         },
       },
@@ -200,8 +204,8 @@ export default function AISettings() {
               <span className="badge badge-green">Recommended</span>
             </div>
             <p className="provider-description">
-              Run AI locally on your machine. Complete privacy, no API costs.
-              Requires Ollama to be installed and running.
+              Run AI locally on your machine. Complete privacy, no API costs. Requires Ollama to be
+              installed and running.
             </p>
           </div>
 
@@ -213,8 +217,7 @@ export default function AISettings() {
               <span className="provider-name">OpenAI</span>
             </div>
             <p className="provider-description">
-              GPT-4o-mini or GPT-4o. Fast and high quality.
-              Requires API key and has usage costs.
+              GPT-4o-mini or GPT-4o. Fast and high quality. Requires API key and has usage costs.
             </p>
           </div>
 
@@ -226,8 +229,8 @@ export default function AISettings() {
               <span className="provider-name">Anthropic</span>
             </div>
             <p className="provider-description">
-              Claude 3 Haiku or Sonnet. Excellent for writing tasks.
-              Requires API key and has usage costs.
+              Claude 3 Haiku or Sonnet. Excellent for writing tasks. Requires API key and has usage
+              costs.
             </p>
           </div>
 
@@ -240,8 +243,8 @@ export default function AISettings() {
               <span className="badge badge-blue">Free Tier</span>
             </div>
             <p className="provider-description">
-              Llama 3.3 70B at blazing speed. Free tier available with generous limits.
-              Get API key at console.groq.com
+              Llama 3.3 70B at blazing speed. Free tier available with generous limits. Get API key
+              at console.groq.com
             </p>
           </div>
         </div>
@@ -288,7 +291,9 @@ export default function AISettings() {
                 value={settings.ai.openai?.apiKey || ''}
                 onChange={(e) => updateOpenAIConfig('apiKey', e.target.value)}
               />
-              <span className="hint">Your API key is stored locally and never sent to our servers</span>
+              <span className="hint">
+                Your API key is stored locally and never sent to our servers
+              </span>
             </div>
             <div className="form-field">
               <label>Model</label>
@@ -297,8 +302,10 @@ export default function AISettings() {
                 value={settings.ai.openai?.model || DEFAULT_MODELS.openai}
                 onChange={(e) => updateOpenAIConfig('model', e.target.value)}
               >
-                {OPENAI_MODELS.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {OPENAI_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -319,7 +326,9 @@ export default function AISettings() {
                 value={settings.ai.anthropic?.apiKey || ''}
                 onChange={(e) => updateAnthropicConfig('apiKey', e.target.value)}
               />
-              <span className="hint">Your API key is stored locally and never sent to our servers</span>
+              <span className="hint">
+                Your API key is stored locally and never sent to our servers
+              </span>
             </div>
             <div className="form-field">
               <label>Model</label>
@@ -328,8 +337,10 @@ export default function AISettings() {
                 value={settings.ai.anthropic?.model || DEFAULT_MODELS.anthropic}
                 onChange={(e) => updateAnthropicConfig('model', e.target.value)}
               >
-                {ANTHROPIC_MODELS.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {ANTHROPIC_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -359,8 +370,10 @@ export default function AISettings() {
                 value={settings.ai.groq?.model || DEFAULT_MODELS.groq}
                 onChange={(e) => updateGroqConfig('model', e.target.value)}
               >
-                {GROQ_MODELS.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {GROQ_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -404,7 +417,10 @@ export default function AISettings() {
                   ...settings,
                   ai: {
                     ...settings.ai,
-                    generation: { ...settings.ai.generation, temperature: parseFloat(e.target.value) },
+                    generation: {
+                      ...settings.ai.generation,
+                      temperature: parseFloat(e.target.value),
+                    },
                   },
                 })
               }
@@ -412,6 +428,116 @@ export default function AISettings() {
             <span className="range-value">{settings.ai.generation.temperature}</span>
             <span className="hint">Lower = more focused, Higher = more creative</span>
           </div>
+        </div>
+      </div>
+
+      {/* Detection Settings */}
+      <div className="settings-section">
+        <h2>Detection</h2>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.detection?.autoDetect ?? true}
+              onChange={(e) =>
+                saveSettings({
+                  ...settings,
+                  detection: { ...settings.detection, autoDetect: e.target.checked },
+                })
+              }
+            />
+            Auto-detect jobs on supported platforms
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.detection?.showOverlay ?? true}
+              onChange={(e) =>
+                saveSettings({
+                  ...settings,
+                  detection: { ...settings.detection, showOverlay: e.target.checked },
+                })
+              }
+            />
+            Show sidebar overlay when job is detected
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.detection?.autoAnalyze ?? true}
+              onChange={(e) =>
+                saveSettings({
+                  ...settings,
+                  detection: { ...settings.detection, autoAnalyze: e.target.checked },
+                })
+              }
+            />
+            Auto-analyze job fit on detection
+          </label>
+        </div>
+      </div>
+
+      {/* Privacy Settings */}
+      <div className="settings-section">
+        <h2>Privacy</h2>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.privacy?.trackApplications ?? true}
+              onChange={(e) =>
+                saveSettings({
+                  ...settings,
+                  privacy: { ...settings.privacy, trackApplications: e.target.checked },
+                })
+              }
+            />
+            Track application history
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.privacy?.enableLearning ?? true}
+              onChange={(e) =>
+                saveSettings({
+                  ...settings,
+                  privacy: { ...settings.privacy, enableLearning: e.target.checked },
+                })
+              }
+            />
+            Enable learning from outcomes (improves suggestions over time)
+          </label>
+        </div>
+      </div>
+
+      {/* Appearance Settings */}
+      <div className="settings-section">
+        <h2>Appearance</h2>
+        <div className="setting-row">
+          <label>Theme</label>
+          <select
+            value={settings.appearance?.theme ?? 'system'}
+            onChange={(e) =>
+              saveSettings({
+                ...settings,
+                appearance: {
+                  ...settings.appearance,
+                  theme: e.target.value as 'light' | 'dark' | 'system',
+                  compactMode: settings.appearance?.compactMode ?? false,
+                },
+              })
+            }
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
         </div>
       </div>
     </div>

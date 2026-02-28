@@ -13,24 +13,33 @@ initDB()
   })
   .catch((error) => {
     console.error('[ApplySharp] CRITICAL: Database initialization failed:', error);
-    // Try to recover by retrying once
-    setTimeout(() => {
-      initDB()
-        .then(() => {
-          dbInitialized = true;
-          console.log('[ApplySharp] Database initialized on retry');
-        })
-        .catch((retryError) => {
-          console.error('[ApplySharp] Database initialization failed on retry:', retryError);
-        });
-    }, 1000);
+    // Use chrome.alarms for reliable retry in service worker (setTimeout is unreliable)
+    chrome.alarms.create('db-retry', { delayInMinutes: 0.02 });
   });
 
 // Set up message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Check if DB is ready for operations that need it
+  // Guard: queue messages until DB is ready (except settings/ping)
   if (!dbInitialized && message?.type && !['GET_SETTINGS', 'PING'].includes(message.type)) {
-    console.warn('[ApplySharp] Database not yet initialized, message may fail:', message.type);
+    console.warn('[ApplySharp] Database not yet initialized, waiting...:', message.type);
+    // Wait up to 5s for DB to initialize before processing
+    const waitForDB = async () => {
+      const start = Date.now();
+      while (!dbInitialized && Date.now() - start < 5000) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!dbInitialized) {
+        throw new Error('Database initialization timed out');
+      }
+    };
+    waitForDB()
+      .then(() => handleMessage(message, sender))
+      .then(sendResponse)
+      .catch((error) => {
+        console.error('[ApplySharp] Message handler error:', error);
+        sendResponse({ success: false, error: error?.message || 'Unknown error' });
+      });
+    return true;
   }
 
   handleMessage(message, sender)
@@ -50,21 +59,23 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('[ApplySharp] Extension installed/updated');
 });
 
-// Handle extension icon click when no popup
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) {
-    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SIDEBAR' }).catch((error) => {
-      // Tab might not have content script loaded (e.g., chrome:// pages)
-      console.log(
-        '[ApplySharp] Could not toggle sidebar:',
-        error?.message || 'Content script not available'
-      );
-    });
-  }
-});
+// Note: action.onClicked is not used because manifest.json has default_popup set.
+// Sidebar toggle is available via keyboard shortcut (Ctrl+Shift+S) and context menu.
 
-// Handle deadline reminder alarms
+// Handle alarms (DB retry + deadline reminders)
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'db-retry' && !dbInitialized) {
+    initDB()
+      .then(() => {
+        dbInitialized = true;
+        console.log('[ApplySharp] Database initialized on retry');
+      })
+      .catch((retryError) => {
+        console.error('[ApplySharp] Database initialization failed on retry:', retryError);
+      });
+    return;
+  }
+
   handleDeadlineAlarm(alarm.name).catch((err) => {
     console.error('[ApplySharp] Deadline alarm handler failed:', err);
   });

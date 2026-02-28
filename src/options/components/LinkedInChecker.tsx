@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MasterProfile } from '@shared/types/master-profile.types';
 import {
   parseLinkedInText,
@@ -17,6 +17,15 @@ export default function LinkedInChecker({ profile, onClose }: LinkedInCheckerPro
   const [report, setReport] = useState<LinkedInConsistencyReport | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   function handleCheck() {
     if (!linkedInText.trim()) {
       setParseError('Please paste your LinkedIn profile text');
@@ -25,22 +34,28 @@ export default function LinkedInChecker({ profile, onClose }: LinkedInCheckerPro
 
     setParseError(null);
 
-    const parsed = parseLinkedInText(linkedInText);
+    try {
+      const parsed = parseLinkedInText(linkedInText);
 
-    if (
-      parsed.experience.length === 0 &&
-      parsed.education.length === 0 &&
-      parsed.skills.length === 0
-    ) {
+      if (
+        parsed.experience.length === 0 &&
+        parsed.education.length === 0 &&
+        parsed.skills.length === 0
+      ) {
+        setParseError(
+          'Could not parse any experience, education, or skills from the text. ' +
+            'Make sure you copied from your LinkedIn profile page.'
+        );
+        return;
+      }
+
+      const result = checkLinkedInConsistency(profile, parsed);
+      setReport(result);
+    } catch (err) {
       setParseError(
-        'Could not parse any experience, education, or skills from the text. ' +
-          'Make sure you copied from your LinkedIn profile page.'
+        'Failed to parse LinkedIn text: ' + ((err as Error).message || 'Unknown error')
       );
-      return;
     }
-
-    const result = checkLinkedInConsistency(profile, parsed);
-    setReport(result);
   }
 
   function handleReset() {

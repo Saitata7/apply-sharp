@@ -17,6 +17,11 @@ export const masterProfileRepo = {
     try {
       const result = await chrome.storage.local.get(STORAGE_KEY);
       const profiles = result[STORAGE_KEY] || [];
+      // Rehydrate dates that become strings after chrome.storage round-trip
+      for (const p of profiles) {
+        if (p.createdAt && typeof p.createdAt === 'string') p.createdAt = new Date(p.createdAt);
+        if (p.updatedAt && typeof p.updatedAt === 'string') p.updatedAt = new Date(p.updatedAt);
+      }
       console.log('[MasterProfileRepo] getAll - found', profiles.length, 'profiles');
       return profiles;
     } catch (error) {
@@ -51,7 +56,10 @@ export const masterProfileRepo = {
       if (!activeId) {
         // Return first profile if no active set
         const profiles = await this.getAll();
-        console.log('[MasterProfileRepo] No activeId, returning first profile:', profiles[0]?.personal?.fullName);
+        console.log(
+          '[MasterProfileRepo] No activeId, returning first profile:',
+          profiles[0]?.personal?.fullName
+        );
         return profiles[0];
       }
       return this.getById(activeId);
@@ -77,7 +85,10 @@ export const masterProfileRepo = {
         };
         console.log('[MasterProfileRepo] Updated existing profile at index', existingIndex);
       } else {
-        profiles.push(profile);
+        profiles.push({
+          ...profile,
+          updatedAt: profile.updatedAt || new Date(),
+        });
         console.log('[MasterProfileRepo] Added new profile, total:', profiles.length);
       }
 
@@ -140,10 +151,14 @@ export const masterProfileRepo = {
 
       await chrome.storage.local.set({ [STORAGE_KEY]: filtered });
 
-      // Clear active if it was the deleted one
+      // If deleted profile was active, switch to next available
       const result = await chrome.storage.local.get(ACTIVE_KEY);
       if (result[ACTIVE_KEY] === id) {
-        await chrome.storage.local.remove(ACTIVE_KEY);
+        if (filtered.length > 0) {
+          await this.setActive(filtered[0].id);
+        } else {
+          await chrome.storage.local.remove(ACTIVE_KEY);
+        }
       }
 
       return true;
@@ -177,9 +192,8 @@ export const masterProfileRepo = {
         return undefined;
       }
 
-      const existingIndex = profile.generatedProfiles?.findIndex(
-        (p) => p.id === generatedProfile.id
-      ) ?? -1;
+      const existingIndex =
+        profile.generatedProfiles?.findIndex((p) => p.id === generatedProfile.id) ?? -1;
 
       if (existingIndex >= 0) {
         profile.generatedProfiles![existingIndex] = generatedProfile;
@@ -233,6 +247,8 @@ export const masterProfileRepo = {
       }
 
       profile.answerBank = {
+        commonQuestions: profile.answerBank?.commonQuestions || [],
+        patterns: profile.answerBank?.patterns || [],
         ...profile.answerBank,
         customAnswers: {
           ...(profile.answerBank?.customAnswers || {}),
@@ -255,7 +271,7 @@ export const masterProfileRepo = {
       const result = await chrome.storage.local.getBytesInUse(STORAGE_KEY);
       return {
         used: result,
-        total: 5 * 1024 * 1024, // 5MB default quota
+        total: 10 * 1024 * 1024, // 10MB quota (QUOTA_BYTES for chrome.storage.local)
       };
     } catch (error) {
       console.error('[MasterProfileRepo] getStorageUsage failed:', error);

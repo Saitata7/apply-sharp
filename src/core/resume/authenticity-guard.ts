@@ -414,7 +414,7 @@ export function measureStructureVariety(text: string): {
     patternCounts.set(p, (patternCounts.get(p) || 0) + 1);
   }
 
-  const maxPatternRepeat = Math.max(...patternCounts.values());
+  const maxPatternRepeat = patternCounts.size > 0 ? Math.max(...patternCounts.values()) : 0;
   const patternRatio = maxPatternRepeat / lines.length;
 
   if (patternRatio > 0.6 && lines.length >= 5) {

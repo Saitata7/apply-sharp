@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { MasterProfile } from '@shared/types/master-profile.types';
 import type { AIProvider, UserSettings } from '@shared/types/settings.types';
 import { getDefaultSettings } from '@shared/types/settings.types';
@@ -35,7 +35,7 @@ const PROVIDERS: Array<{
   {
     id: 'anthropic',
     name: 'Anthropic',
-    description: 'Claude models — coming soon',
+    description: 'Claude models — not yet supported (use OpenAI or Groq)',
     needsKey: true,
   },
 ];
@@ -46,6 +46,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
   const { setProfile, refreshAllProfiles } = useProfile();
 
   const [step, setStep] = useState<WizardStep>(0);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    []
+  );
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false);
 
@@ -89,17 +96,23 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) validateAndSetFile(f);
-  }, []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const f = e.dataTransfer.files[0];
+      if (f) validateAndSetFile(f);
+    },
+    [validateAndSetFile]
+  );
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) validateAndSetFile(f);
-  }, []);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) validateAndSetFile(f);
+    },
+    [validateAndSetFile]
+  );
 
   const analyzeResume = async () => {
     if (!file) return;
@@ -140,7 +153,9 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
         setResumeUploaded(true);
         setUploadProgress(null);
         setIsAnalyzing(false);
-        setTimeout(() => setStep(2), 800);
+        setTimeout(() => {
+          if (mountedRef.current) setStep(2);
+        }, 800);
       } else {
         throw new Error(response.error || 'Analysis failed');
       }

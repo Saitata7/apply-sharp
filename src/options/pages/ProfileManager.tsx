@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GeneratedProfile } from '@shared/types/master-profile.types';
 import { useProfile } from '../context/ProfileContext';
 import { sendMessage } from '@shared/utils/messaging';
@@ -40,6 +40,18 @@ export default function ProfileManager() {
     isGenerating: false,
     error: null,
   });
+
+  // Close modal on Escape key
+  useEffect(() => {
+    if (!modalType) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !createState.isGenerating) {
+        setModalType(null);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [modalType, createState.isGenerating]);
 
   // Suggested roles based on career context
   const suggestedRoles = profile?.careerContext?.bestFitRoles?.map((r) => r.title) || [
@@ -196,6 +208,7 @@ export default function ProfileManager() {
       }
     } catch (error) {
       console.error('Failed to delete role:', error);
+      setCreateState((prev) => ({ ...prev, error: 'Failed to delete role. Please try again.' }));
     }
   };
 
@@ -212,6 +225,7 @@ export default function ProfileManager() {
       await refreshProfile();
     } catch (error) {
       console.error('Failed to set active role:', error);
+      setCreateState((prev) => ({ ...prev, error: 'Failed to set active role.' }));
     }
   };
 

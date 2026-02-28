@@ -11,6 +11,7 @@ interface ResumeVersionManagerProps {
 export default function ResumeVersionManager({ profileId, onClose }: ResumeVersionManagerProps) {
   const [versions, setVersions] = useState<ResumeVersion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [compareIds, setCompareIds] = useState<[string, string] | null>(null);
 
   const loadVersions = useCallback(
     async function loadVersions() {
@@ -40,10 +41,23 @@ export default function ResumeVersionManager({ profileId, onClose }: ResumeVersi
     loadVersions();
   }, [loadVersions]);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   async function handleDelete(id: string) {
-    const response = await sendMessage({ type: 'DELETE_RESUME_VERSION', payload: id });
-    if (response.success) {
-      setVersions((prev) => prev.filter((v) => v.id !== id));
+    try {
+      const response = await sendMessage({ type: 'DELETE_RESUME_VERSION', payload: id });
+      if (response.success) {
+        setVersions((prev) => prev.filter((v) => v.id !== id));
+      }
+    } catch (error) {
+      console.error('[ResumeVersions] Delete failed:', error);
     }
   }
 
@@ -89,13 +103,139 @@ export default function ResumeVersionManager({ profileId, onClose }: ResumeVersi
               <h3>No saved versions</h3>
               <p>Generate a resume and click &ldquo;Save as Version&rdquo; to track it here</p>
             </div>
+          ) : compareIds ? (
+            <VersionDiff
+              a={versions.find((v) => v.id === compareIds[0])!}
+              b={versions.find((v) => v.id === compareIds[1])!}
+              onBack={() => setCompareIds(null)}
+            />
           ) : (
-            <div className="rv-list">
-              {versions.map((v) => (
-                <ResumeVersionCard key={v.id} version={v} onDelete={handleDelete} />
-              ))}
-            </div>
+            <>
+              {versions.length >= 2 && (
+                <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '12px' }}>
+                  Select two versions to compare side by side.
+                </p>
+              )}
+              <div className="rv-list">
+                {versions.map((v) => (
+                  <ResumeVersionCard
+                    key={v.id}
+                    version={v}
+                    onDelete={handleDelete}
+                    canCompare={versions.length >= 2}
+                    onCompare={(id) => {
+                      const other = versions.find((vv) => vv.id !== id);
+                      if (other) setCompareIds([id, other.id]);
+                    }}
+                  />
+                ))}
+              </div>
+            </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onBack: () => void }) {
+  const formatDate = (d: Date | string) =>
+    new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const linesA = (a.contentSnapshot || '').split('\n');
+  const linesB = (b.contentSnapshot || '').split('\n');
+  const linesASet = new Set(linesA);
+  const linesBSet = new Set(linesB);
+
+  return (
+    <div>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '12px' }}>
+        ← Back to versions
+      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px' }}>
+            {a.name}
+            {a.atsScore != null && (
+              <span style={{ marginLeft: '8px', color: '#22c55e', fontWeight: 500 }}>
+                ({a.atsScore}%)
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>
+            {formatDate(a.createdAt)}
+          </div>
+          <pre
+            style={{
+              background: '#f8fafc',
+              padding: '12px',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            {linesA.map((line, i) => {
+              const inB = linesBSet.has(line);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    background: !line.trim() ? 'transparent' : inB ? 'transparent' : '#fef2f2',
+                    padding: '1px 4px',
+                    borderRadius: '2px',
+                  }}
+                >
+                  {line || '\u00A0'}
+                </div>
+              );
+            })}
+          </pre>
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px' }}>
+            {b.name}
+            {b.atsScore != null && (
+              <span style={{ marginLeft: '8px', color: '#22c55e', fontWeight: 500 }}>
+                ({b.atsScore}%)
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>
+            {formatDate(b.createdAt)}
+          </div>
+          <pre
+            style={{
+              background: '#f8fafc',
+              padding: '12px',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            {linesB.map((line, i) => {
+              const inA = linesASet.has(line);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    background: !line.trim() ? 'transparent' : inA ? 'transparent' : '#dcfce7',
+                    padding: '1px 4px',
+                    borderRadius: '2px',
+                  }}
+                >
+                  {line || '\u00A0'}
+                </div>
+              );
+            })}
+          </pre>
         </div>
       </div>
     </div>

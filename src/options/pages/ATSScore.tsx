@@ -118,7 +118,6 @@ export default function ATSScore() {
     try {
       // Parse the file to extract text
       const parseResult = await parseResumeFile(uploadedFile);
-      setIsParsing(false);
 
       if (!parseResult.success || !parseResult.rawText.trim()) {
         setError(parseResult.errors?.[0] || 'Could not extract text from file');
@@ -158,15 +157,15 @@ export default function ATSScore() {
     if (mode === 'profile' && profile?.id && !result && !isScoring) {
       runProfileScore();
     }
-  }, [profile?.id, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.id, mode, runProfileScore]);
 
   // Set target pages based on experience
   useEffect(() => {
     if (profile?.careerContext?.yearsOfExperience) {
       const years = profile.careerContext.yearsOfExperience;
       if (years <= 5) setTargetPages(1);
-      else if (years <= 10) setTargetPages(2);
-      else setTargetPages(2);
+      else if (years <= 15) setTargetPages(2);
+      else setTargetPages(3);
     }
   }, [profile?.careerContext?.yearsOfExperience]);
 

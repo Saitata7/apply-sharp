@@ -740,9 +740,6 @@ function findSubmitButton(form: HTMLFormElement | null): HTMLElement | null {
   const submitSelectors = [
     'button[type="submit"]',
     'input[type="submit"]',
-    'button:contains("Submit")',
-    'button:contains("Apply")',
-    'button:contains("Send")',
     '[data-testid*="submit"]',
     '[data-testid*="apply"]',
     '.submit-button',

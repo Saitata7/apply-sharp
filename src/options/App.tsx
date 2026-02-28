@@ -13,6 +13,8 @@ import DataManager from './pages/DataManager';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import OnboardingWizard from './components/OnboardingWizard';
 import { ProfileProvider } from './context/ProfileContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
 
 type Tab =
   | 'dashboard'
@@ -142,8 +144,14 @@ export default function App() {
     chrome.runtime
       .sendMessage({ type: 'GET_SETTINGS' })
       .then((res) => {
-        if (res?.success && res.data && !res.data.onboardingCompleted) {
-          setShowOnboarding(true);
+        if (res?.success && res.data) {
+          if (!res.data.onboardingCompleted) {
+            setShowOnboarding(true);
+          }
+          // Apply compactMode setting
+          if (res.data.appearance?.compactMode) {
+            document.documentElement.classList.add('compact-mode');
+          }
         }
       })
       .catch(() => {
@@ -154,18 +162,44 @@ export default function App() {
 
   const handleOnboardingDone = async () => {
     try {
-      const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
-      if (res?.success && res.data) {
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_SETTINGS',
-          payload: { ...res.data, onboardingCompleted: true },
-        });
-      }
+      // Use partial update to avoid overwriting concurrent settings changes
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_SETTINGS',
+        payload: { onboardingCompleted: true },
+      });
     } catch {
       // Non-critical — onboarding state save failed
     }
     setShowOnboarding(false);
   };
+
+  // Global keyboard shortcuts for tab navigation (Alt+1 through Alt+9)
+  useEffect(() => {
+    const tabs = NAV_ITEMS.map((n) => n.tab);
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        (e.target as HTMLElement)?.isContentEditable
+      )
+        return;
+
+      // Alt+1 through Alt+9 for direct tab access
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key) - 1;
+        if (idx < tabs.length) {
+          e.preventDefault();
+          setActiveTab(tabs[idx]);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKey);
+    return () => document.removeEventListener('keydown', handleGlobalKey);
+  }, []);
 
   const handleNavKeyDown = useCallback((e: React.KeyboardEvent, currentTab: Tab) => {
     const tabs = NAV_ITEMS.map((n) => n.tab);
@@ -187,84 +221,101 @@ export default function App() {
     }
   }, []);
 
-  if (checkingOnboarding) return null;
+  if (checkingOnboarding) {
+    return (
+      <div
+        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
+      >
+        <div className="spinner" />
+      </div>
+    );
+  }
 
   if (showOnboarding) {
     return (
-      <ProfileProvider>
-        <OnboardingWizard onComplete={handleOnboardingDone} onSkip={handleOnboardingDone} />
-      </ProfileProvider>
+      <ErrorBoundary>
+        <ProfileProvider>
+          <OnboardingWizard onComplete={handleOnboardingDone} onSkip={handleOnboardingDone} />
+        </ProfileProvider>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <ProfileProvider>
-      <div className="options-container">
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
-            </svg>
-            <span>ApplySharp</span>
-          </div>
-
-          {/* Workspace Switcher */}
-          <WorkspaceSwitcher />
-
-          <nav className="sidebar-nav" aria-label="Main navigation">
-            {NAV_ITEMS.map(({ tab, label, icon }) => (
-              <button
-                key={tab}
-                className={`nav-item ${activeTab === tab ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab)}
-                aria-current={activeTab === tab ? 'page' : undefined}
-                onKeyDown={(e) => handleNavKeyDown(e, tab)}
-              >
+    <ErrorBoundary>
+      <ToastProvider>
+        <ProfileProvider>
+          <div className="options-container">
+            <aside className="sidebar">
+              <div className="sidebar-header">
                 <svg
-                  width="20"
-                  height="20"
+                  width="28"
+                  height="28"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                   aria-hidden="true"
                 >
-                  {icon}
+                  <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
                 </svg>
-                {label}
-              </button>
-            ))}
-          </nav>
+                <span>ApplySharp</span>
+              </div>
 
-          <div className="sidebar-footer">
-            <div className="version">v1.0.0</div>
+              {/* Workspace Switcher */}
+              <WorkspaceSwitcher />
+
+              <nav className="sidebar-nav" aria-label="Main navigation">
+                {NAV_ITEMS.map(({ tab, label, icon }) => (
+                  <button
+                    key={tab}
+                    className={`nav-item ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                    aria-current={activeTab === tab ? 'page' : undefined}
+                    onKeyDown={(e) => handleNavKeyDown(e, tab)}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      {icon}
+                    </svg>
+                    {label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="sidebar-footer">
+                <div className="version">v{chrome.runtime.getManifest().version}</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '4px' }}>
+                  Alt+1-9 for tabs
+                </div>
+              </div>
+            </aside>
+
+            <main className="main-content" aria-label="Page content">
+              {activeTab === 'dashboard' && (
+                <Dashboard onNavigate={(tab) => setActiveTab(tab as Tab)} />
+              )}
+              {activeTab === 'resume' && <ResumeUpload />}
+              {activeTab === 'myprofile' && <MyProfile />}
+              {activeTab === 'profiles' && <ProfileManager />}
+              {activeTab === 'atsscore' && <ATSScore />}
+              {activeTab === 'interview' && <InterviewPrep />}
+              {activeTab === 'email' && <EmailTemplates />}
+              {activeTab === 'ai' && <AISettings />}
+              {activeTab === 'history' && <ApplicationHistory />}
+              {activeTab === 'analytics' && <AnalyticsDashboard />}
+              {activeTab === 'data' && <DataManager />}
+            </main>
           </div>
-        </aside>
-
-        <main className="main-content" aria-label="Page content">
-          {activeTab === 'dashboard' && (
-            <Dashboard onNavigate={(tab) => setActiveTab(tab as Tab)} />
-          )}
-          {activeTab === 'resume' && <ResumeUpload />}
-          {activeTab === 'myprofile' && <MyProfile />}
-          {activeTab === 'profiles' && <ProfileManager />}
-          {activeTab === 'atsscore' && <ATSScore />}
-          {activeTab === 'interview' && <InterviewPrep />}
-          {activeTab === 'email' && <EmailTemplates />}
-          {activeTab === 'ai' && <AISettings />}
-          {activeTab === 'history' && <ApplicationHistory />}
-          {activeTab === 'analytics' && <AnalyticsDashboard />}
-          {activeTab === 'data' && <DataManager />}
-        </main>
-      </div>
-    </ProfileProvider>
+        </ProfileProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

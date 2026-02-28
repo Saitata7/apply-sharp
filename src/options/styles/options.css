@@ -7168,3 +7168,51 @@ body {
   max-width: 640px;
   width: 90vw;
 }
+
+/* Toast notification system */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Compact mode — tighter spacing when enabled in settings */
+.compact-mode .page-container {
+  padding: 16px 20px;
+}
+.compact-mode .page-header {
+  margin-bottom: 12px;
+}
+.compact-mode .analytics-card {
+  padding: 12px;
+}
+.compact-mode .form-group {
+  margin-bottom: 10px;
+}
+.compact-mode .btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.compact-mode .sidebar nav {
+  gap: 2px;
+}
+.compact-mode .sidebar-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+}

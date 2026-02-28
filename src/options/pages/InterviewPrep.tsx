@@ -40,7 +40,7 @@ export default function InterviewPrep() {
   const [showInsights, setShowInsights] = useState(true);
   const [showTips, setShowTips] = useState(false);
 
-  const canGenerate = jobDescription.trim().length > 50 && !isGenerating;
+  const canGenerate = jobDescription.trim().length > 50 && !isGenerating && !!profile;
 
   // Group questions by category
   const groupedQuestions = useMemo(() => {
@@ -68,21 +68,27 @@ export default function InterviewPrep() {
     setIsGenerating(true);
     setError(null);
 
-    const response = await sendMessage<
-      { jobDescription: string; companyName: string; jobTitle: string },
-      InterviewPrepResult
-    >({
-      type: 'GENERATE_INTERVIEW_PREP',
-      payload: { jobDescription, companyName, jobTitle },
-    });
+    try {
+      const response = await sendMessage<
+        { jobDescription: string; companyName: string; jobTitle: string },
+        InterviewPrepResult
+      >({
+        type: 'GENERATE_INTERVIEW_PREP',
+        payload: { jobDescription, companyName, jobTitle },
+      });
 
-    setIsGenerating(false);
-
-    if (response.success && response.data) {
-      setResult(response.data);
-      setExpandedQuestions(new Set());
-    } else {
-      setError(response.error || 'Failed to generate interview prep');
+      if (response.success && response.data) {
+        setResult(response.data);
+        setExpandedQuestions(new Set());
+      } else {
+        setError(response.error || 'Failed to generate interview prep');
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to generate interview prep. Please try again.'
+      );
+    } finally {
+      setIsGenerating(false);
     }
   };
 

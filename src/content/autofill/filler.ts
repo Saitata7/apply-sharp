@@ -19,6 +19,12 @@ export interface FillResult {
   filledFields: FilledField[];
   skippedFields: SkippedField[];
   errors: string[];
+  previousValues: PreviousValue[];
+}
+
+export interface PreviousValue {
+  element: HTMLElement;
+  value: string;
 }
 
 export interface FilledField {
@@ -130,11 +136,12 @@ export async function generateFillPreview(
 export async function fillForm(
   form: DetectedForm,
   profile: ResumeProfile,
-  options: { onlyEmpty?: boolean; requireApproval?: boolean; jobContext?: JobContext } = {}
+  options: { onlyEmpty?: boolean; jobContext?: JobContext } = {}
 ): Promise<FillResult> {
   const filledFields: FilledField[] = [];
   const skippedFields: SkippedField[] = [];
   const errors: string[] = [];
+  const previousValues: PreviousValue[] = [];
 
   const { onlyEmpty = true, jobContext } = options;
 
@@ -180,6 +187,9 @@ export async function fillForm(
         continue;
       }
 
+      // Save previous value for undo
+      const prevValue = (field.element as HTMLInputElement).value || '';
+
       // Fill the field with retry for dynamically loaded elements
       let success = false;
       try {
@@ -201,6 +211,7 @@ export async function fillForm(
           value,
           element: field.element,
         });
+        previousValues.push({ element: field.element, value: prevValue });
       } else {
         skippedFields.push({
           fieldType: field.type,
@@ -223,10 +234,11 @@ export async function fillForm(
   }
 
   return {
-    success: errors.length === 0 && filledFields.length > 0,
+    success: errors.length === 0 && (filledFields.length > 0 || skippedFields.length > 0),
     filledFields,
     skippedFields,
     errors,
+    previousValues,
   };
 }
 
@@ -318,7 +330,9 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
     case 'yearsExperienceSpecific': {
       if (!experience || experience.length === 0) return null;
       const firstYear = Math.min(
-        ...experience.map((e) => parseInt(e.startDate?.slice(0, 4) || '2020'))
+        ...experience.map(
+          (e) => parseInt(e.startDate?.slice(0, 4) || '') || new Date().getFullYear()
+        )
       );
       const years = new Date().getFullYear() - firstYear;
       return String(years);
@@ -616,6 +630,22 @@ function isDatabase(skill: string): boolean {
     'cockroachdb',
   ];
   return databases.some((db) => skill.includes(db));
+}
+
+/**
+ * Undo a previous fill by restoring saved values
+ */
+export async function undoFill(previousValues: PreviousValue[]): Promise<number> {
+  let restored = 0;
+  for (const { element, value } of previousValues) {
+    try {
+      await fillField(element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value);
+      restored++;
+    } catch {
+      // Best effort — field may have been removed from DOM
+    }
+  }
+  return restored;
 }
 
 function formatDate(dateStr?: string): string {
@@ -1055,7 +1085,9 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
       getValue: () => {
         if (!experience || experience.length === 0) return '0-2 years';
         const firstYear = Math.min(
-          ...experience.map((e) => parseInt(e.startDate?.slice(0, 4) || '2020'))
+          ...experience.map(
+            (e) => parseInt(e.startDate?.slice(0, 4) || '') || new Date().getFullYear()
+          )
         );
         const years = new Date().getFullYear() - firstYear;
         if (years >= 6) return '6+ years';

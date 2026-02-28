@@ -58,7 +58,7 @@ export default function EmailTemplates() {
         .filter(Boolean);
     }
     if (emailType === 'follow_up') {
-      payload.daysSinceApplication = parseInt(daysSinceApplication, 10) || 7;
+      payload.daysSinceApplication = Math.max(0, parseInt(daysSinceApplication, 10) || 7);
     }
     if (emailType === 'networking' && referrerName.trim()) {
       payload.referrerName = referrerName.trim();

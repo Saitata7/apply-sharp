@@ -241,7 +241,11 @@ export function analyzeBullet(text: string): BulletAnalysis {
   const hasActionVerb =
     actionVerbTier !== null ||
     ALL_STRONG_VERBS.some(
-      (v) => firstWord === v || firstWord === v + 'd' || firstWord === v + 'ed'
+      (v) =>
+        firstWord === v ||
+        firstWord === v + 'd' ||
+        firstWord === v + 'ed' ||
+        firstWord === v + 'ing'
     );
 
   if (!hasActionVerb && !weakVerb) {

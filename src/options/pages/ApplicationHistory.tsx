@@ -100,33 +100,41 @@ export default function ApplicationHistory() {
 
   // Handlers
   async function handleStatusChange(id: string, status: ApplicationStatus, note?: string) {
-    const response = await sendMessage({
-      type: 'UPDATE_APPLICATION_STATUS',
-      payload: { id, status, note },
-    });
-    if (response.success) {
-      setApplications((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                status,
-                statusHistory: [
-                  ...a.statusHistory,
-                  { from: a.status, to: status, changedAt: new Date(), note },
-                ],
-                updatedAt: new Date(),
-              }
-            : a
-        )
-      );
+    try {
+      const response = await sendMessage({
+        type: 'UPDATE_APPLICATION_STATUS',
+        payload: { id, status, note },
+      });
+      if (response.success) {
+        setApplications((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status,
+                  statusHistory: [
+                    ...a.statusHistory,
+                    { from: a.status, to: status, changedAt: new Date(), note },
+                  ],
+                  updatedAt: new Date(),
+                }
+              : a
+          )
+        );
+      }
+    } catch (error) {
+      console.error('[ApplicationHistory] Status change failed:', error);
     }
   }
 
   async function handleDelete(id: string) {
-    const response = await sendMessage({ type: 'DELETE_APPLICATION', payload: id });
-    if (response.success) {
-      setApplications((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const response = await sendMessage({ type: 'DELETE_APPLICATION', payload: id });
+      if (response.success) {
+        setApplications((prev) => prev.filter((a) => a.id !== id));
+      }
+    } catch (error) {
+      console.error('[ApplicationHistory] Delete failed:', error);
     }
   }
 
@@ -144,7 +152,7 @@ export default function ApplicationHistory() {
       payload: { olderThanDays: 90 },
     });
     if (response.success) {
-      loadApplications();
+      await loadApplications();
     }
   }
 

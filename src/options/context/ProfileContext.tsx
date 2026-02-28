@@ -25,17 +25,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [allProfiles, setAllProfiles] = useState<MasterProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadingRef = { current: false }; // Guard against concurrent loads
 
   // Load all workspaces
   const loadAllProfiles = useCallback(async () => {
     try {
-      console.log('[ProfileContext] Loading all workspaces...');
+      console.debug('[ProfileContext] Loading all workspaces...');
       const response = await sendMessage<void, MasterProfile[]>({
         type: 'GET_MASTER_PROFILES',
       });
 
       if (response.success && response.data) {
-        console.log('[ProfileContext] Found', response.data.length, 'workspaces');
+        console.debug('[ProfileContext] Found', response.data.length, 'workspaces');
         setAllProfiles(response.data);
         return response.data;
       }
@@ -46,33 +47,29 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load active workspace
+  // Load active workspace (with concurrent call guard)
   const loadActiveProfile = useCallback(async () => {
+    if (loadingRef.current) return; // Prevent concurrent loads
+    loadingRef.current = true;
+
     let retryCount = 0;
     const maxRetries = 3;
 
     const attemptLoad = async (): Promise<void> => {
-      console.log('[ProfileContext] Loading active workspace... (attempt', retryCount + 1, ')');
-
       try {
         const response = await sendMessage<void, MasterProfile | null>({
           type: 'GET_ACTIVE_MASTER_PROFILE',
         });
 
-        console.log('[ProfileContext] Response:', response);
-
         if (response.success && response.data) {
-          console.log('[ProfileContext] Active workspace:', response.data.personal?.fullName);
           setProfile(response.data);
           setIsLoading(false);
           setError(null);
         } else if (retryCount < maxRetries) {
-          console.log('[ProfileContext] Retrying in 300ms...');
           retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 300));
           return attemptLoad();
         } else {
-          console.log('[ProfileContext] No active workspace found');
           setProfile(null);
           setIsLoading(false);
           setError(null);
@@ -81,7 +78,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         console.error('[ProfileContext] Error loading workspace:', err);
         if (retryCount < maxRetries) {
           retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 300));
           return attemptLoad();
         } else {
           setIsLoading(false);
@@ -90,12 +87,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    await attemptLoad();
+    try {
+      await attemptLoad();
+    } finally {
+      loadingRef.current = false;
+    }
   }, []);
 
   // Switch to a different workspace
   const switchWorkspace = useCallback(async (profileId: string) => {
-    console.log('[ProfileContext] Switching to workspace:', profileId);
+    console.debug('[ProfileContext] Switching to workspace:', profileId);
     setIsLoading(true);
 
     try {
@@ -105,7 +106,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.success && response.data) {
-        console.log('[ProfileContext] Switched to:', response.data.personal?.fullName);
+        console.debug('[ProfileContext] Switched to:', response.data.personal?.fullName);
         setProfile(response.data);
       }
     } catch (err) {
@@ -116,9 +117,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Refresh current workspace
+  // Refresh current workspace (no loading flash — data stays visible during refresh)
   const refreshProfile = useCallback(async () => {
-    setIsLoading(true);
     await loadActiveProfile();
   }, [loadActiveProfile]);
 
@@ -128,65 +128,74 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [loadAllProfiles]);
 
   // Delete a workspace
-  const deleteWorkspace = useCallback(async (profileId: string): Promise<boolean> => {
-    console.log('[ProfileContext] Deleting workspace:', profileId);
+  const deleteWorkspace = useCallback(
+    async (profileId: string): Promise<boolean> => {
+      console.debug('[ProfileContext] Deleting workspace:', profileId);
 
-    try {
-      const response = await sendMessage<string, { deleted: boolean }>({
-        type: 'DELETE_MASTER_PROFILE',
-        payload: profileId,
-      });
+      try {
+        const response = await sendMessage<string, { deleted: boolean }>({
+          type: 'DELETE_MASTER_PROFILE',
+          payload: profileId,
+        });
 
-      if (response.success) {
-        console.log('[ProfileContext] Workspace deleted successfully');
-        // Refresh all profiles
-        await loadAllProfiles();
-        // If this was the active profile, clear it and load another
-        if (profile?.id === profileId) {
-          setProfile(null);
-          await loadActiveProfile();
+        if (response.success) {
+          console.debug('[ProfileContext] Workspace deleted successfully');
+          // Refresh all profiles
+          await loadAllProfiles();
+          // If this was the active profile, clear it and load another
+          if (profile?.id === profileId) {
+            setProfile(null);
+            await loadActiveProfile();
+          }
+          return true;
+        } else {
+          console.error('[ProfileContext] Failed to delete workspace:', response.error);
+          return false;
         }
-        return true;
-      } else {
-        console.error('[ProfileContext] Failed to delete workspace:', response.error);
+      } catch (err) {
+        console.error('[ProfileContext] Error deleting workspace:', err);
         return false;
       }
-    } catch (err) {
-      console.error('[ProfileContext] Error deleting workspace:', err);
-      return false;
-    }
-  }, [profile?.id, loadAllProfiles, loadActiveProfile]);
+    },
+    [profile?.id, loadAllProfiles, loadActiveProfile]
+  );
 
   // Update the current profile
-  const updateProfile = useCallback(async (updates: Partial<MasterProfile>): Promise<boolean> => {
-    if (!profile) {
-      console.error('[ProfileContext] No active profile to update');
-      return false;
-    }
-
-    console.log('[ProfileContext] Updating profile:', profile.id);
-
-    try {
-      const response = await sendMessage<{ id: string; updates: Partial<MasterProfile> }, MasterProfile>({
-        type: 'UPDATE_MASTER_PROFILE',
-        payload: { id: profile.id, updates },
-      });
-
-      if (response.success && response.data) {
-        console.log('[ProfileContext] Profile updated successfully');
-        setProfile(response.data);
-        // Also refresh the all profiles list
-        await loadAllProfiles();
-        return true;
-      } else {
-        console.error('[ProfileContext] Failed to update profile:', response.error);
+  const updateProfile = useCallback(
+    async (updates: Partial<MasterProfile>): Promise<boolean> => {
+      if (!profile) {
+        console.error('[ProfileContext] No active profile to update');
         return false;
       }
-    } catch (err) {
-      console.error('[ProfileContext] Error updating profile:', err);
-      return false;
-    }
-  }, [profile, loadAllProfiles]);
+
+      console.log('[ProfileContext] Updating profile:', profile.id);
+
+      try {
+        const response = await sendMessage<
+          { id: string; updates: Partial<MasterProfile> },
+          MasterProfile
+        >({
+          type: 'UPDATE_MASTER_PROFILE',
+          payload: { id: profile.id, updates },
+        });
+
+        if (response.success && response.data) {
+          console.log('[ProfileContext] Profile updated successfully');
+          setProfile(response.data);
+          // Also refresh the all profiles list
+          await loadAllProfiles();
+          return true;
+        } else {
+          console.error('[ProfileContext] Failed to update profile:', response.error);
+          return false;
+        }
+      } catch (err) {
+        console.error('[ProfileContext] Error updating profile:', err);
+        return false;
+      }
+    },
+    [profile, loadAllProfiles]
+  );
 
   // Initial load
   useEffect(() => {
@@ -198,18 +207,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [loadAllProfiles, loadActiveProfile]);
 
   return (
-    <ProfileContext.Provider value={{
-      profile,
-      allProfiles,
-      isLoading,
-      error,
-      setProfile,
-      switchWorkspace,
-      deleteWorkspace,
-      updateProfile,
-      refreshProfile,
-      refreshAllProfiles,
-    }}>
+    <ProfileContext.Provider
+      value={{
+        profile,
+        allProfiles,
+        isLoading,
+        error,
+        setProfile,
+        switchWorkspace,
+        deleteWorkspace,
+        updateProfile,
+        refreshProfile,
+        refreshAllProfiles,
+      }}
+    >
       {children}
     </ProfileContext.Provider>
   );

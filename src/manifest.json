@@ -23,8 +23,21 @@
     "https://*.myworkdayjobs.com/*",
     "https://www.dice.com/*",
     "https://www.monster.com/*",
-    "http://localhost:*/*",
-    "<all_urls>"
+    "https://www.glassdoor.com/*",
+    "https://www.ziprecruiter.com/*",
+    "https://wellfound.com/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://*.icims.com/*",
+    "https://*.taleo.net/*",
+    "https://*.bamboohr.com/*",
+    "https://*.jazzhr.com/*",
+    "https://*.jobvite.com/*",
+    "https://*.breezy.hr/*",
+    "https://*.rippling.com/*",
+    "https://*.recruitee.com/*",
+    "https://*.workable.com/*",
+    "http://localhost:*/*"
   ],
 
   "background": {
@@ -34,28 +47,61 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "exclude_matches": [
-        "https://mail.google.com/*",
-        "https://calendar.google.com/*",
-        "https://docs.google.com/*",
-        "https://drive.google.com/*",
-        "https://www.youtube.com/*",
-        "https://www.google.com/search*",
-        "https://www.facebook.com/*",
-        "https://twitter.com/*",
-        "https://x.com/*",
-        "https://www.instagram.com/*",
-        "https://www.reddit.com/*",
-        "https://github.com/*",
-        "https://stackoverflow.com/*"
+      "matches": [
+        "https://www.linkedin.com/jobs/*",
+        "https://www.indeed.com/*",
+        "https://www.dice.com/*",
+        "https://www.monster.com/*",
+        "https://www.ziprecruiter.com/*",
+        "https://www.glassdoor.com/*",
+        "https://wellfound.com/*",
+        "https://boards.greenhouse.io/*",
+        "https://*.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://*.lever.co/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://*.ashbyhq.com/*",
+        "https://*.smartrecruiters.com/*",
+        "https://*.icims.com/*",
+        "https://*.taleo.net/*",
+        "https://*.bamboohr.com/*",
+        "https://*.applytojob.com/*",
+        "https://*.jobvite.com/*",
+        "https://*.breezy.hr/*",
+        "https://*.rippling.com/*",
+        "https://*.recruitee.com/*",
+        "https://*.workable.com/*"
       ],
       "js": ["src/content/index.ts"],
       "css": ["src/content/styles.css"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://www.linkedin.com/jobs/*",
+        "https://www.indeed.com/*",
+        "https://www.dice.com/*",
+        "https://www.monster.com/*",
+        "https://www.ziprecruiter.com/*",
+        "https://www.glassdoor.com/*",
+        "https://wellfound.com/*",
+        "https://boards.greenhouse.io/*",
+        "https://*.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://*.lever.co/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://*.ashbyhq.com/*",
+        "https://*.smartrecruiters.com/*",
+        "https://*.icims.com/*",
+        "https://*.taleo.net/*",
+        "https://*.bamboohr.com/*",
+        "https://*.applytojob.com/*",
+        "https://*.jobvite.com/*",
+        "https://*.breezy.hr/*",
+        "https://*.rippling.com/*",
+        "https://*.recruitee.com/*",
+        "https://*.workable.com/*"
+      ],
       "js": ["src/content/autofill-content.ts"],
       "run_at": "document_idle",
       "all_frames": true
@@ -88,7 +134,14 @@
   "web_accessible_resources": [
     {
       "resources": ["src/content/styles.css"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "https://www.linkedin.com/*",
+        "https://www.indeed.com/*",
+        "https://www.dice.com/*",
+        "https://*.greenhouse.io/*",
+        "https://*.lever.co/*",
+        "https://*.myworkdayjobs.com/*"
+      ]
     }
   ]
 }

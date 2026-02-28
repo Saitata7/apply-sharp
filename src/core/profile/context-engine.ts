@@ -43,7 +43,7 @@ export type ProgressCallback = (progress: AnalysisProgress) => void;
 // Groq free tier: 12000 TPM (tokens per minute)
 // Each call uses ~2000-4000 tokens, so 3-4 calls max per minute
 // With 5+ total calls, need ~15s between calls to stay under limit
-const AI_CALL_DELAY_MS = 15000; // 15 seconds between calls
+const AI_CALL_DELAY_MS = 5000; // 5 seconds between calls
 
 /**
  * Sleep helper to add delays between API calls
@@ -210,8 +210,8 @@ function fixCommonJSONIssues(jsonStr: string): string {
       .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
       // Remove comments (// style)
       .replace(/\/\/[^\n]*/g, '')
-      // Remove newlines inside strings (naive approach - may break some cases)
-      .replace(/:\s*"([^"]*)\n([^"]*)"/g, ': "$1\\n$2"')
+      // Remove unescaped newlines inside JSON string values
+      .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match) => match.replace(/\n/g, '\\n'))
   );
 }
 

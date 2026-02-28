@@ -8,7 +8,10 @@ interface AutofillSettingsProps {
 
 export default function AutofillSettings({ profile, onSave }: AutofillSettingsProps) {
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -17,7 +20,8 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
     city: profile.autofillData?.city || profile.personal?.location?.city || '',
     state: profile.autofillData?.state || profile.personal?.location?.state || '',
     zipCode: profile.autofillData?.zipCode || profile.personal?.location?.zipCode || '',
-    country: profile.autofillData?.country || profile.personal?.location?.country || 'United States',
+    country:
+      profile.autofillData?.country || profile.personal?.location?.country || 'United States',
 
     // Work Authorization
     workAuthorization: profile.autofillData?.workAuthorization || 'citizen',
@@ -62,7 +66,8 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       city: profile.autofillData?.city || profile.personal?.location?.city || '',
       state: profile.autofillData?.state || profile.personal?.location?.state || '',
       zipCode: profile.autofillData?.zipCode || profile.personal?.location?.zipCode || '',
-      country: profile.autofillData?.country || profile.personal?.location?.country || 'United States',
+      country:
+        profile.autofillData?.country || profile.personal?.location?.country || 'United States',
       workAuthorization: profile.autofillData?.workAuthorization || 'citizen',
       visaType: profile.autofillData?.visaType || '',
       requiresSponsorship: profile.autofillData?.requiresSponsorship || false,
@@ -93,15 +98,24 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
 
     try {
       // Build salary expectations if provided
-      const salaryExpectations = (formData.salaryMin || formData.salaryMax) ? {
-        min: formData.salaryMin ? parseInt(formData.salaryMin) : 0,
-        max: formData.salaryMax ? parseInt(formData.salaryMax) : 0,
-        currency: formData.salaryCurrency,
-        negotiable: true,
-      } : undefined;
+      const salaryExpectations =
+        formData.salaryMin || formData.salaryMax
+          ? {
+              min: formData.salaryMin ? parseInt(formData.salaryMin) : 0,
+              max: formData.salaryMax ? parseInt(formData.salaryMax) : 0,
+              currency: formData.salaryCurrency,
+              negotiable: true,
+            }
+          : undefined;
 
       const success = await onSave({
         autofillData: {
+          // Defaults for required boolean fields (in case autofillData is undefined)
+          linkedInConsent: false,
+          portfolioConsent: false,
+          backgroundCheckConsent: false,
+          drugTestConsent: false,
+          currentlyEmployed: false,
           ...profile.autofillData,
           // Address fields
           streetAddress: formData.streetAddress || undefined,
@@ -110,19 +124,36 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
           zipCode: formData.zipCode || undefined,
           country: formData.country || undefined,
           // Work Authorization
-          workAuthorization: formData.workAuthorization as 'citizen' | 'permanent_resident' | 'visa' | 'other',
-          workAuthorizationText: formData.workAuthorization === 'citizen' ? 'US Citizen' :
-            formData.workAuthorization === 'permanent_resident' ? 'Permanent Resident' :
-            formData.workAuthorization === 'visa' ? formData.visaType || 'Work Visa' : 'Other',
+          workAuthorization: formData.workAuthorization as
+            | 'citizen'
+            | 'permanent_resident'
+            | 'visa'
+            | 'other',
+          workAuthorizationText:
+            formData.workAuthorization === 'citizen'
+              ? 'US Citizen'
+              : formData.workAuthorization === 'permanent_resident'
+                ? 'Permanent Resident'
+                : formData.workAuthorization === 'visa'
+                  ? formData.visaType || 'Work Visa'
+                  : 'Other',
           visaType: formData.visaType || undefined,
           requiresSponsorship: formData.requiresSponsorship,
           // Security & Background
-          securityClearance: formData.securityClearance as 'none' | 'public_trust' | 'secret' | 'top_secret' | 'ts_sci',
+          securityClearance: formData.securityClearance as
+            | 'none'
+            | 'public_trust'
+            | 'secret'
+            | 'top_secret'
+            | 'ts_sci',
           canPassBackgroundCheck: formData.canPassBackgroundCheck,
           canPassDrugTest: formData.canPassDrugTest,
           // Languages
           languages: formData.languages
-            ? formData.languages.split(',').map(s => s.trim()).filter(Boolean)
+            ? formData.languages
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
             : ['English'],
           availableStartDate: formData.availableStartDate || undefined,
           noticePeriod: formData.noticePeriod || undefined,
@@ -130,7 +161,10 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
           willingToRelocate: formData.willingToRelocate,
           remotePreference: formData.workPreference as 'remote' | 'hybrid' | 'onsite' | 'flexible',
           relocationPreferences: formData.preferredLocations
-            ? formData.preferredLocations.split(',').map(s => s.trim()).filter(Boolean)
+            ? formData.preferredLocations
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
             : undefined,
           salaryExpectations,
           demographics: {
@@ -161,23 +195,36 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
     <div className="autofill-settings">
       <div className="settings-intro">
         <p>
-          Configure your default answers for common application questions.
-          These will be used to automatically fill checkbox groups, dropdowns,
-          and other fields on job applications.
+          Configure your default answers for common application questions. These will be used to
+          automatically fill checkbox groups, dropdowns, and other fields on job applications.
         </p>
       </div>
 
       {saveMessage && (
         <div className={`save-message ${saveMessage.type}`}>
           {saveMessage.type === 'success' ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="20 6 9 17 4 12"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
             </svg>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
           )}
           {saveMessage.text}
@@ -187,13 +234,22 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Address Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
           </svg>
           Address
         </h3>
-        <p className="section-hint">Your address for job applications. This will auto-fill address fields on forms.</p>
+        <p className="section-hint">
+          Your address for job applications. This will auto-fill address fields on forms.
+        </p>
 
         <div className="form-group">
           <label>Street Address</label>
@@ -253,9 +309,16 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Work Authorization Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
           Work Authorization
         </h3>
@@ -264,7 +327,16 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
           <label>Authorization Status *</label>
           <select
             value={formData.workAuthorization}
-            onChange={(e) => setFormData({ ...formData, workAuthorization: e.target.value as 'citizen' | 'permanent_resident' | 'visa' | 'other' })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                workAuthorization: e.target.value as
+                  | 'citizen'
+                  | 'permanent_resident'
+                  | 'visa'
+                  | 'other',
+              })
+            }
           >
             <option value="citizen">US Citizen</option>
             <option value="permanent_resident">Permanent Resident / Green Card</option>
@@ -299,7 +371,9 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
                 <input
                   type="checkbox"
                   checked={formData.requiresSponsorship}
-                  onChange={(e) => setFormData({ ...formData, requiresSponsorship: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, requiresSponsorship: e.target.checked })
+                  }
                 />
                 <span>I require visa sponsorship</span>
               </label>
@@ -311,8 +385,15 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Security & Background Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           Security & Background
         </h3>
@@ -322,7 +403,17 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
           <label>Security Clearance</label>
           <select
             value={formData.securityClearance}
-            onChange={(e) => setFormData({ ...formData, securityClearance: e.target.value as 'none' | 'public_trust' | 'secret' | 'top_secret' | 'ts_sci' })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                securityClearance: e.target.value as
+                  | 'none'
+                  | 'public_trust'
+                  | 'secret'
+                  | 'top_secret'
+                  | 'ts_sci',
+              })
+            }
           >
             <option value="none">None</option>
             <option value="public_trust">Public Trust</option>
@@ -337,7 +428,9 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
             <input
               type="checkbox"
               checked={formData.canPassBackgroundCheck}
-              onChange={(e) => setFormData({ ...formData, canPassBackgroundCheck: e.target.checked })}
+              onChange={(e) =>
+                setFormData({ ...formData, canPassBackgroundCheck: e.target.checked })
+              }
             />
             <span>I can pass a background check</span>
           </label>
@@ -358,8 +451,15 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Languages Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6" />
           </svg>
           Languages
         </h3>
@@ -379,11 +479,18 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Availability Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
           Availability
         </h3>
@@ -418,9 +525,16 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Work Preferences Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
           </svg>
           Work Preferences
         </h3>
@@ -430,7 +544,12 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
             <label>Work Location Preference</label>
             <select
               value={formData.workPreference}
-              onChange={(e) => setFormData({ ...formData, workPreference: e.target.value as 'remote' | 'hybrid' | 'onsite' | 'flexible' })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  workPreference: e.target.value as 'remote' | 'hybrid' | 'onsite' | 'flexible',
+                })
+              }
             >
               <option value="flexible">Flexible / Open to All</option>
               <option value="remote">Remote Only</option>
@@ -467,9 +586,16 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Salary Section */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="1" x2="12" y2="23"/>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
           </svg>
           Salary Expectations
         </h3>
@@ -513,11 +639,18 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
       {/* Demographics Section (EEO) */}
       <div className="settings-section">
         <h3>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
           Demographics (EEO)
           <span className="section-hint">Optional - for Equal Employment Opportunity forms</span>
@@ -574,10 +707,14 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
               onChange={(e) => setFormData({ ...formData, race: e.target.value })}
             >
               <option value="">Select...</option>
-              <option value="American Indian or Alaska Native">American Indian or Alaska Native</option>
+              <option value="American Indian or Alaska Native">
+                American Indian or Alaska Native
+              </option>
               <option value="Asian">Asian</option>
               <option value="Black or African American">Black or African American</option>
-              <option value="Native Hawaiian or Other Pacific Islander">Native Hawaiian or Pacific Islander</option>
+              <option value="Native Hawaiian or Other Pacific Islander">
+                Native Hawaiian or Pacific Islander
+              </option>
               <option value="White">White</option>
               <option value="Two or More Races">Two or More Races</option>
               <option value="Prefer not to say">Prefer not to say</option>
@@ -616,11 +753,7 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
 
       {/* Save Button */}
       <div className="settings-footer">
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
+        <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
               <div className="spinner-sm"></div>
@@ -628,10 +761,17 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
             </>
           ) : (
             <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
               </svg>
               Save Settings
             </>

@@ -611,6 +611,7 @@ export function getPatternsForSkillArea(skillAreaId: string): [RegExp, string][]
     case 'security':
       return getSecurityPatterns();
     case 'data-analysis':
+    case 'data-analytics':
     case 'data-visualization':
     case 'bi-tools':
       return getDataAnalyticsPatterns();

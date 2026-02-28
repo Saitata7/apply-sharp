@@ -99,9 +99,10 @@ const STATS_KEY = 'application_stats';
  */
 export class OutcomeTracker {
   private applications: Map<string, TrackedApplication> = new Map();
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.initialize();
+    this.initPromise = this.initialize();
   }
 
   /**
@@ -115,8 +116,10 @@ export class OutcomeTracker {
       }
     }
 
-    // Run auto-analysis on startup
-    await this.runAutoAnalysis();
+    // Run auto-analysis on startup (call internal to avoid initPromise deadlock)
+    await this.markStaleApplications();
+    await adaptiveKeywordDB.applyTimeDecay();
+    await this.computeAndCacheStats();
   }
 
   /**
@@ -135,6 +138,7 @@ export class OutcomeTracker {
     answersGenerated?: string[];
     source?: 'extension' | 'manual' | 'import';
   }): Promise<TrackedApplication> {
+    await this.initPromise;
     const id = `app_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
 
@@ -182,6 +186,7 @@ export class OutcomeTracker {
     newStatus: ApplicationStatus,
     notes?: string
   ): Promise<TrackedApplication | null> {
+    await this.initPromise;
     const app = this.applications.get(applicationId);
     if (!app) {
       console.warn(`[OutcomeTracker] Application not found: ${applicationId}`);
@@ -203,7 +208,17 @@ export class OutcomeTracker {
     app.lastStatusChange = now;
 
     // Update outcome flags
-    if (['viewed', 'under_review', 'phone_screen', 'interview', 'final_round', 'offer', 'rejected'].includes(newStatus)) {
+    if (
+      [
+        'viewed',
+        'under_review',
+        'phone_screen',
+        'interview',
+        'final_round',
+        'offer',
+        'rejected',
+      ].includes(newStatus)
+    ) {
       if (!app.responseReceived) {
         app.responseReceived = true;
         app.responseTimeHours = (now - app.appliedAt) / (1000 * 60 * 60);
@@ -235,7 +250,10 @@ export class OutcomeTracker {
     status: ApplicationStatus
   ): Promise<void> {
     // Map status to outcome type for keyword DB
-    const outcomeMap: Record<ApplicationStatus, 'no_response' | 'rejected' | 'interview' | 'offer'> = {
+    const outcomeMap: Record<
+      ApplicationStatus,
+      'no_response' | 'rejected' | 'interview' | 'offer'
+    > = {
       applied: 'no_response',
       viewed: 'no_response',
       under_review: 'no_response',
@@ -251,11 +269,7 @@ export class OutcomeTracker {
     const outcome = outcomeMap[status];
 
     // Update adaptive keyword database
-    await adaptiveKeywordDB.updateFromOutcome(
-      app.keywordsUsed,
-      app.platform,
-      outcome
-    );
+    await adaptiveKeywordDB.updateFromOutcome(app.keywordsUsed, app.platform, outcome);
 
     // Check for stale applications (no response after 2 weeks)
     await this.markStaleApplications();
@@ -269,7 +283,7 @@ export class OutcomeTracker {
     const now = Date.now();
 
     for (const app of this.applications.values()) {
-      if (app.status === 'applied' && (now - app.appliedAt) > TWO_WEEKS) {
+      if (app.status === 'applied' && now - app.appliedAt > TWO_WEEKS) {
         await this.recordOutcome(app.id, 'no_response', 'Auto-marked: no response after 2 weeks');
       }
     }
@@ -280,6 +294,7 @@ export class OutcomeTracker {
    * Called on startup and periodically
    */
   async runAutoAnalysis(): Promise<void> {
+    await this.initPromise;
     // Mark stale applications
     await this.markStaleApplications();
 
@@ -310,9 +325,9 @@ export class OutcomeTracker {
     if (apps.length === 0) return stats;
 
     // Calculate rates
-    const responses = apps.filter(a => a.responseReceived).length;
-    const interviews = apps.filter(a => a.interviewCount > 0).length;
-    const offers = apps.filter(a => a.offerReceived).length;
+    const responses = apps.filter((a) => a.responseReceived).length;
+    const interviews = apps.filter((a) => a.interviewCount > 0).length;
+    const offers = apps.filter((a) => a.offerReceived).length;
 
     stats.responseRate = responses / apps.length;
     stats.interviewRate = interviews / apps.length;
@@ -320,28 +335,28 @@ export class OutcomeTracker {
 
     // Average response time
     const responseTimes = apps
-      .filter(a => a.responseTimeHours !== undefined)
-      .map(a => a.responseTimeHours!);
+      .filter((a) => a.responseTimeHours !== undefined)
+      .map((a) => a.responseTimeHours!);
 
     if (responseTimes.length > 0) {
       stats.avgResponseTimeHours = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
     }
 
     // By platform
-    const platforms = [...new Set(apps.map(a => a.platform))];
+    const platforms = [...new Set(apps.map((a) => a.platform))];
     for (const platform of platforms) {
-      const platformApps = apps.filter(a => a.platform === platform);
+      const platformApps = apps.filter((a) => a.platform === platform);
       stats.byPlatform[platform] = {
         applications: platformApps.length,
-        responses: platformApps.filter(a => a.responseReceived).length,
-        interviews: platformApps.filter(a => a.interviewCount > 0).length,
-        offers: platformApps.filter(a => a.offerReceived).length,
+        responses: platformApps.filter((a) => a.responseReceived).length,
+        interviews: platformApps.filter((a) => a.interviewCount > 0).length,
+        offers: platformApps.filter((a) => a.offerReceived).length,
         avgResponseTime: 0,
       };
 
       const pResponseTimes = platformApps
-        .filter(a => a.responseTimeHours !== undefined)
-        .map(a => a.responseTimeHours!);
+        .filter((a) => a.responseTimeHours !== undefined)
+        .map((a) => a.responseTimeHours!);
 
       if (pResponseTimes.length > 0) {
         stats.byPlatform[platform].avgResponseTime =
@@ -350,9 +365,9 @@ export class OutcomeTracker {
     }
 
     // By industry
-    const industries = [...new Set(apps.map(a => a.industry))];
+    const industries = [...new Set(apps.map((a) => a.industry))];
     for (const industry of industries) {
-      stats.byIndustry[industry] = apps.filter(a => a.industry === industry).length;
+      stats.byIndustry[industry] = apps.filter((a) => a.industry === industry).length;
     }
 
     // Weekly trend (last 8 weeks)
@@ -360,18 +375,18 @@ export class OutcomeTracker {
     const WEEK = 7 * 24 * 60 * 60 * 1000;
 
     for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date(now - (i * WEEK));
-      const weekEnd = new Date(now - ((i - 1) * WEEK));
+      const weekStart = new Date(now - i * WEEK);
+      const weekEnd = new Date(now - (i - 1) * WEEK);
 
-      const weekApps = apps.filter(a =>
-        a.appliedAt >= weekStart.getTime() && a.appliedAt < weekEnd.getTime()
+      const weekApps = apps.filter(
+        (a) => a.appliedAt >= weekStart.getTime() && a.appliedAt < weekEnd.getTime()
       );
 
       stats.weeklyTrend.push({
         weekStart: weekStart.toISOString().split('T')[0],
         applications: weekApps.length,
-        responses: weekApps.filter(a => a.responseReceived).length,
-        interviews: weekApps.filter(a => a.interviewCount > 0).length,
+        responses: weekApps.filter((a) => a.responseReceived).length,
+        interviews: weekApps.filter((a) => a.interviewCount > 0).length,
       });
     }
 
@@ -385,9 +400,10 @@ export class OutcomeTracker {
    * Get cached stats
    */
   async getStats(): Promise<OutcomeStats> {
+    await this.initPromise;
     try {
       const result = await chrome.storage.local.get(STATS_KEY);
-      return result[STATS_KEY] || await this.computeAndCacheStats();
+      return result[STATS_KEY] || (await this.computeAndCacheStats());
     } catch (error) {
       console.debug('[OutcomeTracker] Failed to get stats:', (error as Error).message);
       return this.computeAndCacheStats();
@@ -415,7 +431,7 @@ export class OutcomeTracker {
    */
   getByStatus(status: ApplicationStatus): TrackedApplication[] {
     return Array.from(this.applications.values())
-      .filter(a => a.status === status)
+      .filter((a) => a.status === status)
       .sort((a, b) => b.lastStatusChange - a.lastStatusChange);
   }
 
@@ -427,10 +443,9 @@ export class OutcomeTracker {
     const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
 
     return Array.from(this.applications.values())
-      .filter(a =>
-        a.status === 'applied' &&
-        (now - a.appliedAt) > ONE_WEEK &&
-        (now - a.appliedAt) < (2 * ONE_WEEK)
+      .filter(
+        (a) =>
+          a.status === 'applied' && now - a.appliedAt > ONE_WEEK && now - a.appliedAt < 2 * ONE_WEEK
       )
       .sort((a, b) => a.appliedAt - b.appliedAt);
   }
@@ -439,6 +454,7 @@ export class OutcomeTracker {
    * Get best performing keywords for user's applications
    */
   async getBestPerformingKeywords(): Promise<{ keyword: string; score: number; uses: number }[]> {
+    await this.initPromise;
     const keywordStats: Map<string, { successes: number; uses: number }> = new Map();
 
     for (const app of this.applications.values()) {
@@ -500,6 +516,7 @@ export class OutcomeTracker {
    * Import data from backup
    */
   async importData(data: TrackedApplication[]): Promise<number> {
+    await this.initPromise;
     let imported = 0;
     for (const app of data) {
       if (!this.applications.has(app.id)) {
