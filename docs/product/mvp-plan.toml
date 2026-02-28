@@ -912,7 +912,7 @@ files       = [
     "src/options/components/__tests__/ResumeGenerator.test.ts",
 ]
 priority    = "p1-high"
-status      = "pending"
+status      = "done"
 
 [[phases.phase6.tasks]]
 id          = "6.3"

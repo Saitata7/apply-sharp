@@ -96,7 +96,7 @@ interface TailoredContent {
 // Sources: ResumeGo (7,712 resumes), TalentWorks (6,000+ apps), Harvard/Wharton templates
 // ============================================================================
 
-type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'executive';
+export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'executive';
 type SectionType =
   | 'name'
   | 'contact'
@@ -107,19 +107,19 @@ type SectionType =
   | 'certifications'
   | 'projects';
 
-interface SectionConfig {
+export interface SectionConfig {
   type: SectionType;
   visible: boolean;
   headerText: string;
 }
 
-interface ExperienceRoleLayout {
+export interface ExperienceRoleLayout {
   expId: string;
   maxBullets: number;
   isEarlyCareer: boolean;
 }
 
-interface EducationLayoutEntry {
+export interface EducationLayoutEntry {
   eduId: string;
   showGpa: boolean;
   showGraduationDate: boolean;
@@ -127,7 +127,7 @@ interface EducationLayoutEntry {
   showHonors: boolean;
 }
 
-interface ResumeLayout {
+export interface ResumeLayout {
   experienceLevel: ExperienceLevel;
   sections: SectionConfig[];
   experienceRoles: ExperienceRoleLayout[];
@@ -138,7 +138,7 @@ interface ResumeLayout {
 }
 
 // Compute actual years of experience from job start/end dates (sanity check on careerContext)
-function computeYearsFromDates(experience: EnrichedExperience[]): number {
+export function computeYearsFromDates(experience: EnrichedExperience[]): number {
   if (!experience.length) return 0;
   const now = new Date();
   let earliest = now;
@@ -154,19 +154,19 @@ function computeYearsFromDates(experience: EnrichedExperience[]): number {
   );
 }
 
-function getExperienceLevel(years: number): ExperienceLevel {
+export function getExperienceLevel(years: number): ExperienceLevel {
   if (years <= 3) return 'entry';
   if (years <= 7) return 'mid';
   if (years <= 15) return 'senior';
   return 'executive';
 }
 
-function getRecommendedPages(years: number): 1 | 2 | 3 {
+export function getRecommendedPages(years: number): 1 | 2 | 3 {
   if (years <= 7) return 1;
   return 2;
 }
 
-function getSectionOrder(
+export function getSectionOrder(
   level: ExperienceLevel,
   hasProjects: boolean,
   hasCerts: boolean
@@ -223,7 +223,7 @@ function getSectionOrder(
   }
 }
 
-function computeBulletBudgets(
+export function computeBulletBudgets(
   experience: EnrichedExperience[],
   targetPages: number,
   yearsOfExperience: number
@@ -300,7 +300,7 @@ function computeBulletBudgets(
   return { roles, totalBudget: currentTotal };
 }
 
-function computeEducationLayout(
+export function computeEducationLayout(
   education: EnrichedEducation[],
   yearsOfExperience: number
 ): EducationLayoutEntry[] {
@@ -321,7 +321,7 @@ function computeEducationLayout(
   });
 }
 
-function computeResumeLayout(input: {
+export function computeResumeLayout(input: {
   yearsOfExperience: number;
   targetPages: number;
   experience: EnrichedExperience[];
@@ -353,7 +353,7 @@ function computeResumeLayout(input: {
 }
 
 // Format date from "2021-01" to "January 2021" — shared between DOCX and PDF generators
-function formatResumeDate(dateStr: string | undefined): string {
+export function formatResumeDate(dateStr: string | undefined): string {
   if (!dateStr) return '';
   const trimmed = dateStr.trim();
   // Guard against garbage values
@@ -396,7 +396,7 @@ function formatResumeDate(dateStr: string | undefined): string {
 }
 
 // Normalize skill name casing for professional display
-function normalizeSkillName(name: string): string {
+export function normalizeSkillName(name: string): string {
   if (!name) return name;
   const trimmed = name.trim();
 
@@ -534,7 +534,7 @@ function normalizeSkillName(name: string): string {
 }
 
 // Shorten URL for display (remove protocol, www prefix)
-function shortenUrl(url: string | undefined): string {
+export function shortenUrl(url: string | undefined): string {
   if (!url) return '';
   return url
     .replace(/^https?:\/\//, '')
