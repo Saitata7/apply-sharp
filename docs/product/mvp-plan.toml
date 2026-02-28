@@ -558,7 +558,7 @@ files       = [
     "src/options/components/SkillsGapAnalysis.tsx",
 ]
 priority    = "p1-high"
-status      = "pending"
+status      = "done"
 
 [[phases.phase3.tasks]]
 id          = "3.2"
@@ -893,7 +893,7 @@ files       = [
     "src/core/ats/__tests__/layered-scorer.test.ts",
 ]
 priority    = "p1-high"
-status      = "pending"
+status      = "done"
 
 [[phases.phase6.tasks]]
 id          = "6.2"

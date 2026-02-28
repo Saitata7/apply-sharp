@@ -21,6 +21,7 @@ import { validateATSFormat, extractResumeContent } from '@core/ats/format-valida
 import { validateAllBullets } from '@core/resume/bullet-validator';
 import type { SeniorityLevel } from '@core/resume/bullet-validator';
 import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
+import { analyzeSkillGaps } from '@core/ats/gap-analyzer';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
@@ -3884,12 +3885,24 @@ async function handleScoreResumeATS(payload: {
       overallScore = Math.round(formatScore.overallScore * 0.4 + bulletReport.overallScore * 0.6);
     }
 
+    // 5. Gap analysis (only when keyword scoring is available)
+    let gapAnalysis = undefined;
+    if (keywordScore) {
+      const profileSkills = [
+        ...getSkillNames(profile.skills?.technical || []),
+        ...getSkillNames(profile.skills?.tools || []),
+        ...getSkillNames(profile.skills?.frameworks || []),
+      ];
+      gapAnalysis = analyzeSkillGaps(keywordScore, profileSkills);
+    }
+
     return {
       success: true,
       data: {
         formatScore,
         bulletReport,
         keywordScore,
+        gapAnalysis,
         overallScore,
       },
     };
