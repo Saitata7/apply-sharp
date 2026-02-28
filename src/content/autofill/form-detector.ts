@@ -181,11 +181,26 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 90,
   },
   currentCompany: {
-    patterns: [/current.*company/i, /most.*recent.*company/i, /employer/i, /company.?name/i, /organization/i, /present.*company/i],
+    patterns: [
+      /current.*company/i,
+      /most.*recent.*company/i,
+      /employer/i,
+      /company.?name/i,
+      /organization/i,
+      /present.*company/i,
+    ],
     priority: 80,
   },
   currentTitle: {
-    patterns: [/current.*title/i, /most.*recent.*title/i, /job.?title/i, /position/i, /desired.*title/i, /desired.*role/i, /present.*title/i],
+    patterns: [
+      /current.*title/i,
+      /most.*recent.*title/i,
+      /job.?title/i,
+      /position/i,
+      /desired.*title/i,
+      /desired.*role/i,
+      /present.*title/i,
+    ],
     priority: 80,
   },
   yearsExperience: {
@@ -205,7 +220,13 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 85,
   },
   salaryExpectation: {
-    patterns: [/salary.?expect/i, /expected.?salary/i, /desired.?salary/i, /target.*rate/i, /consulting.*rate/i],
+    patterns: [
+      /salary.?expect/i,
+      /expected.?salary/i,
+      /desired.?salary/i,
+      /target.*rate/i,
+      /consulting.*rate/i,
+    ],
     priority: 90,
   },
   desiredPay: {
@@ -245,15 +266,34 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 80,
   },
   preferredRegions: {
-    patterns: [/preferred.*region/i, /location.*prefer/i, /work.*location/i, /target.*location/i, /preferred.*location/i],
+    patterns: [
+      /preferred.*region/i,
+      /location.*prefer/i,
+      /work.*location/i,
+      /target.*location/i,
+      /preferred.*location/i,
+    ],
     priority: 85,
   },
   desiredRoles: {
-    patterns: [/desired.*title/i, /desired.*role/i, /target.*role/i, /position.*interest/i, /role.*interest/i, /job.*title.*interest/i],
+    patterns: [
+      /desired.*title/i,
+      /desired.*role/i,
+      /target.*role/i,
+      /position.*interest/i,
+      /role.*interest/i,
+      /job.*title.*interest/i,
+    ],
     priority: 85,
   },
   availableDate: {
-    patterns: [/available.*date/i, /start.*date/i, /when.*start/i, /earliest.*date/i, /availab.*start/i],
+    patterns: [
+      /available.*date/i,
+      /start.*date/i,
+      /when.*start/i,
+      /earliest.*date/i,
+      /availab.*start/i,
+    ],
     priority: 85,
   },
   // Education
@@ -262,7 +302,12 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 75,
   },
   highestEducation: {
-    patterns: [/highest.*education/i, /education.*level/i, /highest.*degree/i, /education.*obtained/i],
+    patterns: [
+      /highest.*education/i,
+      /education.*level/i,
+      /highest.*degree/i,
+      /education.*obtained/i,
+    ],
     priority: 85,
   },
   degree: {
@@ -299,15 +344,30 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 75,
   },
   responsibilities: {
-    patterns: [/responsibilit/i, /duties/i, /summary.*responsibilities/i, /job.*description/i, /what.*you.*do/i],
+    patterns: [
+      /responsibilit/i,
+      /duties/i,
+      /summary.*responsibilities/i,
+      /job.*description/i,
+      /what.*you.*do/i,
+    ],
     priority: 75,
   },
   yearsExperienceSpecific: {
-    patterns: [/years.*experience.*with/i, /how.?many.?years.*experience/i, /years.*working.*with/i],
+    patterns: [
+      /years.*experience.*with/i,
+      /how.?many.?years.*experience/i,
+      /years.*working.*with/i,
+    ],
     priority: 85,
   },
   skillsLanguages: {
-    patterns: [/technical.*skills.*language/i, /programming.*language/i, /coding.*language/i, /skills.*language/i],
+    patterns: [
+      /technical.*skills.*language/i,
+      /programming.*language/i,
+      /coding.*language/i,
+      /skills.*language/i,
+    ],
     priority: 85,
   },
   skillsCloud: {
@@ -327,7 +387,12 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 70,
   },
   interviewAvailability: {
-    patterns: [/interview.*availab/i, /availab.*interview/i, /when.*interview/i, /schedule.*interview/i],
+    patterns: [
+      /interview.*availab/i,
+      /availab.*interview/i,
+      /when.*interview/i,
+      /schedule.*interview/i,
+    ],
     priority: 75,
   },
   leadershipStyle: {
@@ -335,7 +400,14 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
     priority: 75,
   },
   additionalInfo: {
-    patterns: [/anything.*else/i, /additional.*info/i, /other.*info/i, /comments/i, /notes/i, /tell.*us.*more/i],
+    patterns: [
+      /anything.*else/i,
+      /additional.*info/i,
+      /other.*info/i,
+      /comments/i,
+      /notes/i,
+      /tell.*us.*more/i,
+    ],
     priority: 60,
   },
   customQuestion: {
@@ -349,15 +421,83 @@ const FIELD_PATTERNS: Record<FieldType, { patterns: RegExp[]; priority: number }
 };
 
 /**
+ * Wait for SPA-rendered forms to load, then detect fields.
+ * Workday, Greenhouse, and modern ATS use React/Angular that render after page load.
+ */
+export async function waitForFormFields(timeoutMs: number = 5000): Promise<DetectedForm> {
+  // First try immediately
+  const form = detectFormFields();
+  if (form.fields.length >= 3 && form.confidence >= 50) {
+    return form;
+  }
+
+  // Wait for dynamic content to render (SPA-aware)
+  return new Promise<DetectedForm>((resolve) => {
+    let resolved = false;
+    let retryCount = 0;
+    const maxRetries = Math.floor(timeoutMs / 500);
+
+    const tryDetect = () => {
+      if (resolved) return;
+      retryCount++;
+
+      const detected = detectFormFields();
+      if (detected.fields.length >= 3 && detected.confidence >= 50) {
+        resolved = true;
+        observer?.disconnect();
+        resolve(detected);
+        return;
+      }
+
+      if (retryCount >= maxRetries) {
+        resolved = true;
+        observer?.disconnect();
+        // Return whatever we found, even if low confidence
+        resolve(detected);
+      }
+    };
+
+    // Watch for DOM mutations (new form elements being added)
+    const observer = new MutationObserver(() => {
+      tryDetect();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    // Also retry on intervals for frameworks that batch updates
+    const interval = setInterval(() => {
+      if (resolved) {
+        clearInterval(interval);
+        return;
+      }
+      tryDetect();
+    }, 500);
+
+    // Timeout safety
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        observer.disconnect();
+        clearInterval(interval);
+        resolve(detectFormFields());
+      }
+    }, timeoutMs);
+  });
+}
+
+/**
  * Detect all form fields on the current page
  */
 export function detectFormFields(): DetectedForm {
   const fields: DetectedField[] = [];
 
   // Find all input elements
-  const inputs = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select'
-  );
+  const inputs = document.querySelectorAll<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  >('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select');
 
   for (const input of inputs) {
     // Skip invisible elements
@@ -403,7 +543,9 @@ export function detectFormFields(): DetectedForm {
 /**
  * Classify a single field
  */
-function classifyField(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): DetectedField | null {
+function classifyField(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+): DetectedField | null {
   const name = element.name?.toLowerCase() || '';
   const id = element.id?.toLowerCase() || '';
   const placeholder = ('placeholder' in element ? element.placeholder : '')?.toLowerCase() || '';
@@ -662,8 +804,8 @@ function calculateConfidence(fields: DetectedField[]): number {
   if (fields.length === 0) return 0;
 
   // Must have at least name and email for a valid application form
-  const hasEmail = fields.some(f => f.type === 'email');
-  const hasName = fields.some(f => ['firstName', 'lastName', 'fullName'].includes(f.type));
+  const hasEmail = fields.some((f) => f.type === 'email');
+  const hasName = fields.some((f) => ['firstName', 'lastName', 'fullName'].includes(f.type));
 
   if (!hasEmail || !hasName) return 30;
 
@@ -671,7 +813,9 @@ function calculateConfidence(fields: DetectedField[]): number {
   const avgConfidence = fields.reduce((sum, f) => sum + f.confidence, 0) / fields.length;
 
   // Bonus for having more recognized fields
-  const recognizedFields = fields.filter(f => f.type !== 'unknown' && f.type !== 'customQuestion');
+  const recognizedFields = fields.filter(
+    (f) => f.type !== 'unknown' && f.type !== 'customQuestion'
+  );
   const recognitionBonus = Math.min(20, recognizedFields.length * 3);
 
   return Math.min(100, avgConfidence + recognitionBonus);

@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type {
   MasterProfile,
   GeneratedProfile,
   EnrichedExperience,
+  EnrichedEducation,
+  EnrichedProject,
+  Certification,
 } from '@shared/types/master-profile.types';
 import { sendMessage } from '@shared/utils/messaging';
 import {
@@ -10,15 +13,11 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  Tab,
   AlignmentType,
   BorderStyle,
   Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  VerticalAlign,
   ExternalHyperlink,
-  HeightRule,
   TabStopType,
   LevelFormat,
   convertInchesToTwip,
@@ -92,6 +91,457 @@ interface TailoredContent {
   newScore: number;
 }
 
+// ============================================================================
+// RESUME LAYOUT ENGINE — Research-Backed Standards
+// Sources: ResumeGo (7,712 resumes), TalentWorks (6,000+ apps), Harvard/Wharton templates
+// ============================================================================
+
+type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'executive';
+type SectionType =
+  | 'name'
+  | 'contact'
+  | 'summary'
+  | 'skills'
+  | 'experience'
+  | 'education'
+  | 'certifications'
+  | 'projects';
+
+interface SectionConfig {
+  type: SectionType;
+  visible: boolean;
+  headerText: string;
+}
+
+interface ExperienceRoleLayout {
+  expId: string;
+  maxBullets: number;
+  isEarlyCareer: boolean;
+}
+
+interface EducationLayoutEntry {
+  eduId: string;
+  showGpa: boolean;
+  showGraduationDate: boolean;
+  showCoursework: boolean;
+  showHonors: boolean;
+}
+
+interface ResumeLayout {
+  experienceLevel: ExperienceLevel;
+  sections: SectionConfig[];
+  experienceRoles: ExperienceRoleLayout[];
+  educationEntries: EducationLayoutEntry[];
+  totalBulletBudget: number;
+  showProjects: boolean;
+  recommendedPages: 1 | 2 | 3;
+}
+
+// Compute actual years of experience from job start/end dates (sanity check on careerContext)
+function computeYearsFromDates(experience: EnrichedExperience[]): number {
+  if (!experience.length) return 0;
+  const now = new Date();
+  let earliest = now;
+  for (const exp of experience) {
+    if (exp.startDate) {
+      const d = new Date(exp.startDate);
+      if (!isNaN(d.getTime()) && d < earliest) earliest = d;
+    }
+  }
+  return Math.max(
+    0,
+    Math.round((now.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24 * 365))
+  );
+}
+
+function getExperienceLevel(years: number): ExperienceLevel {
+  if (years <= 3) return 'entry';
+  if (years <= 7) return 'mid';
+  if (years <= 15) return 'senior';
+  return 'executive';
+}
+
+function getRecommendedPages(years: number): 1 | 2 | 3 {
+  if (years <= 7) return 1;
+  return 2;
+}
+
+function getSectionOrder(
+  level: ExperienceLevel,
+  hasProjects: boolean,
+  hasCerts: boolean
+): SectionConfig[] {
+  const section = (type: SectionType, header: string, visible = true): SectionConfig => ({
+    type,
+    visible,
+    headerText: header,
+  });
+
+  const base: SectionConfig[] = [
+    section('name', ''),
+    section('contact', ''),
+    section('summary', 'SUMMARY'),
+  ];
+
+  switch (level) {
+    case 'entry':
+      return [
+        ...base,
+        section('education', 'EDUCATION'),
+        section('skills', 'TECHNICAL SKILLS'),
+        section('experience', 'WORK EXPERIENCE'),
+        section('projects', 'PROJECTS', hasProjects),
+        section('certifications', 'CERTIFICATIONS', hasCerts),
+      ];
+    case 'mid':
+      return [
+        ...base,
+        section('skills', 'TECHNICAL SKILLS'),
+        section('experience', 'WORK EXPERIENCE'),
+        section('education', 'EDUCATION'),
+        section('certifications', 'CERTIFICATIONS', hasCerts),
+        section('projects', 'PROJECTS', hasProjects),
+      ];
+    case 'senior':
+      return [
+        ...base,
+        section('skills', 'TECHNICAL SKILLS'),
+        section('experience', 'WORK EXPERIENCE'),
+        section('education', 'EDUCATION'),
+        section('certifications', 'CERTIFICATIONS', hasCerts),
+        // No projects for senior
+      ];
+    case 'executive':
+      return [
+        ...base,
+        section('skills', 'TECHNICAL SKILLS'),
+        section('experience', 'WORK EXPERIENCE'),
+        section('education', 'EDUCATION'),
+        section('certifications', 'CERTIFICATIONS', hasCerts),
+        // No projects for executive
+      ];
+  }
+}
+
+function computeBulletBudgets(
+  experience: EnrichedExperience[],
+  targetPages: number,
+  yearsOfExperience: number
+): { roles: ExperienceRoleLayout[]; totalBudget: number } {
+  const budgetByPages: Record<number, [number, number]> = {
+    1: [12, 18],
+    2: [20, 35],
+    3: [30, 45],
+  };
+  const [, maxBudget] = budgetByPages[targetPages] || [20, 35];
+
+  const now = new Date();
+
+  const roles: ExperienceRoleLayout[] = experience.map((exp, idx) => {
+    const endDate = exp.isCurrent ? now : exp.endDate ? new Date(exp.endDate) : now;
+    const roleAgeYears = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24 * 365);
+    const tenureMonths =
+      exp.durationMonths ||
+      Math.max(
+        1,
+        Math.round(
+          (endDate.getTime() -
+            (exp.startDate ? new Date(exp.startDate).getTime() : endDate.getTime())) /
+            (1000 * 60 * 60 * 24 * 30)
+        )
+      );
+
+    // Early career: roles ended 10+ years ago → title/company/dates only
+    const isEarlyCareer = roleAgeYears >= 10 && yearsOfExperience >= 10;
+
+    if (isEarlyCareer) {
+      return { expId: exp.id || exp.company, maxBullets: 0, isEarlyCareer: true };
+    }
+
+    // Position-based max (recency)
+    let positionMax: number;
+    if (targetPages === 1) {
+      positionMax = idx === 0 ? 6 : idx === 1 ? 4 : 3;
+    } else if (targetPages === 2) {
+      positionMax = idx === 0 ? 8 : idx === 1 ? 6 : idx === 2 ? 5 : 3;
+    } else {
+      positionMax = idx === 0 ? 8 : idx === 1 ? 7 : idx === 2 ? 6 : idx === 3 ? 5 : 3;
+    }
+
+    // Tenure-based max
+    let tenureMax: number;
+    if (tenureMonths < 6) tenureMax = 3;
+    else if (tenureMonths < 12) tenureMax = 4;
+    else if (tenureMonths < 24) tenureMax = 5;
+    else if (tenureMonths < 36) tenureMax = 6;
+    else tenureMax = 7;
+
+    return {
+      expId: exp.id || exp.company,
+      maxBullets: Math.min(positionMax, tenureMax),
+      isEarlyCareer: false,
+    };
+  });
+
+  // Enforce total budget cap — trim from oldest non-early-career roles first
+  let currentTotal = roles.reduce((sum, r) => sum + r.maxBullets, 0);
+  if (currentTotal > maxBudget) {
+    for (let i = roles.length - 1; i >= 0 && currentTotal > maxBudget; i--) {
+      const role = roles[i];
+      if (role.isEarlyCareer || role.maxBullets <= 1) continue;
+      const reduction = Math.min(role.maxBullets - 1, currentTotal - maxBudget);
+      if (reduction > 0) {
+        role.maxBullets -= reduction;
+        currentTotal -= reduction;
+      }
+    }
+  }
+
+  return { roles, totalBudget: currentTotal };
+}
+
+function computeEducationLayout(
+  education: EnrichedEducation[],
+  yearsOfExperience: number
+): EducationLayoutEntry[] {
+  const now = new Date();
+  return education.map((edu) => {
+    const gradDate = edu.endDate ? new Date(edu.endDate) : null;
+    const yearsSinceGrad = gradDate
+      ? (now.getTime() - gradDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
+      : Infinity;
+
+    return {
+      eduId: edu.id,
+      showGpa: edu.gpa !== undefined && edu.gpa >= 3.5 && yearsSinceGrad <= 3,
+      showGraduationDate: yearsOfExperience < 10,
+      showCoursework: yearsOfExperience <= 3 && (edu.relevantCoursework?.length ?? 0) > 0,
+      showHonors: yearsOfExperience <= 5 && (edu.honors?.length ?? 0) > 0,
+    };
+  });
+}
+
+function computeResumeLayout(input: {
+  yearsOfExperience: number;
+  targetPages: number;
+  experience: EnrichedExperience[];
+  education: EnrichedEducation[];
+  projects: EnrichedProject[];
+  certifications: Certification[];
+}): ResumeLayout {
+  const level = getExperienceLevel(input.yearsOfExperience);
+  const recommendedPages = getRecommendedPages(input.yearsOfExperience);
+  const hasProjects = input.projects.length > 0;
+  const hasCerts = input.certifications.length > 0;
+  const sections = getSectionOrder(level, hasProjects, hasCerts);
+  const { roles, totalBudget } = computeBulletBudgets(
+    input.experience,
+    input.targetPages,
+    input.yearsOfExperience
+  );
+  const educationEntries = computeEducationLayout(input.education, input.yearsOfExperience);
+
+  return {
+    experienceLevel: level,
+    sections,
+    experienceRoles: roles,
+    educationEntries,
+    totalBulletBudget: totalBudget,
+    showProjects: input.yearsOfExperience <= 10 && hasProjects,
+    recommendedPages,
+  };
+}
+
+// Format date from "2021-01" to "January 2021" — shared between DOCX and PDF generators
+function formatResumeDate(dateStr: string | undefined): string {
+  if (!dateStr) return '';
+  const trimmed = dateStr.trim();
+  // Guard against garbage values
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'N/A') return '';
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  const lower = trimmed.toLowerCase();
+  if (lower === 'current' || lower === 'present') return 'Present';
+  // ISO format: "2021-01" or "2021-01-15"
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/);
+  if (isoMatch) {
+    const monthIndex = parseInt(isoMatch[2], 10) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) return `${months[monthIndex]} ${isoMatch[1]}`;
+  }
+  // Slash format: "01/2024"
+  const slashMatch = trimmed.match(/^(\d{2})\/(\d{4})$/);
+  if (slashMatch) {
+    const monthIndex = parseInt(slashMatch[1], 10) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) return `${months[monthIndex]} ${slashMatch[2]}`;
+  }
+  // Year only: "2024"
+  if (/^\d{4}$/.test(trimmed)) return trimmed;
+  // Already formatted like "January 2024" — pass through
+  if (/^[A-Z][a-z]+\s+\d{4}$/.test(trimmed)) return trimmed;
+  // Short month: "Jan 2024"
+  if (/^[A-Z][a-z]{2}\s+\d{4}$/.test(trimmed)) return trimmed;
+  return trimmed;
+}
+
+// Normalize skill name casing for professional display
+function normalizeSkillName(name: string): string {
+  if (!name) return name;
+  const trimmed = name.trim();
+
+  // Known acronyms/abbreviations — always uppercase
+  const acronyms: Record<string, string> = {
+    'ci/cd': 'CI/CD',
+    aws: 'AWS',
+    gcp: 'GCP',
+    api: 'API',
+    apis: 'APIs',
+    sql: 'SQL',
+    nosql: 'NoSQL',
+    html: 'HTML',
+    html5: 'HTML5',
+    css: 'CSS',
+    css3: 'CSS3',
+    oop: 'OOP',
+    sdlc: 'SDLC',
+    solid: 'SOLID',
+    rest: 'REST',
+    grpc: 'gRPC',
+    graphql: 'GraphQL',
+    'ai/ml': 'AI/ML',
+    ai: 'AI',
+    ml: 'ML',
+    nlp: 'NLP',
+    etl: 'ETL',
+    jwt: 'JWT',
+    oauth: 'OAuth',
+    ssl: 'SSL',
+    tls: 'TLS',
+    ssh: 'SSH',
+    dns: 'DNS',
+    cdn: 'CDN',
+    ui: 'UI',
+    ux: 'UX',
+    qa: 'QA',
+    sre: 'SRE',
+    bi: 'BI',
+    devops: 'DevOps',
+    devsecops: 'DevSecOps',
+    saas: 'SaaS',
+    paas: 'PaaS',
+    iaas: 'IaaS',
+  };
+
+  // Known product/tool names — exact casing
+  const products: Record<string, string> = {
+    kubernetes: 'Kubernetes',
+    elasticsearch: 'Elasticsearch',
+    postgresql: 'PostgreSQL',
+    mysql: 'MySQL',
+    mongodb: 'MongoDB',
+    redis: 'Redis',
+    docker: 'Docker',
+    jenkins: 'Jenkins',
+    terraform: 'Terraform',
+    ansible: 'Ansible',
+    kafka: 'Kafka',
+    rabbitmq: 'RabbitMQ',
+    nginx: 'Nginx',
+    linux: 'Linux',
+    'node.js': 'Node.js',
+    'react.js': 'React.js',
+    react: 'React',
+    angular: 'Angular',
+    'vue.js': 'Vue.js',
+    vue: 'Vue',
+    'next.js': 'Next.js',
+    express: 'Express',
+    typescript: 'TypeScript',
+    javascript: 'JavaScript',
+    python: 'Python',
+    java: 'Java',
+    golang: 'Go',
+    go: 'Go',
+    rust: 'Rust',
+    swift: 'Swift',
+    kotlin: 'Kotlin',
+    ruby: 'Ruby',
+    php: 'PHP',
+    scala: 'Scala',
+    jira: 'Jira',
+    confluence: 'Confluence',
+    figma: 'Figma',
+    tableau: 'Tableau',
+    grafana: 'Grafana',
+    prometheus: 'Prometheus',
+    loki: 'Loki',
+    openai: 'OpenAI',
+    langchain: 'LangChain',
+    'spring boot': 'Spring Boot',
+    spring: 'Spring',
+    dynamodb: 'DynamoDB',
+    snowflake: 'Snowflake',
+    firebase: 'Firebase',
+    'github actions': 'GitHub Actions',
+    git: 'Git',
+    github: 'GitHub',
+    gitlab: 'GitLab',
+    bitbucket: 'Bitbucket',
+  };
+
+  const lower = trimmed.toLowerCase();
+
+  // Check exact matches
+  if (acronyms[lower]) return acronyms[lower];
+  if (products[lower]) return products[lower];
+
+  // Handle compound phrases like "kafka or rabbitmq" → split and normalize each
+  if (lower.includes(' or ') || lower.includes(' and ')) {
+    return trimmed
+      .split(/\s+(?:or|and)\s+/i)
+      .map((part) => normalizeSkillName(part.trim()))
+      .join(', ');
+  }
+
+  // Handle "grafana and loki" → "Grafana, Loki"
+  if (lower.includes(' and ')) {
+    return trimmed
+      .split(/\s+and\s+/i)
+      .map((part) => normalizeSkillName(part.trim()))
+      .join(', ');
+  }
+
+  // If it's a multi-word phrase like "test-driven" → Title Case
+  if (/^[a-z]/.test(trimmed) && trimmed.length > 2) {
+    return trimmed
+      .split(/[\s-]+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(trimmed.includes('-') ? '-' : ' ');
+  }
+
+  return trimmed;
+}
+
+// Shorten URL for display (remove protocol, www prefix)
+function shortenUrl(url: string | undefined): string {
+  if (!url) return '';
+  return url
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/$/, '');
+}
+
 export default function ResumeGenerator({ profile, selectedRole, onClose }: ResumeGeneratorProps) {
   const [mode, setMode] = useState<GeneratorMode>(selectedRole ? 'without-jd' : 'select');
   const [activeRole, setActiveRole] = useState<GeneratedProfile | null>(selectedRole || null);
@@ -108,25 +558,49 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
   const [tailoringProgress, setTailoringProgress] = useState<string>('');
   const [showSaveVersion, setShowSaveVersion] = useState(false);
   const [lastGeneratedFormat, setLastGeneratedFormat] = useState<string | null>(null);
+  const [showMatchedKeywords, setShowMatchedKeywords] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
-  // Page count control based on years of experience
-  const yearsOfExp = profile.careerContext?.yearsOfExperience || 0;
-  const recommendedPages = yearsOfExp <= 5 ? 1 : yearsOfExp <= 10 ? 2 : 2;
+  // Page count control — use actual job dates as ground truth, careerContext as fallback
+  const computedYears = useMemo(
+    () => computeYearsFromDates(profile.experience || []),
+    [profile.experience]
+  );
+  const yearsOfExp = computedYears || profile.careerContext?.yearsOfExperience || 0;
+  const recommendedPages = getRecommendedPages(yearsOfExp);
   const [targetPages, setTargetPages] = useState<number>(recommendedPages);
 
-  // Max bullets per role based on target page count and seniority
-  const getMaxBulletsForRole = (roleIndex: number, totalRoles: number): number => {
-    if (targetPages === 1) {
-      // 1-page resume: tight bullet budgets
-      if (roleIndex === 0) return 5; // Most recent role: up to 5
-      if (roleIndex === 1) return 3; // Second role: up to 3
-      return 2; // Older roles: 2
-    }
-    // 2-page resume: more generous
-    if (roleIndex === 0) return 8;
-    if (roleIndex === 1) return 6;
-    if (roleIndex < totalRoles - 1) return 5;
-    return 3; // Oldest role
+  // Layout engine — computes section order, bullet budgets, visibility rules
+  const layout = useMemo(
+    () =>
+      computeResumeLayout({
+        yearsOfExperience: yearsOfExp,
+        targetPages,
+        experience: profile.experience || [],
+        education: profile.education || [],
+        projects: profile.projects || [],
+        certifications: profile.certifications || [],
+      }),
+    [
+      yearsOfExp,
+      targetPages,
+      profile.experience,
+      profile.education,
+      profile.projects,
+      profile.certifications,
+    ]
+  );
+
+  // Get max bullets for a role from layout engine
+  const getMaxBulletsForRole = (expId: string): number => {
+    const roleLayout = layout.experienceRoles.find((r) => r.expId === expId);
+    return roleLayout?.maxBullets ?? 5;
+  };
+
+  // Check if a role should be condensed (Early Career: title/company/dates only)
+  const isEarlyCareerRole = (expId: string): boolean => {
+    const roleLayout = layout.experienceRoles.find((r) => r.expId === expId);
+    return roleLayout?.isEarlyCareer ?? false;
   };
 
   const generatedProfiles = profile.generatedProfiles || [];
@@ -756,12 +1230,16 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     if (!activeRole) return;
 
     const validKeywords = keywords.filter((kw) => {
-      const kwLower = kw.toLowerCase();
+      const kwLower = kw.toLowerCase().trim();
+      const wordCount = kwLower.split(/\s+/).length;
       return (
-        /^[a-z0-9#+.\-/\s]+$/i.test(kw) &&
         kw.length >= 2 &&
-        kw.length <= 30 &&
-        !['the', 'and', 'or', 'for', 'with', 'you', 'will', 'can', 'are'].includes(kwLower)
+        kw.length <= 50 &&
+        wordCount <= 4 &&
+        !['the', 'and', 'or', 'for', 'with', 'you', 'will', 'can', 'are'].includes(kwLower) &&
+        !/^(ability|experience|knowledge|understanding|familiarity|bachelor|master|degree)\b/.test(
+          kwLower
+        )
       );
     });
 
@@ -797,27 +1275,9 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     }
   };
 
-  // Calculate bullet count based on tenure duration
-  const getBulletCountForDuration = (
-    startDate: string | undefined,
-    endDate: string | undefined,
-    isCurrent: boolean
-  ): number => {
-    if (!startDate) return 4; // Default
-
-    const start = new Date(startDate);
-    const end = isCurrent ? new Date() : endDate ? new Date(endDate) : new Date();
-    const months = Math.max(
-      1,
-      Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30))
-    );
-
-    // Duration-based bullet count rules
-    if (months <= 6) return 4; // 6 months: 4 bullets
-    if (months <= 12) return 7; // 1 year: 7-8 bullets
-    if (months <= 24) return 11; // 2 years: 11-12 bullets
-    if (months <= 36) return 15; // 3 years: 15 bullets
-    return 16; // 4+ years: 15-16 bullets
+  // Get bullet count for AI tailoring — aligned with layout engine so AI generates correct count
+  const getBulletCountForRole = (expId: string): number => {
+    return getMaxBulletsForRole(expId);
   };
 
   // Tailor resume content using AI
@@ -829,11 +1289,8 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
 
     try {
       const keyBulletPoints = (profile.experience || []).map((exp) => {
-        const bulletCount = getBulletCountForDuration(
-          exp.startDate,
-          exp.endDate,
-          exp.isCurrent || false
-        );
+        const expId = exp.id || exp.company;
+        const bulletCount = getBulletCountForRole(expId);
 
         // Collect ALL available bullets from achievements and responsibilities
         const allBullets = [
@@ -842,16 +1299,10 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         ];
 
         return {
-          expId: exp.id || exp.company,
-          bullets: allBullets.slice(0, Math.max(bulletCount, allBullets.length)), // Take at least bulletCount, or all available
-          expectedCount: bulletCount, // Tell AI how many we want
-          durationMonths: exp.startDate
-            ? Math.round(
-                ((exp.isCurrent ? new Date() : new Date(exp.endDate || Date.now())).getTime() -
-                  new Date(exp.startDate).getTime()) /
-                  (1000 * 60 * 60 * 24 * 30)
-              )
-            : 12,
+          expId,
+          bullets: allBullets.slice(0, Math.max(bulletCount, allBullets.length)),
+          expectedCount: bulletCount,
+          durationMonths: exp.durationMonths || 12,
         };
       });
 
@@ -927,7 +1378,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       }
 
       const resumeContent = formatResume(profile, activeRole, analysis, tailored);
-      const fileName = `${profile.personal?.fullName || 'Resume'}_${activeRole.targetRole.replace(/\s+/g, '_')}`;
+      const fileName = `${(profile.personal?.fullName || 'Resume').replace(/\s+/g, '_')}_Resume`;
 
       if (format === 'txt') {
         downloadFile(resumeContent.text, `${fileName}.txt`, 'text/plain');
@@ -992,37 +1443,11 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       tailored.enhancedBullets.forEach((eb) => enhancedBulletsMap.set(eb.expId, eb.bullets));
     }
 
-    // Format date from "2021-01" to "January 2021"
-    const formatDate = (dateStr: string | undefined): string => {
-      if (!dateStr) return '';
-      const months = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      if (dateStr.toLowerCase() === 'current' || dateStr.toLowerCase() === 'present')
-        return 'Present';
-      const match = dateStr.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/);
-      if (match) {
-        const monthIndex = parseInt(match[2], 10) - 1;
-        if (monthIndex >= 0 && monthIndex < 12) return `${months[monthIndex]} ${match[1]}`;
-      }
-      return dateStr;
-    };
-
-    // Get bullets for experience
-    const getBullets = (exp: EnrichedExperience, expIndex?: number): string[] => {
-      const key = exp.id || exp.company;
-      const enhanced = enhancedBulletsMap.get(key);
+    // Get bullets for experience — uses layout engine for bullet budgets
+    const getBullets = (exp: EnrichedExperience): string[] => {
+      const expId = exp.id || exp.company;
+      if (isEarlyCareerRole(expId)) return []; // Early career: no bullets
+      const enhanced = enhancedBulletsMap.get(expId);
       const allBullets =
         enhanced && enhanced.length > 0
           ? enhanced
@@ -1030,8 +1455,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
               ...(exp.achievements || []).map((a) => (typeof a === 'string' ? a : a.statement)),
               ...(exp.responsibilities || []),
             ];
-      // Apply page-count-aware bullet limiting
-      const maxBullets = getMaxBulletsForRole(expIndex ?? 0, experience.length);
+      const maxBullets = getMaxBulletsForRole(expId);
       return allBullets.slice(0, maxBullets);
     };
 
@@ -1042,69 +1466,101 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       return '';
     };
 
-    // Build skill categories
-    const skillCategories = buildSkillCategories(skillsData, activeRole);
+    // Build skill categories — pass JD keywords for sorting and AI-added keywords for injection
+    const skillCategories = buildSkillCategories(
+      skillsData,
+      activeRole,
+      analysis?.matchedKeywords,
+      tailored?.addedKeywords
+    );
 
-    // Black border for skills table (matching reference: w:sz="8")
-    const blackBorder = { style: BorderStyle.SINGLE, size: 8, color: '000000' };
+    // ---- Page Layout Constants (US Letter, tight margins) ----
+    // US Letter: 8.5" x 11.0" = 12240 x 15840 twips
+    // Margins: 0.5" top/bottom (720 twips), 0.625" left/right (900 twips)
+    // Content width: 8.5" - 1.25" = 7.25" = 10440 twips
+    const MARGIN_TOP = 720;
+    const MARGIN_BOTTOM = 720;
+    const MARGIN_LEFT = 900;
+    const MARGIN_RIGHT = 900;
+    const TAB_STOP_RIGHT = convertInchesToTwip(7.25);
 
-    // Section header with bottom border (underline) — ATS-safe: 12pt bold Calibri
+    // Font sizes (half-points) — ATS-safe minimums per CLAUDE.md
+    const NAME_SIZE = 36; // 18pt (CLAUDE.md: 18-22pt)
+    const SUBTITLE_SIZE = 20; // 10pt
+    const CONTACT_SIZE = 17; // 8.5pt
+    const HEADER_SIZE = 22; // 11pt
+    const TITLE_SIZE = 20; // 10pt
+    const BODY_SIZE = 20; // 10pt (CLAUDE.md: 10-12pt)
+    const SMALL_SIZE = 17; // 8.5pt
+
+    // Section header — 12pt bold, bottom border line, compact spacing
     const sectionHeader = (text: string): Paragraph => {
       return new Paragraph({
-        children: [new TextRun({ text, bold: true, size: 24, font: 'Calibri' })],
+        children: [new TextRun({ text, bold: true, size: HEADER_SIZE, font: 'Calibri' })],
         border: {
-          top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-          left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
           bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 1 },
-          right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
         },
-        spacing: { before: 240, after: 100 },
+        spacing: { before: 140, after: 30, line: 240 },
       });
     };
 
-    // Create aligned paragraph with tab stop (left text + tab + right text)
-    // ATS-safe: 10pt Calibri, tab stop at content width for right-aligned dates
-    const createAlignedParagraph = (
-      leftText: string,
+    // Right-aligned tab stop paragraph (for Title | Date, Company | Location patterns)
+    const alignedLine = (
+      leftRuns: TextRun[],
       rightText: string,
-      leftBold = false
+      spacingBefore = 0,
+      spacingAfter = 0
     ): Paragraph => {
-      // Page width: 12240 twips (8.5"), margins: 1080 twips (0.75") each side
-      // Content width: 10080 twips (7.0")
-      // Right tab stop at right margin edge: 8.5" - 0.75" = 7.75" → use 7.0" for content
-      if (!leftText && !rightText) {
-        return new Paragraph({ spacing: { after: 40 } });
-      }
-
       return new Paragraph({
-        alignment: AlignmentType.LEFT,
-        indent: { left: 0, right: 0, firstLine: 0 },
-        tabStops: [
-          {
-            type: TabStopType.RIGHT,
-            position: convertInchesToTwip(7.0),
-          },
-        ],
+        tabStops: [{ type: TabStopType.RIGHT, position: TAB_STOP_RIGHT }],
         children: [
-          new TextRun({ text: (leftText || '').trim(), bold: leftBold, size: 20, font: 'Calibri' }),
-          new TextRun({ text: '\t', size: 20, font: 'Calibri' }),
-          new TextRun({ text: (rightText || '').trim(), size: 20, font: 'Calibri' }),
+          ...leftRuns,
+          new TextRun({ children: [new Tab()], size: BODY_SIZE, font: 'Calibri' }),
+          new TextRun({ text: (rightText || '').trim(), size: BODY_SIZE, font: 'Calibri' }),
         ],
+        spacing: { before: spacingBefore, after: spacingAfter, line: 240 },
       });
     };
 
-    // Create bullet point paragraph (native Word list style)
-    const createBulletParagraph = (text: string): Paragraph => {
-      // Remove leading bullet if present
-      const cleanText = text.startsWith('•') ? text.substring(1).trim() : text;
+    // Bullet point paragraph — tight spacing, reduced indent
+    const bulletParagraph = (text: string): Paragraph => {
+      const cleanText = text.startsWith('\u2022') ? text.substring(1).trim() : text;
       return new Paragraph({
         bullet: { level: 0 },
-        children: [new TextRun({ text: cleanText, size: 20, font: 'Calibri' })],
-        spacing: { after: 40 },
+        children: [new TextRun({ text: cleanText, size: BODY_SIZE, font: 'Calibri' })],
+        spacing: { before: 0, after: 10, line: 240 },
       });
     };
 
     const doc = new Document({
+      // Override Word defaults: single spacing, no after-paragraph spacing
+      styles: {
+        default: {
+          document: {
+            run: { font: 'Calibri', size: BODY_SIZE },
+            paragraph: {
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 0, before: 0, line: 240 },
+            },
+          },
+          listParagraph: {
+            run: { font: 'Calibri', size: BODY_SIZE },
+            paragraph: { spacing: { after: 0, before: 0, line: 240, lineRule: 'auto' } },
+          },
+        },
+        paragraphStyles: [
+          {
+            id: 'Normal',
+            name: 'Normal',
+            quickFormat: true,
+            paragraph: {
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 0, before: 0, line: 240 },
+            },
+            run: { font: 'Calibri', size: BODY_SIZE },
+          },
+        ],
+      },
       numbering: {
         config: [
           {
@@ -1113,11 +1569,11 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
               {
                 level: 0,
                 format: LevelFormat.BULLET,
-                text: '•',
+                text: '\u2022',
                 alignment: AlignmentType.LEFT,
                 style: {
                   paragraph: {
-                    indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
+                    indent: { left: convertInchesToTwip(0.35), hanging: convertInchesToTwip(0.17) },
                   },
                 },
               },
@@ -1128,35 +1584,78 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       sections: [
         {
           properties: {
-            // ATS-safe margins: 0.75" all sides (1080 twips)
-            page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } },
+            page: {
+              size: { width: 12240, height: 15840 }, // US Letter
+              margin: {
+                top: MARGIN_TOP,
+                bottom: MARGIN_BOTTOM,
+                left: MARGIN_LEFT,
+                right: MARGIN_RIGHT,
+              },
+            },
           },
-          children: [
-            // NAME - Centered, ATS-safe: 18pt bold Calibri
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: personal?.fullName?.toUpperCase() || 'NAME',
-                  bold: true,
-                  size: 36,
-                  font: 'Calibri',
-                }),
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { after: 60 },
-            }),
+          children: (() => {
+            // ---- Section builders ----
 
-            // CONTACT - Centered
-            (() => {
-              const contactChildren: (TextRun | ExternalHyperlink)[] = [];
+            // NAME — 20pt bold centered, ALL CAPS
+            const buildName = (): Paragraph[] => {
+              const nameP = new Paragraph({
+                children: [
+                  new TextRun({
+                    text: personal?.fullName?.toUpperCase() || 'NAME',
+                    bold: true,
+                    size: NAME_SIZE,
+                    font: 'Calibri',
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 0, line: 240 },
+              });
+
+              // Role subtitle — centered
+              const roleTitle =
+                activeRole?.targetRole || profile.careerContext?.primaryDomain || '';
+              if (roleTitle) {
+                return [
+                  nameP,
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: roleTitle,
+                        size: SUBTITLE_SIZE,
+                        font: 'Calibri',
+                      }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 0, line: 240 },
+                  }),
+                ];
+              }
+              return [nameP];
+            };
+
+            // CONTACT — 9pt centered, pipe-separated: phone | email | linkedin | github
+            const buildContact = (): Paragraph[] => {
+              const parts: (TextRun | ExternalHyperlink)[] = [];
+              const addSep = () => {
+                if (parts.length > 0)
+                  parts.push(new TextRun({ text: ' | ', size: CONTACT_SIZE, font: 'Calibri' }));
+              };
+
+              if (personal?.phone) {
+                parts.push(
+                  new TextRun({ text: personal.phone, size: CONTACT_SIZE, font: 'Calibri' })
+                );
+              }
 
               if (personal?.email) {
-                contactChildren.push(
+                addSep();
+                parts.push(
                   new ExternalHyperlink({
                     children: [
                       new TextRun({
                         text: personal.email,
-                        size: 20,
+                        size: CONTACT_SIZE,
                         font: 'Calibri',
                         color: '0563C1',
                         underline: { type: 'single' },
@@ -1167,25 +1666,26 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
                 );
               }
 
-              if (personal?.phone) {
-                if (contactChildren.length > 0) {
-                  contactChildren.push(new TextRun({ text: ' | ', size: 20, font: 'Calibri' }));
+              // Location: City, State
+              const loc = personal?.location;
+              if (loc) {
+                const locParts = [loc.city, loc.state].filter(Boolean);
+                if (locParts.length > 0) {
+                  addSep();
+                  parts.push(
+                    new TextRun({ text: locParts.join(', '), size: CONTACT_SIZE, font: 'Calibri' })
+                  );
                 }
-                contactChildren.push(
-                  new TextRun({ text: personal.phone, size: 20, font: 'Calibri' })
-                );
               }
 
               if (personal?.linkedInUrl) {
-                if (contactChildren.length > 0) {
-                  contactChildren.push(new TextRun({ text: ' | ', size: 20, font: 'Calibri' }));
-                }
-                contactChildren.push(
+                addSep();
+                parts.push(
                   new ExternalHyperlink({
                     children: [
                       new TextRun({
-                        text: 'LinkedIn',
-                        size: 20,
+                        text: shortenUrl(personal.linkedInUrl),
+                        size: CONTACT_SIZE,
                         font: 'Calibri',
                         color: '0563C1',
                         underline: { type: 'single' },
@@ -1197,15 +1697,13 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
               }
 
               if (personal?.githubUrl) {
-                if (contactChildren.length > 0) {
-                  contactChildren.push(new TextRun({ text: ' | ', size: 20, font: 'Calibri' }));
-                }
-                contactChildren.push(
+                addSep();
+                parts.push(
                   new ExternalHyperlink({
                     children: [
                       new TextRun({
-                        text: 'GitHub',
-                        size: 20,
+                        text: shortenUrl(personal.githubUrl),
+                        size: CONTACT_SIZE,
                         font: 'Calibri',
                         color: '0563C1',
                         underline: { type: 'single' },
@@ -1216,244 +1714,383 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
                 );
               }
 
-              // Simple paragraph with center alignment
-              return new Paragraph({
-                children: contactChildren,
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 200 },
-              });
-            })(),
-
-            // SUMMARY
-            sectionHeader('SUMMARY'),
-            new Paragraph({
-              children: [new TextRun({ text: summaryText, size: 20, font: 'Calibri' })],
-              spacing: { after: 200 },
-            }),
-
-            // TECHNICAL SKILLS - Table with fixed column widths (content width: 10080 twips at 0.75" margins)
-            sectionHeader('TECHNICAL SKILLS'),
-            new Table({
-              width: { size: 10080, type: WidthType.DXA },
-              columnWidths: [1926, 8154],
-              rows: skillCategories.map(
-                (cat) =>
-                  new TableRow({
-                    height: { value: 300, rule: HeightRule.ATLEAST },
+              if (personal?.portfolioUrl) {
+                addSep();
+                parts.push(
+                  new ExternalHyperlink({
                     children: [
-                      new TableCell({
-                        children: [
-                          new Paragraph({
-                            children: [
-                              new TextRun({
-                                text: cat.category,
-                                bold: true,
-                                size: 20,
-                                font: 'Calibri',
-                              }),
-                            ],
-                          }),
-                        ],
-                        width: { size: 1926, type: WidthType.DXA },
-                        verticalAlign: VerticalAlign.CENTER,
-                        margins: { top: 80, bottom: 80, left: 80, right: 80 },
-                        borders: {
-                          top: blackBorder,
-                          bottom: blackBorder,
-                          left: blackBorder,
-                          right: blackBorder,
-                        },
-                      }),
-                      new TableCell({
-                        children: [
-                          new Paragraph({
-                            children: [
-                              new TextRun({
-                                text: cat.skills.join(', '),
-                                size: 20,
-                                font: 'Calibri',
-                              }),
-                            ],
-                          }),
-                        ],
-                        width: { size: 8874, type: WidthType.DXA },
-                        verticalAlign: VerticalAlign.CENTER,
-                        margins: { top: 80, bottom: 80, left: 80, right: 80 },
-                        borders: {
-                          top: blackBorder,
-                          bottom: blackBorder,
-                          left: blackBorder,
-                          right: blackBorder,
-                        },
+                      new TextRun({
+                        text: shortenUrl(personal.portfolioUrl),
+                        size: CONTACT_SIZE,
+                        font: 'Calibri',
+                        color: '0563C1',
+                        underline: { type: 'single' },
                       }),
                     ],
+                    link: personal.portfolioUrl,
                   })
-              ),
-            }),
-            new Paragraph({ spacing: { after: 100 } }),
-
-            // WORK EXPERIENCE
-            sectionHeader('WORK EXPERIENCE'),
-            ...experience.flatMap((exp, idx) => {
-              const bullets = getBullets(exp, idx);
-              const env = getEnv(exp);
-              const startDate = formatDate(exp.startDate);
-              const endDate = exp.isCurrent ? 'Present' : formatDate(exp.endDate);
-              const isLast = idx === experience.length - 1;
+                );
+              }
 
               return [
-                // Company | Location (using tab stop)
-                createAlignedParagraph(exp.company, exp.location || '', true),
-                // Title | Dates (using tab stop)
-                createAlignedParagraph(exp.title, `${startDate} – ${endDate}`, false),
-                // Bullets (native Word list)
-                ...bullets.map((b) => createBulletParagraph(b)),
-                // Environment
-                ...(env
-                  ? [
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: 'Environment: ',
-                            bold: true,
-                            size: 20,
-                            font: 'Calibri',
-                          }),
-                          new TextRun({ text: env, size: 20, font: 'Calibri' }),
-                        ],
-                        spacing: { after: isLast ? 100 : 200 },
-                      }),
-                    ]
-                  : [new Paragraph({ spacing: { after: isLast ? 100 : 160 } })]),
-              ];
-            }),
-
-            // EDUCATION
-            sectionHeader('EDUCATION'),
-            ...education.flatMap((edu) => {
-              const locMatch = edu.institution.match(/,\s*([A-Za-z\s]+,\s*[A-Z]{2})$/);
-              const loc = locMatch ? locMatch[1].trim() : '';
-              const inst = loc
-                ? edu.institution.replace(/,\s*[A-Za-z\s]+,\s*[A-Z]{2}$/, '').trim()
-                : edu.institution;
-              return [
-                createAlignedParagraph(inst, loc, true),
                 new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`,
-                      size: 20,
-                      font: 'Calibri',
-                    }),
-                    ...(edu.gpa
-                      ? [new TextRun({ text: ` | GPA: ${edu.gpa}`, size: 20, font: 'Calibri' })]
-                      : []),
-                  ],
-                  spacing: { after: 100 },
+                  children: parts,
+                  alignment: AlignmentType.CENTER,
+                  spacing: { after: 40, line: 240 },
                 }),
               ];
-            }),
+            };
 
-            // CERTIFICATIONS
-            ...(certifications.length > 0
-              ? [
-                  sectionHeader('CERTIFICATIONS'),
-                  ...certifications.map((cert) => {
-                    let dateStr = '';
-                    if (cert.dateObtained && cert.expirationDate)
-                      dateStr = `${formatDate(cert.dateObtained)} – ${formatDate(cert.expirationDate)}`;
-                    else if (cert.dateObtained) dateStr = formatDate(cert.dateObtained);
-                    return createAlignedParagraph(cert.name, dateStr, true);
-                  }),
-                  new Paragraph({ spacing: { after: 100 } }),
-                ]
-              : []),
+            // PROFESSIONAL SUMMARY
+            const buildSummary = (): Paragraph[] => [
+              sectionHeader('PROFESSIONAL SUMMARY'),
+              new Paragraph({
+                children: [new TextRun({ text: summaryText, size: BODY_SIZE, font: 'Calibri' })],
+                spacing: { after: 0, line: 240 },
+              }),
+            ];
+
+            // TECHNICAL SKILLS — Inline format: "Category: skill1, skill2, skill3"
+            const buildSkills = (): Paragraph[] => [
+              sectionHeader('TECHNICAL SKILLS'),
+              ...skillCategories.map(
+                (cat) =>
+                  new Paragraph({
+                    indent: { left: 140 },
+                    children: [
+                      new TextRun({
+                        text: `${cat.category}: `,
+                        bold: true,
+                        size: BODY_SIZE,
+                        font: 'Calibri',
+                      }),
+                      new TextRun({
+                        text: cat.skills.join(', '),
+                        size: BODY_SIZE,
+                        font: 'Calibri',
+                      }),
+                    ],
+                    spacing: { before: 0, after: 10, line: 240 },
+                  })
+              ),
+            ];
+
+            // WORK EXPERIENCE — Title first (bold, 11pt) with date, Company (italic, 10pt) below
+            const buildExperience = (): Paragraph[] => [
+              sectionHeader('WORK EXPERIENCE'),
+              ...experience.flatMap((exp, idx) => {
+                const expId = exp.id || exp.company;
+                const earlyCareer = isEarlyCareerRole(expId);
+                const bullets = getBullets(exp);
+                const env = getEnv(exp);
+                const startDate = formatResumeDate(exp.startDate);
+                const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
+                const dateRange = `${startDate} \u2013 ${endDate}`;
+
+                // Location: prefer "City, ST" format
+                const location = exp.location || '';
+
+                // Spacer paragraph between entries (separate from title to avoid breaking tab stops)
+                const spacer: Paragraph[] =
+                  idx > 0 ? [new Paragraph({ spacing: { before: 60, after: 0, line: 240 } })] : [];
+
+                // Line 1: Title (bold) ---- Date (right-aligned) — always spacingBefore: 0
+                const titleLine = alignedLine(
+                  [
+                    new TextRun({
+                      text: exp.title,
+                      bold: true,
+                      italics: true,
+                      size: TITLE_SIZE,
+                      font: 'Calibri',
+                    }),
+                  ],
+                  dateRange,
+                  0,
+                  0
+                );
+
+                // Line 2: Company — Location (italic, 10pt)
+                const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
+                const companyLine = new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: companyText,
+                      italics: true,
+                      size: BODY_SIZE,
+                      font: 'Calibri',
+                    }),
+                  ],
+                  spacing: { before: 0, after: 20, line: 240 },
+                });
+
+                // Early Career: title/company/dates only, no bullets
+                if (earlyCareer) {
+                  return [...spacer, titleLine, companyLine];
+                }
+
+                const result: Paragraph[] = [
+                  ...spacer,
+                  titleLine,
+                  companyLine,
+                  ...bullets.map((b) => bulletParagraph(b)),
+                ];
+
+                // Environment line — skip for 1-page to save space
+                if (env && targetPages > 1) {
+                  result.push(
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: 'Environment: ',
+                          bold: true,
+                          size: BODY_SIZE,
+                          font: 'Calibri',
+                        }),
+                        new TextRun({ text: env, size: BODY_SIZE, font: 'Calibri' }),
+                      ],
+                      spacing: { before: 10, after: 0, line: 240 },
+                    })
+                  );
+                }
+
+                return result;
+              }),
+            ];
+
+            // EDUCATION — Degree (bold) — Institution inline, concentration indented
+            const buildEducation = (): Paragraph[] => [
+              sectionHeader('EDUCATION'),
+              ...education.flatMap((edu) => {
+                const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
+                const gradDate = formatResumeDate(edu.endDate);
+
+                // Avoid double "in": "M.S. in Computer Science in Software Development"
+                const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
+                const degreeText = degreeHasIn
+                  ? edu.degree
+                  : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+
+                // Line 1: Degree (bold, 10pt) — Institution (9pt)  ---- Date
+                const degreeLine = alignedLine(
+                  [
+                    new TextRun({ text: degreeText, bold: true, size: BODY_SIZE, font: 'Calibri' }),
+                    new TextRun({
+                      text: ` \u2014 ${edu.institution}`,
+                      size: SMALL_SIZE,
+                      font: 'Calibri',
+                    }),
+                  ],
+                  eduLayout?.showGraduationDate && gradDate ? gradDate : '',
+                  0,
+                  0
+                );
+
+                const result: Paragraph[] = [degreeLine];
+
+                // GPA — only if layout says to show
+                if (eduLayout?.showGpa && edu.gpa) {
+                  result.push(
+                    new Paragraph({
+                      indent: { left: 140 },
+                      children: [
+                        new TextRun({
+                          text: `GPA: ${edu.gpa}`,
+                          italics: true,
+                          size: SMALL_SIZE,
+                          font: 'Calibri',
+                        }),
+                      ],
+                      spacing: { after: 0, line: 240 },
+                    })
+                  );
+                }
+
+                // Coursework — only if layout says to show
+                if (eduLayout?.showCoursework && edu.relevantCoursework?.length) {
+                  result.push(
+                    new Paragraph({
+                      indent: { left: 140 },
+                      children: [
+                        new TextRun({
+                          text: 'Relevant Coursework: ',
+                          bold: true,
+                          size: SMALL_SIZE,
+                          font: 'Calibri',
+                        }),
+                        new TextRun({
+                          text: edu.relevantCoursework.join(', '),
+                          size: SMALL_SIZE,
+                          font: 'Calibri',
+                        }),
+                      ],
+                      spacing: { after: 0, line: 240 },
+                    })
+                  );
+                }
+
+                // Honors — only if layout says to show
+                if (eduLayout?.showHonors && edu.honors?.length) {
+                  result.push(
+                    new Paragraph({
+                      indent: { left: 140 },
+                      children: [
+                        new TextRun({
+                          text: 'Honors: ',
+                          bold: true,
+                          size: SMALL_SIZE,
+                          font: 'Calibri',
+                        }),
+                        new TextRun({
+                          text: edu.honors.join(', '),
+                          size: SMALL_SIZE,
+                          font: 'Calibri',
+                        }),
+                      ],
+                      spacing: { after: 0, line: 240 },
+                    })
+                  );
+                }
+
+                return result;
+              }),
+            ];
+
+            // CERTIFICATIONS — inline with date
+            const buildCertifications = (): Paragraph[] => {
+              if (certifications.length === 0) return [];
+              return [
+                sectionHeader('CERTIFICATIONS'),
+                ...certifications.map((cert) => {
+                  let dateStr = '';
+                  if (cert.dateObtained && cert.expirationDate)
+                    dateStr = `${formatResumeDate(cert.dateObtained)} \u2013 ${formatResumeDate(cert.expirationDate)}`;
+                  else if (cert.dateObtained) dateStr = formatResumeDate(cert.dateObtained);
+                  return alignedLine(
+                    [
+                      new TextRun({
+                        text: cert.name,
+                        bold: true,
+                        size: BODY_SIZE,
+                        font: 'Calibri',
+                      }),
+                    ],
+                    dateStr,
+                    0,
+                    0
+                  );
+                }),
+              ];
+            };
 
             // PROJECTS
-            ...(profile.projects && profile.projects.length > 0
-              ? [
-                  sectionHeader('ACADEMIC PROJECTS / PERSONAL PROJECTS'),
-                  ...profile.projects.flatMap((proj, idx) => {
-                    const bullets: string[] = [];
+            const buildProjects = (): Paragraph[] => {
+              const projects = profile.projects;
+              if (!projects?.length) return [];
+              return [
+                sectionHeader('PROJECTS'),
+                ...projects.flatMap((proj, idx) => {
+                  const bullets: string[] = [];
+                  const isDupe = (text: string) =>
+                    bullets.some(
+                      (b) =>
+                        b.toLowerCase().trim() === text.toLowerCase().trim() ||
+                        b.toLowerCase().includes(text.toLowerCase().substring(0, 40))
+                    );
 
-                    // Add highlights first
-                    if (proj.highlights?.length) {
-                      bullets.push(...proj.highlights);
+                  if (proj.highlights?.length) {
+                    proj.highlights.forEach((h) => {
+                      if (!isDupe(h)) bullets.push(h);
+                    });
+                  }
+                  if (proj.impact?.trim() && !isDupe(proj.impact)) {
+                    bullets.push(proj.impact);
+                  }
+                  if (bullets.length < 3 && proj.description) {
+                    const sentences = proj.description
+                      .split(/(?<=[.!?])\s+/)
+                      .filter((s) => s.trim().length > 10 && !isDupe(s));
+                    if (sentences.length > 0) {
+                      const needed = Math.max(0, 3 - bullets.length);
+                      bullets.push(...sentences.slice(0, Math.min(needed, sentences.length)));
+                    } else if (bullets.length === 0 && !isDupe(proj.description)) {
+                      bullets.push(proj.description);
                     }
-
-                    // Add impact if available
-                    if (proj.impact?.trim()) {
-                      bullets.push(proj.impact);
+                  }
+                  if (bullets.length < 5 && proj.technologies?.length) {
+                    const techBullet = `Built using ${proj.technologies.join(', ')}`;
+                    if (
+                      !isDupe(techBullet) &&
+                      !bullets.some((b) => b.includes(proj.technologies![0]))
+                    ) {
+                      bullets.push(techBullet);
                     }
+                  }
 
-                    // If we don't have enough bullets, extract from description
-                    if (bullets.length < 3 && proj.description) {
-                      const sentences = proj.description
-                        .split(/(?<=[.!?])\s+/)
-                        .filter((s) => s.trim().length > 10);
-                      if (sentences.length > 0) {
-                        // Add sentences up to fill to at least 3 bullets
-                        const needed = Math.max(0, 3 - bullets.length);
-                        bullets.push(...sentences.slice(0, Math.min(needed, sentences.length)));
-                      } else if (bullets.length === 0) {
-                        // If no sentences found and no bullets, use full description
-                        bullets.push(proj.description);
-                      }
-                    }
+                  const dateRange = proj.dateRange ? formatResumeDate(proj.dateRange) : '';
 
-                    // Add technologies as a bullet if we have space and it's not already in Environment
-                    if (bullets.length < 5 && proj.technologies?.length) {
-                      const techBullet = `Built using ${proj.technologies.join(', ')}`;
-                      if (!bullets.some((b) => b.includes(proj.technologies![0]))) {
-                        bullets.push(techBullet);
-                      }
-                    }
+                  // Project name (bold, 11pt) ---- Date
+                  const projTitle = proj.url ? `${proj.name} | GitHub` : proj.name;
+                  return [
+                    alignedLine(
+                      [
+                        new TextRun({
+                          text: projTitle,
+                          bold: true,
+                          size: TITLE_SIZE,
+                          font: 'Calibri',
+                        }),
+                      ],
+                      dateRange,
+                      idx === 0 ? 0 : 80,
+                      20
+                    ),
+                    ...bullets.slice(0, targetPages === 1 ? 2 : 5).map((b) => bulletParagraph(b)),
+                    ...(proj.technologies?.length && targetPages > 1
+                      ? [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: 'Environment: ',
+                                bold: true,
+                                size: BODY_SIZE,
+                                font: 'Calibri',
+                              }),
+                              new TextRun({
+                                text: proj.technologies.join(', '),
+                                size: BODY_SIZE,
+                                font: 'Calibri',
+                              }),
+                            ],
+                            spacing: { before: 10, after: 0, line: 240 },
+                          }),
+                        ]
+                      : []),
+                  ];
+                }),
+              ];
+            };
 
-                    // Ensure we have at least 2-3 bullets by splitting description further if needed
-                    if (bullets.length < 2 && proj.description && proj.description.length > 50) {
-                      // Split by periods, semicolons, or newlines
-                      const additionalSentences = proj.description
-                        .split(/[.;]\s+|\n/)
-                        .filter((s) => s.trim().length > 15)
-                        .slice(0, 2 - bullets.length);
-                      bullets.push(...additionalSentences);
-                    }
+            // ---- Assemble sections based on layout engine ordering ----
+            const sectionBuilders: Record<string, () => (Paragraph | Table)[]> = {
+              name: buildName,
+              contact: buildContact,
+              summary: buildSummary,
+              skills: buildSkills,
+              experience: buildExperience,
+              education: buildEducation,
+              certifications: buildCertifications,
+              projects: buildProjects,
+            };
 
-                    const dateRange = proj.dateRange ? formatDate(proj.dateRange) : '';
-                    const isLast = idx === (profile.projects?.length || 0) - 1;
-
-                    return [
-                      createAlignedParagraph(
-                        proj.url ? `${proj.name} | GitHub` : proj.name,
-                        dateRange,
-                        true
-                      ),
-                      ...bullets.slice(0, 5).map((b) => createBulletParagraph(b)),
-                      ...(proj.technologies?.length
-                        ? [
-                            new Paragraph({
-                              children: [
-                                new TextRun({
-                                  text: 'Environment: ',
-                                  bold: true,
-                                  size: 20,
-                                  font: 'Calibri',
-                                }),
-                                new TextRun({
-                                  text: proj.technologies.join(', '),
-                                  size: 20,
-                                  font: 'Calibri',
-                                }),
-                              ],
-                              spacing: { after: isLast ? 0 : 160 },
-                            }),
-                          ]
-                        : [new Paragraph({ spacing: { after: isLast ? 0 : 120 } })]),
-                    ];
-                  }),
-                ]
-              : []),
-          ],
+            const assembled: (Paragraph | Table)[] = [];
+            for (const section of layout.sections) {
+              if (!section.visible) continue;
+              const builder = sectionBuilders[section.type];
+              if (builder) assembled.push(...builder());
+            }
+            return assembled;
+          })(),
         },
       ],
     });
@@ -1462,10 +2099,12 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     downloadBlob(blob, `${fileName}.docx`);
   };
 
-  // Build skill categories
+  // Build skill categories — with optional JD-aware ordering and keyword injection
   const buildSkillCategories = (
     skillsData: typeof profile.skills | undefined,
-    role: GeneratedProfile | null
+    role: GeneratedProfile | null,
+    matchedKeywords?: KeywordWithFrequency[],
+    addedKeywords?: string[]
   ): Array<{ category: string; skills: string[] }> => {
     const allSkills: Array<{ name: string; category?: string }> = [];
 
@@ -1516,7 +2155,58 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     }
 
     const categorize = (name: string, existing?: string): string => {
-      const n = name.toLowerCase();
+      const n = name.toLowerCase().trim();
+
+      // ---- SKIP CHECK FIRST — before any category matching ----
+      // Exact match: generic technical terms that aren't real skills
+      const exactSkip = [
+        'development',
+        'database concepts',
+        'api design and development',
+        'api design',
+        'system design',
+        'web development',
+        'agile methodologies',
+        'software engineering',
+        'backend development',
+        'frontend development',
+        'full-stack',
+        'full stack',
+        'object-oriented',
+        'test-driven',
+        'data processing',
+        'data processing and optimization',
+        'cloud computing',
+        'design patterns',
+        'sdlc',
+        'oop',
+        'devops',
+      ];
+      if (exactSkip.includes(n)) return '__SKIP__';
+
+      // Substring match: soft skills and non-technical descriptors
+      const softSkip = [
+        'communication',
+        'leadership',
+        'teamwork',
+        'team collaboration',
+        'problem solving',
+        'analytical',
+        'critical thinking',
+        'time management',
+        'collaboration',
+        'interpersonal',
+        'decision making',
+        'adaptability',
+        'attention to detail',
+        'organizational',
+        'mentoring',
+        'cross-functional',
+        'stakeholder',
+        'project management',
+        'technical leadership',
+      ];
+      if (softSkip.some((s) => n.includes(s))) return '__SKIP__';
 
       // Programming Languages
       if (
@@ -1578,7 +2268,6 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
           'mariadb',
           'snowflake',
           'bigquery',
-          'database',
         ].some((d) => n.includes(d))
       )
         return 'Databases';
@@ -1602,6 +2291,13 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
           'nginx',
           'linux',
           'unix',
+          'grafana',
+          'loki',
+          'prometheus',
+          'datadog',
+          'new relic',
+          'elk',
+          'monitoring',
         ].some((c) => n.includes(c))
       )
         return 'Cloud & DevOps';
@@ -1640,6 +2336,8 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
           'opencv',
           'computer vision',
           'hugging',
+          'ai/ml',
+          'langchain',
         ].some((m) => n.includes(m))
       )
         return 'AI/ML Technologies';
@@ -1747,36 +2445,25 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         }
       }
 
-      // Skip soft skills and generic terms - don't add to resume
-      if (
-        [
-          'communication',
-          'leadership',
-          'teamwork',
-          'problem solving',
-          'analytical',
-          'critical thinking',
-          'time management',
-          'collaboration',
-          'interpersonal',
-          'decision making',
-          'adaptability',
-          'attention to detail',
-          'organizational',
-        ].some((s) => n.includes(s))
-      ) {
-        return '__SKIP__'; // Will be filtered out
-      }
-
       return 'Technical Skills';
     };
 
     const categoryMap = new Map<string, Set<string>>();
+    // Track lowercase versions to prevent duplicates like "API design" / "API Design"
+    const seenLower = new Map<string, string>(); // lowercase → normalized display name
     allSkills.forEach((skill) => {
       const cat = categorize(skill.name, skill.category);
-      if (cat === '__SKIP__') return; // Skip soft skills
-      if (!categoryMap.has(cat)) categoryMap.set(cat, new Set());
-      categoryMap.get(cat)!.add(skill.name);
+      if (cat === '__SKIP__') return;
+      const normalized = normalizeSkillName(skill.name);
+      // Split compound skills (e.g., "Kafka, RabbitMQ" from "kafka or rabbitmq")
+      const parts = normalized.includes(', ') ? normalized.split(', ') : [normalized];
+      parts.forEach((part) => {
+        const lower = part.toLowerCase().trim();
+        if (!lower || seenLower.has(lower)) return;
+        seenLower.set(lower, part);
+        if (!categoryMap.has(cat)) categoryMap.set(cat, new Set());
+        categoryMap.get(cat)!.add(part);
+      });
     });
 
     const order = [
@@ -1794,17 +2481,99 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       'Office & Productivity',
       'Technical Skills',
     ];
+    // Inject addedKeywords from AI tailoring (keywords found in JD, not yet in profile)
+    if (addedKeywords?.length) {
+      addedKeywords.forEach((kw) => {
+        const normalized = normalizeSkillName(kw);
+        const lower = normalized.toLowerCase().trim();
+        if (!lower || seenLower.has(lower)) return;
+        const cat = categorize(kw);
+        if (cat === '__SKIP__') return;
+        seenLower.set(lower, normalized);
+        if (!categoryMap.has(cat)) categoryMap.set(cat, new Set());
+        categoryMap.get(cat)!.add(normalized);
+      });
+    }
+
+    // Acronym expansion for ATS — expand lone acronyms to "Full Form (ACRONYM)"
+    const acronymExpansions: Record<string, string> = {
+      AWS: 'Amazon Web Services (AWS)',
+      GCP: 'Google Cloud Platform (GCP)',
+      ML: 'Machine Learning (ML)',
+      NLP: 'Natural Language Processing (NLP)',
+      AI: 'Artificial Intelligence (AI)',
+      ETL: 'Extract, Transform, Load (ETL)',
+    };
+    const expandedLower = new Set<string>();
+    categoryMap.forEach((skills) => {
+      const expanded: string[] = [];
+      const toRemove: string[] = [];
+      skills.forEach((skill) => {
+        const upper = skill.toUpperCase();
+        if (acronymExpansions[upper] && !expandedLower.has(upper.toLowerCase())) {
+          // Check if full form already exists in any category
+          const fullFormLower = acronymExpansions[upper].toLowerCase();
+          const alreadyHasFullForm = Array.from(seenLower.keys()).some(
+            (k) => fullFormLower.includes(k) && k.length > upper.length
+          );
+          if (!alreadyHasFullForm) {
+            toRemove.push(skill);
+            expanded.push(acronymExpansions[upper]);
+            expandedLower.add(upper.toLowerCase());
+          }
+        }
+      });
+      toRemove.forEach((s) => skills.delete(s));
+      expanded.forEach((s) => skills.add(s));
+    });
+
+    // Build JD-matched keyword set for sorting
+    const jdMatchedLower = new Set<string>();
+    if (matchedKeywords?.length) {
+      matchedKeywords.forEach((kw) => jdMatchedLower.add(kw.keyword.toLowerCase().trim()));
+    }
+
     const result: Array<{ category: string; skills: string[] }> = [];
     order.forEach((cat) => {
       const skills = categoryMap.get(cat);
-      if (skills && skills.size > 0) result.push({ category: cat, skills: Array.from(skills) });
+      if (skills && skills.size > 0) {
+        const arr = Array.from(skills);
+        // Sort JD-matched skills to front within category
+        if (jdMatchedLower.size > 0) {
+          arr.sort((a, b) => {
+            const aMatch = jdMatchedLower.has(a.toLowerCase()) ? 1 : 0;
+            const bMatch = jdMatchedLower.has(b.toLowerCase()) ? 1 : 0;
+            return bMatch - aMatch;
+          });
+        }
+        result.push({ category: cat, skills: arr });
+      }
     });
     // Add any remaining categories not in the order
     categoryMap.forEach((skills, cat) => {
       if (!order.includes(cat) && skills.size > 0 && cat !== '__SKIP__') {
-        result.push({ category: cat, skills: Array.from(skills) });
+        const arr = Array.from(skills);
+        if (jdMatchedLower.size > 0) {
+          arr.sort((a, b) => {
+            const aMatch = jdMatchedLower.has(a.toLowerCase()) ? 1 : 0;
+            const bMatch = jdMatchedLower.has(b.toLowerCase()) ? 1 : 0;
+            return bMatch - aMatch;
+          });
+        }
+        result.push({ category: cat, skills: arr });
       }
     });
+
+    // Reorder categories: those with more JD matches come first
+    if (jdMatchedLower.size > 0) {
+      result.sort((a, b) => {
+        const aMatches = a.skills.filter((s) => jdMatchedLower.has(s.toLowerCase())).length;
+        const bMatches = b.skills.filter((s) => jdMatchedLower.has(s.toLowerCase())).length;
+        if (bMatches !== aMatches) return bMatches - aMatches;
+        return 0; // Keep original order if tie
+      });
+    }
+
     return result;
   };
 
@@ -1825,10 +2594,11 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     downloadBlob(blob, filename);
   };
 
-  // PDF Generation
+  // PDF Generation — section-builder pattern driven by layout engine
   const generatePdf = (fileName: string, tailored: TailoredContent | null) => {
     try {
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      // US Letter: 215.9mm x 279.4mm
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
       const personal = profile.personal;
       const experience = profile.experience || [];
       const education = profile.education || [];
@@ -1839,225 +2609,313 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
         activeRole?.tailoredSummary ||
         profile.careerContext?.summary ||
         'Professional summary not available.';
+
+      const enhancedBulletsMap = new Map<string, string[]>();
+      if (tailored?.enhancedBullets) {
+        tailored.enhancedBullets.forEach((eb) => enhancedBulletsMap.set(eb.expId, eb.bullets));
+      }
+
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      // ATS-safe margins: 0.75" = 19.05mm
-      const margin = 19.05;
+      const margin = 15.875; // 0.625" in mm (matches DOCX)
+      const marginTop = 12.7; // 0.5" top
       const contentWidth = pageWidth - margin * 2;
-      let y = 22;
+      let y = marginTop + 4;
+
+      // Body font size used throughout — ATS-safe minimums per CLAUDE.md
+      const bodyFs = 10;
+      const smallFs = 9;
+      // Dynamic line height: matches jsPDF rendering (fontSize * lineHeightFactor * mm/pt)
+      const getLineH = () => pdf.getFontSize() * 1.15 * (25.4 / 72);
 
       const checkPage = (need: number) => {
-        if (y + need > pageHeight - 19) {
+        if (y + need > pageHeight - 10) {
+          // tight bottom margin
           pdf.addPage();
-          y = 22;
+          y = marginTop + 2;
         }
       };
 
-      // Name — ATS-safe: 18pt bold
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(personal?.fullName?.toUpperCase() || 'NAME', pageWidth / 2, y, { align: 'center' });
-      y += 7;
-
-      // Contact line: Location | Email | Phone | LinkedIn | GitHub | Portfolio
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-
-      // Build location string
-      const loc = personal?.location;
-      let locationStr = '';
-      if (loc) {
-        const parts = [loc.city, loc.state, loc.zipCode].filter(Boolean);
-        locationStr = parts.join(', ');
-      }
-
-      const contact = [
-        locationStr,
-        personal?.email,
-        personal?.phone,
-        personal?.linkedInUrl,
-        personal?.githubUrl,
-        personal?.portfolioUrl,
-      ].filter(Boolean);
-      pdf.text(contact.join(' | '), pageWidth / 2, y, { align: 'center' });
-      y += 8;
-
-      // Summary — ATS-safe: 12pt bold header, 10pt body
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('SUMMARY', margin, y);
-      y += 1;
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 4;
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth);
-      pdf.text(summaryLines, margin, y);
-      y += summaryLines.length * 4 + 6;
-
-      // Skills — ATS-safe: 12pt bold header
-      const skillCategories = buildSkillCategories(profile.skills, activeRole);
-      if (skillCategories.length > 0) {
-        pdf.setFontSize(12);
+      // PDF section header helper — compact
+      const pdfSectionHeader = (text: string) => {
+        checkPage(10);
+        y += 2.5;
+        pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('TECHNICAL SKILLS', margin, y);
-        y += 1;
+        pdf.text(text, margin, y);
+        y += 1.2;
+        pdf.setLineWidth(0.2);
         pdf.line(margin, y, pageWidth - margin, y);
-        y += 4;
-        pdf.setFontSize(10);
+        y += 3.5;
+        pdf.setFontSize(bodyFs);
+      };
+
+      // ---- Section renderers ----
+
+      const renderName = () => {
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(personal?.fullName?.toUpperCase() || 'NAME', pageWidth / 2, y, {
+          align: 'center',
+        });
+        y += 5;
+
+        // Role subtitle
+        const roleTitle = activeRole?.targetRole || profile.careerContext?.primaryDomain || '';
+        if (roleTitle) {
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(roleTitle, pageWidth / 2, y, { align: 'center' });
+          y += 3.5;
+        }
+      };
+
+      const renderContact = () => {
+        pdf.setFontSize(smallFs);
+        pdf.setFont('helvetica', 'normal');
+
+        const contact = [
+          personal?.phone,
+          personal?.email,
+          (() => {
+            const loc = personal?.location;
+            if (!loc) return '';
+            return [loc.city, loc.state].filter(Boolean).join(', ');
+          })(),
+          personal?.linkedInUrl ? shortenUrl(personal.linkedInUrl) : '',
+          personal?.githubUrl ? shortenUrl(personal.githubUrl) : '',
+          personal?.portfolioUrl ? shortenUrl(personal.portfolioUrl) : '',
+        ].filter(Boolean);
+        pdf.text(contact.join(' | '), pageWidth / 2, y, { align: 'center' });
+        y += 3;
+      };
+
+      const renderSummary = () => {
+        pdfSectionHeader('PROFESSIONAL SUMMARY');
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(bodyFs);
+        const summaryLines = pdf.splitTextToSize(summaryText, contentWidth);
+        pdf.text(summaryLines, margin, y);
+        y += summaryLines.length * getLineH() + 0.5;
+      };
+
+      const renderSkills = () => {
+        const skillCategories = buildSkillCategories(
+          profile.skills,
+          activeRole,
+          analysis?.matchedKeywords,
+          tailored?.addedKeywords
+        );
+        if (skillCategories.length === 0) return;
+
+        pdfSectionHeader('TECHNICAL SKILLS');
+        pdf.setFontSize(bodyFs);
 
         skillCategories.forEach((cat) => {
           if (!cat.category || !cat.skills?.length) return;
-          checkPage(8);
+          checkPage(4);
           pdf.setFont('helvetica', 'bold');
-          pdf.text((cat.category || 'Skills') + ':', margin, y);
+          const label = (cat.category || 'Skills') + ': ';
+          pdf.text(label, margin + 2, y);
+          const labelWidth = pdf.getTextWidth(label);
           pdf.setFont('helvetica', 'normal');
           const skillText = cat.skills.join(', ');
-          const lines = pdf.splitTextToSize(skillText || '', contentWidth - 45);
+          const lines = pdf.splitTextToSize(skillText || '', contentWidth - labelWidth - 4);
           if (lines && lines.length > 0) {
-            pdf.text(lines, margin + 45, y);
-            y += lines.length * 3.5 + 2;
+            pdf.text(lines, margin + 2 + labelWidth, y);
+            y += lines.length * getLineH() + 0.3;
           }
         });
-        y += 4;
-      }
+      };
 
-      // Experience — ATS-safe: 12pt bold header
-      checkPage(20);
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('WORK EXPERIENCE', margin, y);
-      y += 1;
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 4;
-      pdf.setFontSize(10);
+      const renderExperience = () => {
+        pdfSectionHeader('WORK EXPERIENCE');
+        pdf.setFontSize(bodyFs);
 
-      experience.forEach((exp, expIdx) => {
-        checkPage(25);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(exp.company || 'Company', margin, y);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(exp.location || '', pageWidth - margin, y, { align: 'right' });
-        y += 4;
-        pdf.setFont('helvetica', 'bolditalic');
-        pdf.text(exp.title || 'Position', margin, y);
-        pdf.setFont('helvetica', 'normal');
-        const dateStr = `${exp.startDate || ''} – ${exp.isCurrent ? 'Present' : exp.endDate || ''}`;
-        pdf.text(dateStr, pageWidth - margin, y, { align: 'right' });
-        y += 4;
+        experience.forEach((exp, idx) => {
+          const expId = exp.id || exp.company;
+          const earlyCareer = isEarlyCareerRole(expId);
+          const startDate = formatResumeDate(exp.startDate);
+          const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
 
-        const allBullets = [
-          ...(exp.achievements || [])
-            .map((a) => (typeof a === 'string' ? a : a?.statement))
-            .filter(Boolean),
-          ...(exp.responsibilities || []).filter(Boolean),
-        ];
-        // Apply page-count-aware bullet limiting
-        const maxBullets = getMaxBulletsForRole(expIdx, experience.length);
-        const bullets = allBullets.slice(0, maxBullets);
-        bullets.forEach((b) => {
-          if (!b) return;
-          checkPage(6);
-          const lines = pdf.splitTextToSize(`• ${b}`, contentWidth - 5);
-          lines.forEach((line: string, i: number) => {
-            if (line) pdf.text(line, margin + (i === 0 ? 0 : 3), y);
-            y += 3.5;
+          if (idx > 0) y += 1.5;
+          checkPage(earlyCareer ? 6 : 12);
+
+          // Title (bold italic) | Dates — Harvard/consulting standard
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bolditalic');
+          pdf.text(exp.title || 'Position', margin, y);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(bodyFs);
+          pdf.text(`${startDate} \u2013 ${endDate}`, pageWidth - margin, y, { align: 'right' });
+          y += 3.5;
+
+          // Company — Location (italic)
+          pdf.setFont('helvetica', 'italic');
+          const companyText = exp.location
+            ? `${exp.company} \u2014 ${exp.location}`
+            : exp.company || '';
+          pdf.text(companyText, margin, y);
+          pdf.setFont('helvetica', 'normal');
+          y += 3;
+
+          if (earlyCareer) return;
+
+          const enhanced = enhancedBulletsMap.get(expId);
+          const allBullets =
+            enhanced && enhanced.length > 0
+              ? enhanced
+              : [
+                  ...(exp.achievements || [])
+                    .map((a) => (typeof a === 'string' ? a : a?.statement))
+                    .filter(Boolean),
+                  ...(exp.responsibilities || []).filter(Boolean),
+                ];
+          const maxBullets = getMaxBulletsForRole(expId);
+          const bullets = allBullets.slice(0, maxBullets);
+
+          bullets.forEach((b) => {
+            if (!b) return;
+            checkPage(4);
+            const lines = pdf.splitTextToSize(`\u2022 ${b}`, contentWidth - 4);
+            lines.forEach((line: string, i: number) => {
+              if (line) pdf.text(line, margin + (i === 0 ? 0 : 2.5), y);
+              y += getLineH();
+            });
           });
         });
-        y += 4;
-      });
+      };
 
-      // Education
-      checkPage(15);
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('EDUCATION', margin, y);
-      y += 1;
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 4;
-      pdf.setFontSize(10);
+      const renderEducation = () => {
+        pdfSectionHeader('EDUCATION');
+        pdf.setFontSize(bodyFs);
 
-      education.forEach((edu) => {
-        checkPage(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(edu.institution || 'Institution', margin, y);
-        y += 4;
-        pdf.setFont('helvetica', 'normal');
-        const eduLine = `${edu.degree || ''}${edu.field ? ' in ' + edu.field : ''}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}`;
-        pdf.text(eduLine || 'Degree', margin, y);
-        y += 5;
-      });
+        education.forEach((edu) => {
+          const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
+          checkPage(5);
 
-      // Certifications
-      if (certifications.length > 0) {
-        checkPage(15);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('CERTIFICATIONS', margin, y);
-        y += 1;
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 4;
-        pdf.setFontSize(10);
+          const eduDegreeHasIn = edu.degree?.toLowerCase().includes(' in ');
+          const degreeText = eduDegreeHasIn
+            ? edu.degree || ''
+            : `${edu.degree || ''}${edu.field ? ' in ' + edu.field : ''}`;
+
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(degreeText, margin, y);
+          const degWidth = pdf.getTextWidth(degreeText);
+          pdf.setFontSize(smallFs);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(` \u2014 ${edu.institution}`, margin + degWidth, y);
+
+          const pdfGradDate = formatResumeDate(edu.endDate);
+          if (pdfGradDate && eduLayout?.showGraduationDate) {
+            pdf.setFontSize(bodyFs);
+            pdf.text(pdfGradDate, pageWidth - margin, y, { align: 'right' });
+          }
+          y += getLineH();
+          pdf.setFontSize(bodyFs);
+
+          if (eduLayout?.showGpa && edu.gpa) {
+            pdf.setFont('helvetica', 'italic');
+            pdf.setFontSize(smallFs);
+            pdf.text(`GPA: ${edu.gpa}`, margin + 3, y);
+            y += 2.5;
+            pdf.setFontSize(bodyFs);
+          }
+        });
+      };
+
+      const renderCertifications = () => {
+        if (certifications.length === 0) return;
+        pdfSectionHeader('CERTIFICATIONS');
+        pdf.setFontSize(bodyFs);
 
         certifications.forEach((cert) => {
-          checkPage(5);
+          checkPage(4);
           pdf.setFont('helvetica', 'bold');
           pdf.text(cert.name || 'Certification', margin, y);
           pdf.setFont('helvetica', 'normal');
-          if (cert.dateObtained)
-            pdf.text(cert.dateObtained, pageWidth - margin, y, { align: 'right' });
-          y += 4;
+          if (cert.dateObtained) {
+            pdf.text(formatResumeDate(cert.dateObtained), pageWidth - margin, y, {
+              align: 'right',
+            });
+          }
+          y += getLineH();
         });
-      }
+      };
 
-      // Projects
-      const projects = profile.projects || [];
-      if (projects.length > 0) {
-        checkPage(15);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('PROJECTS', margin, y);
-        y += 1;
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 4;
-        pdf.setFontSize(10);
+      const renderProjects = () => {
+        const projects = profile.projects || [];
+        if (projects.length === 0) return;
+        pdfSectionHeader('PROJECTS');
+        pdf.setFontSize(bodyFs);
 
-        projects.forEach((proj) => {
-          checkPage(15);
+        projects.forEach((proj, idx) => {
+          if (idx > 0) y += 1;
+          checkPage(8);
+          pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
           const projTitle = proj.url
-            ? `${proj.name || 'Project'} | ${proj.url}`
+            ? `${proj.name || 'Project'} | GitHub`
             : proj.name || 'Project';
           pdf.text(projTitle, margin, y);
           pdf.setFont('helvetica', 'normal');
-          if (proj.dateRange) pdf.text(proj.dateRange, pageWidth - margin, y, { align: 'right' });
-          y += 4;
+          pdf.setFontSize(bodyFs);
+          if (proj.dateRange)
+            pdf.text(formatResumeDate(proj.dateRange), pageWidth - margin, y, { align: 'right' });
+          y += 3.5;
 
-          // Build bullets from highlights, impact, and description
           const bullets: string[] = [];
-          if (proj.highlights?.length) bullets.push(...proj.highlights);
-          if (proj.impact?.trim()) bullets.push(proj.impact);
+          const isDupe = (text: string) =>
+            bullets.some(
+              (b) =>
+                b.toLowerCase().trim() === text.toLowerCase().trim() ||
+                b.toLowerCase().includes(text.toLowerCase().substring(0, 40))
+            );
+          if (proj.highlights?.length) {
+            proj.highlights.forEach((h) => {
+              if (!isDupe(h)) bullets.push(h);
+            });
+          }
+          if (proj.impact?.trim() && !isDupe(proj.impact)) bullets.push(proj.impact);
           if (bullets.length < 2 && proj.description) {
             const sentences = proj.description
               .split(/(?<=[.!?])\s+/)
-              .filter((s) => s.trim().length > 10);
+              .filter((s) => s.trim().length > 10 && !isDupe(s));
             bullets.push(...sentences.slice(0, 2));
           }
           if (proj.technologies?.length && bullets.length < 4) {
-            bullets.push(`Technologies: ${proj.technologies.join(', ')}`);
+            const techBullet = `Technologies: ${proj.technologies.join(', ')}`;
+            if (!isDupe(techBullet)) bullets.push(techBullet);
           }
 
-          bullets.slice(0, 4).forEach((b) => {
+          bullets.slice(0, targetPages === 1 ? 2 : 4).forEach((b) => {
             if (!b) return;
-            checkPage(6);
-            const lines = pdf.splitTextToSize(`• ${b}`, contentWidth - 5);
+            checkPage(4);
+            const lines = pdf.splitTextToSize(`\u2022 ${b}`, contentWidth - 4);
             lines.forEach((line: string, i: number) => {
-              if (line) pdf.text(line, margin + (i === 0 ? 0 : 3), y);
-              y += 3.5;
+              if (line) pdf.text(line, margin + (i === 0 ? 0 : 2.5), y);
+              y += getLineH();
             });
           });
-          y += 3;
         });
+      };
+
+      // ---- Render sections based on layout engine ordering ----
+      const pdfRenderers: Record<string, () => void> = {
+        name: renderName,
+        contact: renderContact,
+        summary: renderSummary,
+        skills: renderSkills,
+        experience: renderExperience,
+        education: renderEducation,
+        certifications: renderCertifications,
+        projects: renderProjects,
+      };
+
+      for (const section of layout.sections) {
+        if (!section.visible) continue;
+        const renderer = pdfRenderers[section.type];
+        if (renderer) renderer();
       }
 
       pdf.save(`${fileName}.pdf`);
@@ -2130,9 +2988,9 @@ EDUCATION
 ${education
   .map(
     (edu) => `
-${edu.degree}${edu.field ? ' in ' + edu.field : ''}
+${edu.degree?.toLowerCase().includes(' in ') ? edu.degree : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`}
 ${edu.institution}
-${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
+${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
 `
   )
   .join('\n')}
@@ -2175,6 +3033,309 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
     return { text, json };
   };
 
+  // ============================================================================
+  // RESUME PREVIEW — Full-fidelity HTML rendering matching DOCX layout
+  // ============================================================================
+  const renderResumePreview = () => {
+    const personal = profile.personal;
+    const experience = profile.experience || [];
+    const education = profile.education || [];
+    const certs = profile.certifications || [];
+    const skillsData = profile.skills;
+
+    const summaryText =
+      tailoredContent?.optimizedSummary ||
+      activeRole?.tailoredSummary ||
+      profile.careerContext?.summary ||
+      '';
+
+    const enhancedBulletsMap = new Map<string, string[]>();
+    if (tailoredContent?.enhancedBullets) {
+      tailoredContent.enhancedBullets.forEach((eb) => enhancedBulletsMap.set(eb.expId, eb.bullets));
+    }
+
+    const previewGetBullets = (exp: EnrichedExperience): string[] => {
+      const expId = exp.id || exp.company;
+      if (isEarlyCareerRole(expId)) return [];
+      const enhanced = enhancedBulletsMap.get(expId);
+      const allBullets =
+        enhanced && enhanced.length > 0
+          ? enhanced
+          : [
+              ...(exp.achievements || []).map((a: string | { statement: string }) =>
+                typeof a === 'string' ? a : a.statement
+              ),
+              ...(exp.responsibilities || []),
+            ];
+      return allBullets.slice(0, getMaxBulletsForRole(expId));
+    };
+
+    const previewGetEnv = (exp: EnrichedExperience): string => {
+      if (exp.technologiesUsed?.length)
+        return [...new Set(exp.technologiesUsed.map((t) => t.skill))].join(', ');
+      return '';
+    };
+
+    const skillCategories = buildSkillCategories(
+      skillsData,
+      activeRole,
+      analysis?.matchedKeywords,
+      tailoredContent?.addedKeywords
+    );
+    const roleTitle = activeRole?.targetRole || profile.careerContext?.primaryDomain || '';
+
+    // Page style — mirrors DOCX: US Letter, 0.5" top/bottom, 0.625" left/right
+    const pageStyle: React.CSSProperties = {
+      width: '8.5in',
+      minHeight: '11in',
+      padding: '0.5in 0.625in',
+      background: '#fff',
+      color: '#000',
+      fontFamily: 'Calibri, sans-serif',
+      fontSize: '10pt',
+      lineHeight: '1.15',
+      boxSizing: 'border-box',
+      margin: '0 auto',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+    };
+
+    const sectionHeaderStyle: React.CSSProperties = {
+      fontSize: '11pt',
+      fontWeight: 'bold',
+      borderBottom: '1px solid #000',
+      paddingBottom: '2px',
+      marginTop: '10px',
+      marginBottom: '4px',
+    };
+
+    const alignedRowStyle: React.CSSProperties = {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+    };
+
+    // Build section renderers keyed by SectionType
+    const sectionRenderers: Record<string, () => React.ReactNode> = {
+      name: () => (
+        <div key="name">
+          <div
+            style={{
+              textAlign: 'center',
+              fontSize: '18pt',
+              fontWeight: 'bold',
+              marginBottom: '2px',
+            }}
+          >
+            {personal?.fullName?.toUpperCase() || 'NAME'}
+          </div>
+          {roleTitle && (
+            <div style={{ textAlign: 'center', fontSize: '11pt', marginBottom: '2px' }}>
+              {roleTitle}
+            </div>
+          )}
+        </div>
+      ),
+
+      contact: () => {
+        const parts: string[] = [];
+        if (personal?.phone) parts.push(personal.phone);
+        if (personal?.email) parts.push(personal.email);
+        const loc = personal?.location;
+        if (loc) {
+          const locParts = [loc.city, loc.state].filter(Boolean);
+          if (locParts.length > 0) parts.push(locParts.join(', '));
+        }
+        if (personal?.linkedInUrl) parts.push(shortenUrl(personal.linkedInUrl));
+        if (personal?.githubUrl) parts.push(shortenUrl(personal.githubUrl));
+        if (personal?.portfolioUrl) parts.push(shortenUrl(personal.portfolioUrl));
+        return (
+          <div key="contact" style={{ textAlign: 'center', fontSize: '9pt', marginBottom: '6px' }}>
+            {parts.join(' | ')}
+          </div>
+        );
+      },
+
+      summary: () => (
+        <div key="summary">
+          <div style={sectionHeaderStyle}>PROFESSIONAL SUMMARY</div>
+          <div style={{ marginBottom: '4px' }}>{summaryText}</div>
+        </div>
+      ),
+
+      skills: () => (
+        <div key="skills">
+          <div style={sectionHeaderStyle}>TECHNICAL SKILLS</div>
+          {skillCategories.map((cat) => (
+            <div key={cat.category} style={{ paddingLeft: '8px', margin: '2px 0' }}>
+              <strong>{cat.category}:</strong> {cat.skills.join(', ')}
+            </div>
+          ))}
+        </div>
+      ),
+
+      experience: () => (
+        <div key="experience">
+          <div style={sectionHeaderStyle}>WORK EXPERIENCE</div>
+          {experience.map((exp, idx) => {
+            const expId = exp.id || exp.company;
+            const earlyCareer = isEarlyCareerRole(expId);
+            const bullets = previewGetBullets(exp);
+            const env = previewGetEnv(exp);
+            const startDate = formatResumeDate(exp.startDate);
+            const endDate = exp.isCurrent ? 'Present' : formatResumeDate(exp.endDate);
+            const location = exp.location || '';
+            const companyText = location ? `${exp.company} \u2014 ${location}` : exp.company;
+
+            return (
+              <div key={expId + idx} style={{ marginTop: idx > 0 ? '10px' : '0' }}>
+                {/* Title (bold, 11pt) ---- Date */}
+                <div style={{ ...alignedRowStyle }}>
+                  <span style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '10pt' }}>
+                    {exp.title}
+                  </span>
+                  <span>{`${startDate} \u2013 ${endDate}`}</span>
+                </div>
+                {/* Company — Location (italic) */}
+                <div style={{ fontStyle: 'italic', marginBottom: earlyCareer ? '0' : '3px' }}>
+                  {companyText}
+                </div>
+                {!earlyCareer && (
+                  <>
+                    <ul style={{ margin: '0', paddingLeft: '20px', listStyleType: 'disc' }}>
+                      {bullets.map((b, bi) => (
+                        <li key={bi} style={{ margin: '1px 0' }}>
+                          {b.startsWith('\u2022') ? b.substring(1).trim() : b}
+                        </li>
+                      ))}
+                    </ul>
+                    {env && (
+                      <div style={{ marginTop: '2px' }}>
+                        <strong>Environment:</strong> {env}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ),
+
+      education: () => (
+        <div key="education">
+          <div style={sectionHeaderStyle}>EDUCATION</div>
+          {education.map((edu) => {
+            const eduLayout = layout.educationEntries.find((e) => e.eduId === edu.id);
+            const gradDate = formatResumeDate(edu.endDate);
+            const degreeHasIn = edu.degree?.toLowerCase().includes(' in ');
+            const degreeText = degreeHasIn
+              ? edu.degree
+              : `${edu.degree}${edu.field ? ' in ' + edu.field : ''}`;
+
+            return (
+              <div key={edu.id} style={{ marginBottom: '4px' }}>
+                <div style={alignedRowStyle}>
+                  <span>
+                    <strong>{degreeText}</strong>
+                    <span style={{ fontSize: '9pt' }}> \u2014 {edu.institution}</span>
+                  </span>
+                  {eduLayout?.showGraduationDate && gradDate && <span>{gradDate}</span>}
+                </div>
+                {eduLayout?.showGpa && edu.gpa && (
+                  <div style={{ paddingLeft: '8px', fontStyle: 'italic', fontSize: '9pt' }}>
+                    GPA: {edu.gpa}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ),
+
+      certifications: () => {
+        if (certs.length === 0) return null;
+        return (
+          <div key="certifications">
+            <div style={sectionHeaderStyle}>CERTIFICATIONS</div>
+            {certs.map((cert) => {
+              let dateStr = '';
+              if (cert.dateObtained && cert.expirationDate)
+                dateStr = `${formatResumeDate(cert.dateObtained)} \u2013 ${formatResumeDate(cert.expirationDate)}`;
+              else if (cert.dateObtained) dateStr = formatResumeDate(cert.dateObtained);
+              return (
+                <div key={cert.name} style={alignedRowStyle}>
+                  <strong>{cert.name}</strong>
+                  {dateStr && <span>{dateStr}</span>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
+
+      projects: () => {
+        const projects = profile.projects;
+        if (!projects?.length) return null;
+        return (
+          <div key="projects">
+            <div style={sectionHeaderStyle}>PROJECTS</div>
+            {projects.map((proj, idx) => {
+              const bullets: string[] = [];
+              const isDupe = (text: string) =>
+                bullets.some(
+                  (b) =>
+                    b.toLowerCase().trim() === text.toLowerCase().trim() ||
+                    b.toLowerCase().includes(text.toLowerCase().substring(0, 40))
+                );
+              if (proj.highlights?.length) {
+                proj.highlights.forEach((h) => {
+                  if (!isDupe(h)) bullets.push(h);
+                });
+              }
+              if (proj.impact?.trim() && !isDupe(proj.impact)) bullets.push(proj.impact);
+              if (bullets.length < 3 && proj.description) {
+                const sentences = proj.description
+                  .split(/(?<=[.!?])\s+/)
+                  .filter((s) => s.trim().length > 10 && !isDupe(s));
+                if (sentences.length > 0) bullets.push(...sentences.slice(0, 3 - bullets.length));
+                else if (bullets.length === 0 && !isDupe(proj.description))
+                  bullets.push(proj.description);
+              }
+              const dateRange = proj.dateRange ? formatResumeDate(proj.dateRange) : '';
+              const projTitle = proj.url ? `${proj.name} | GitHub` : proj.name;
+              return (
+                <div key={proj.id || idx} style={{ marginTop: idx > 0 ? '6px' : '0' }}>
+                  <div style={alignedRowStyle}>
+                    <strong style={{ fontSize: '10pt' }}>{projTitle}</strong>
+                    {dateRange && <span>{dateRange}</span>}
+                  </div>
+                  <ul style={{ margin: '0', paddingLeft: '20px', listStyleType: 'disc' }}>
+                    {bullets.slice(0, 5).map((b, bi) => (
+                      <li key={bi} style={{ margin: '1px 0' }}>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
+    };
+
+    return (
+      <div style={pageStyle}>
+        {layout.sections
+          .filter((s) => s.visible)
+          .map((s) => {
+            const renderer = sectionRenderers[s.type];
+            return renderer ? renderer() : null;
+          })}
+      </div>
+    );
+  };
+
   return (
     <div className="modal-overlay" onClick={() => !isAnalyzing && !isGenerating && onClose()}>
       <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
@@ -2200,6 +3361,33 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
         </div>
 
         <div className="modal-body">
+          {mode === 'with-jd' && (
+            <div className="resume-steps">
+              <div className={`resume-step ${!analysis && !isAnalyzing ? 'active' : 'completed'}`}>
+                <span className="step-num">{analysis || isAnalyzing ? '\u2713' : '1'}</span>
+                <span className="step-text">Paste JD</span>
+              </div>
+              <div className={`step-line ${analysis || isAnalyzing ? 'completed' : ''}`} />
+              <div
+                className={`resume-step ${analysis && !isGenerating && !isTailoring && !showSaveVersion ? 'active' : isGenerating || isTailoring || showSaveVersion ? 'completed' : ''}`}
+              >
+                <span className="step-num">
+                  {isGenerating || isTailoring || showSaveVersion ? '\u2713' : '2'}
+                </span>
+                <span className="step-text">Review Match</span>
+              </div>
+              <div
+                className={`step-line ${isGenerating || isTailoring || showSaveVersion ? 'completed' : ''}`}
+              />
+              <div
+                className={`resume-step ${isGenerating || isTailoring || showSaveVersion ? 'active' : ''}`}
+              >
+                <span className="step-num">3</span>
+                <span className="step-text">Generate</span>
+              </div>
+            </div>
+          )}
+
           {mode === 'select' && (
             <div className="mode-selection">
               <div className="mode-card" onClick={() => setMode('without-jd')}>
@@ -2251,7 +3439,13 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
           {mode === 'without-jd' && activeRole && !isGenerating && (
             <div className="ready-to-generate">
               <div className="section-header-row">
-                <button className="btn btn-ghost btn-sm" onClick={() => setActiveRole(null)}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setActiveRole(null);
+                    setShowPreview(false);
+                  }}
+                >
                   ← Change Role
                 </button>
               </div>
@@ -2262,25 +3456,131 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
                   <span className="role-target">{activeRole.targetRole}</span>
                 </div>
               </div>
-              <div className="resume-preview-section">
-                <h4>Resume Preview</h4>
-                <div className="preview-box">
-                  <div className="preview-header">
-                    <strong>{profile.personal?.fullName}</strong>
-                    <span>{profile.personal?.email}</span>
-                  </div>
-                  <div className="preview-summary">
-                    {activeRole.tailoredSummary?.slice(0, 200)}...
-                  </div>
-                  <div className="preview-skills">
-                    {activeRole.highlightedSkills?.slice(0, 6).map((s) => (
-                      <span key={s} className="skill-tag">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
+
+              {/* Download + Preview Section */}
+              <div className="generate-section">
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <h4 style={{ margin: 0 }}>Download Resume</h4>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowPreview(!showPreview)}
+                    style={{ fontSize: '13px' }}
+                  >
+                    {showPreview ? 'Hide Preview' : 'Preview Resume'}
+                  </button>
+                </div>
+                <div className="page-control">
+                  <label>Page count:</label>
+                  <select
+                    value={targetPages}
+                    onChange={(e) => setTargetPages(Number(e.target.value))}
+                    className="page-select"
+                  >
+                    <option value={1}>1 page</option>
+                    <option value={2}>2 pages</option>
+                    {yearsOfExp >= 5 && <option value={3}>3 pages</option>}
+                  </select>
+                  {targetPages !== recommendedPages && (
+                    <span className="page-hint">
+                      Recommended: {recommendedPages} for {yearsOfExp}yr experience
+                    </span>
+                  )}
+                </div>
+                <div className="format-options">
+                  <button
+                    className="format-card"
+                    onClick={() => generateResume('docx')}
+                    disabled={isGenerating}
+                  >
+                    <span className="format-icon">📝</span>
+                    <div className="format-info">
+                      <strong>DOCX</strong>
+                      <span>Best for ATS systems</span>
+                    </div>
+                    <span className="format-badge recommended">Recommended</span>
+                  </button>
+                  <button
+                    className="format-card"
+                    onClick={() => generateResume('pdf')}
+                    disabled={isGenerating}
+                  >
+                    <span className="format-icon">📄</span>
+                    <div className="format-info">
+                      <strong>PDF</strong>
+                      <span>Universal format</span>
+                    </div>
+                  </button>
                 </div>
               </div>
+
+              {/* Full Resume Preview */}
+              {showPreview && (
+                <div
+                  style={{
+                    marginTop: '16px',
+                    maxHeight: '70vh',
+                    overflowY: 'auto',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    background: '#f5f5f5',
+                    padding: '16px',
+                  }}
+                >
+                  {renderResumePreview()}
+                </div>
+              )}
+
+              {showSaveVersion && lastGeneratedFormat && (
+                <div className="post-download-card">
+                  <div className="post-download-icon">✅</div>
+                  <div className="post-download-content">
+                    <strong>Resume downloaded!</strong>
+                    <p>Save this version for future reference?</p>
+                  </div>
+                  <div className="post-download-actions">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={async () => {
+                        try {
+                          await sendMessage({
+                            type: 'SAVE_RESUME_VERSION',
+                            payload: {
+                              profileId: profile.id,
+                              roleProfileId: activeRole?.id,
+                              format: lastGeneratedFormat,
+                              name: `${activeRole?.targetRole || 'Resume'} - ${new Date().toLocaleDateString()}`,
+                              contentSnapshot: JSON.stringify({
+                                role: activeRole?.targetRole,
+                                summary: activeRole?.tailoredSummary,
+                                format: lastGeneratedFormat,
+                              }),
+                              atsScore: activeRole?.atsScore,
+                            },
+                          });
+                          setShowSaveVersion(false);
+                        } catch (err) {
+                          console.error('[ResumeGenerator] Failed to save version:', err);
+                        }
+                      }}
+                    >
+                      Save Version
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowSaveVersion(false)}
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2468,45 +3768,42 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
               )}
 
               <div className="keywords-section">
-                <h4>✅ Matched Keywords ({analysis.matchedKeywords.length})</h4>
-                <p className="keywords-hint">JD frequency → Your profile strength</p>
-                <div className="keywords-list matched">
-                  {analysis.matchedKeywords.map((kwObj) => (
-                    <span key={kwObj.keyword} className="keyword-tag matched">
-                      {kwObj.keyword}
-                      <span className="keyword-counts">
-                        <span className="jd-count" title="JD frequency">
-                          {kwObj.count}
+                <button
+                  className="keywords-collapse-toggle"
+                  onClick={() => setShowMatchedKeywords(!showMatchedKeywords)}
+                >
+                  <h4>✅ Matched Keywords ({analysis.matchedKeywords.length})</h4>
+                  <span className={`collapse-arrow ${showMatchedKeywords ? 'open' : ''}`}>▸</span>
+                </button>
+                {showMatchedKeywords && (
+                  <>
+                    <p className="keywords-hint">JD frequency → Your profile strength</p>
+                    <div className="keywords-list matched">
+                      {analysis.matchedKeywords.map((kwObj) => (
+                        <span key={kwObj.keyword} className="keyword-tag matched">
+                          {kwObj.keyword}
+                          <span className="keyword-counts">
+                            <span className="jd-count" title="JD frequency">
+                              {kwObj.count}
+                            </span>
+                            <span className="count-arrow">→</span>
+                            <span className="profile-count" title="Your profile">
+                              {kwObj.profileCount || 1}
+                            </span>
+                          </span>
                         </span>
-                        <span className="count-arrow">→</span>
-                        <span className="profile-count" title="Your profile">
-                          {kwObj.profileCount || 1}
-                        </span>
-                      </span>
-                    </span>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {analysis.missingKeywords.length > 0 && (
                 <div className="keywords-section">
-                  <div className="keywords-header">
-                    <h4>⚠️ Missing Keywords ({analysis.missingKeywords.length})</h4>
-                    <button
-                      className="btn btn-enhance"
-                      onClick={enhanceWithAI}
-                      disabled={isEnhancing}
-                    >
-                      {isEnhancing ? (
-                        <>
-                          <span className="spinner-small"></span>Enhancing...
-                        </>
-                      ) : (
-                        'Enhance with AI'
-                      )}
-                    </button>
-                  </div>
-                  <p className="keywords-hint">JD frequency (higher = more important)</p>
+                  <h4>⚠️ Missing Keywords ({analysis.missingKeywords.length})</h4>
+                  <p className="keywords-hint">
+                    These keywords appear in the JD but not in your profile
+                  </p>
                   <div className="keywords-list missing">
                     {analysis.missingKeywords.map((kwObj) => (
                       <span
@@ -2522,87 +3819,115 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
                       </span>
                     ))}
                   </div>
+                  <button
+                    className="btn btn-enhance"
+                    onClick={enhanceWithAI}
+                    disabled={isEnhancing}
+                  >
+                    {isEnhancing ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Adding to profile...
+                      </>
+                    ) : (
+                      'Add Missing Keywords to Profile'
+                    )}
+                  </button>
                   {enhanceSuccess && <div className="enhance-success">{enhanceSuccess}</div>}
                 </div>
               )}
-            </div>
-          )}
 
-          {(isGenerating || isTailoring) && (
-            <div className="generating-state">
-              <div className="spinner"></div>
-              <h3>{isTailoring ? 'AI Tailoring Resume' : 'Generating Resume'}</h3>
-              <p>{tailoringProgress || 'Creating ATS-optimized resume...'}</p>
-            </div>
-          )}
-
-          {error && <div className="error-message">{error}</div>}
-        </div>
-
-        <div className="modal-footer">
-          {mode === 'with-jd' && !analysis && !isAnalyzing && (
-            <>
-              <button className="btn btn-ghost" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={analyzeJobDescription}
-                disabled={!jobDescription.trim()}
-              >
-                Analyze JD
-              </button>
-            </>
-          )}
-
-          {((mode === 'without-jd' && activeRole) || (mode === 'with-jd' && analysis)) &&
-            !isGenerating && (
-              <>
-                <button className="btn btn-ghost" onClick={onClose}>
-                  Cancel
-                </button>
+              {/* Generate Resume Section */}
+              <div className="generate-section">
                 <div
-                  className="page-count-control"
                   style={{
                     display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '13px',
-                    color: '#6b7280',
+                    marginBottom: '8px',
                   }}
                 >
-                  <span>Pages:</span>
+                  <h4 style={{ margin: 0 }}>Generate Resume</h4>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowPreview(!showPreview)}
+                    style={{ fontSize: '13px' }}
+                  >
+                    {showPreview ? 'Hide Preview' : 'Preview Resume'}
+                  </button>
+                </div>
+                <p className="generate-hint">
+                  AI will tailor your summary and bullet points to match this job description
+                </p>
+                <div className="page-control">
+                  <label>Page count:</label>
                   <select
                     value={targetPages}
                     onChange={(e) => setTargetPages(Number(e.target.value))}
-                    style={{
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      fontSize: '13px',
-                    }}
+                    className="page-select"
                   >
                     <option value={1}>1 page</option>
                     <option value={2}>2 pages</option>
+                    {yearsOfExp >= 5 && <option value={3}>3 pages</option>}
                   </select>
                   {targetPages !== recommendedPages && (
-                    <span style={{ fontSize: '11px', color: '#f59e0b' }}>
-                      (Recommended: {recommendedPages} for {yearsOfExp}yr exp)
+                    <span className="page-hint">
+                      Recommended: {recommendedPages} for {yearsOfExp}yr experience
                     </span>
                   )}
                 </div>
-                <div className="download-buttons">
-                  <button className="btn btn-primary" onClick={() => generateResume('docx')}>
-                    DOCX
+                <div className="format-options">
+                  <button
+                    className="format-card"
+                    onClick={() => generateResume('docx')}
+                    disabled={isGenerating || isTailoring}
+                  >
+                    <span className="format-icon">📝</span>
+                    <div className="format-info">
+                      <strong>DOCX</strong>
+                      <span>Best for ATS systems</span>
+                    </div>
+                    <span className="format-badge recommended">Recommended</span>
                   </button>
-                  <button className="btn btn-primary" onClick={() => generateResume('pdf')}>
-                    PDF
+                  <button
+                    className="format-card"
+                    onClick={() => generateResume('pdf')}
+                    disabled={isGenerating || isTailoring}
+                  >
+                    <span className="format-icon">📄</span>
+                    <div className="format-info">
+                      <strong>PDF</strong>
+                      <span>Universal format</span>
+                    </div>
                   </button>
                 </div>
-                {showSaveVersion && lastGeneratedFormat && (
-                  <div
-                    style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}
-                  >
+              </div>
+
+              {/* Full Resume Preview */}
+              {showPreview && (
+                <div
+                  style={{
+                    marginTop: '16px',
+                    maxHeight: '70vh',
+                    overflowY: 'auto',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    background: '#f5f5f5',
+                    padding: '16px',
+                  }}
+                >
+                  {renderResumePreview()}
+                </div>
+              )}
+
+              {showSaveVersion && lastGeneratedFormat && (
+                <div className="post-download-card">
+                  <div className="post-download-icon">✅</div>
+                  <div className="post-download-content">
+                    <strong>Resume downloaded!</strong>
+                    <p>Save this version for future reference?</p>
+                  </div>
+                  <div className="post-download-actions">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={async () => {
@@ -2629,15 +3954,44 @@ ${edu.startDate} - ${edu.endDate}${edu.gpa ? ' | GPA: ' + edu.gpa : ''}
                         }
                       }}
                     >
-                      Save as Version
+                      Save Version
                     </button>
-                    <button className="btn btn-ghost btn-sm" onClick={onClose}>
-                      Done
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowSaveVersion(false)}
+                    >
+                      Skip
                     </button>
                   </div>
-                )}
-              </>
-            )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {(isGenerating || isTailoring) && (
+            <div className="generating-state">
+              <div className="spinner"></div>
+              <h3>{isTailoring ? 'AI Tailoring Resume' : 'Generating Resume'}</h3>
+              <p>{tailoringProgress || 'Creating ATS-optimized resume...'}</p>
+            </div>
+          )}
+
+          {error && <div className="error-message">{error}</div>}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>
+            {showSaveVersion ? 'Done' : 'Cancel'}
+          </button>
+          {mode === 'with-jd' && !analysis && !isAnalyzing && (
+            <button
+              className="btn btn-primary"
+              onClick={analyzeJobDescription}
+              disabled={!jobDescription.trim()}
+            >
+              Analyze JD
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -517,6 +517,28 @@ target      = "Week 6-8"
 goal        = "ApplySharp becomes the smartest job application tool available"
 
 [[phases.phase3.tasks]]
+id          = "3.5"
+title       = "ATS Resume Score page"
+description = """
+Dedicated options page that scores the user's resume using existing validators:
+- Format validation (section headers, dates, keyword density, acronyms, page count)
+- Bullet quality analysis (action verbs, quantification, length, weak verbs)
+- Optional JD keyword matching (quick score when JD pasted)
+- Combined weighted score with issue list and fix suggestions
+- Auto-scores on load, re-scores when role/pages/JD changes
+Reuses: format-validator.ts, bullet-validator.ts, hybrid-scorer.ts
+Comparable to Resume Worded ($19-49/mo) — included free in ApplySharp.
+"""
+files       = [
+    "src/options/pages/ATSScore.tsx",
+    "src/options/App.tsx",
+    "src/shared/utils/messaging.ts",
+    "src/background/message-handler.ts",
+]
+priority    = "p1-high"
+status      = "done"
+
+[[phases.phase3.tasks]]
 id          = "3.1"
 title       = "Skills gap analysis with learning recommendations"
 description = """

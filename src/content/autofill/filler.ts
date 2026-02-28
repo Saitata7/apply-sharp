@@ -100,10 +100,13 @@ export async function generateFillPreview(
   }
 
   // Check for critical missing fields
-  const hasEmail = fields.some(f => f.fieldType === 'email' && (f.suggestedValue || f.currentValue));
-  const hasName = fields.some(f =>
-    ['firstName', 'lastName', 'fullName'].includes(f.fieldType) &&
-    (f.suggestedValue || f.currentValue)
+  const hasEmail = fields.some(
+    (f) => f.fieldType === 'email' && (f.suggestedValue || f.currentValue)
+  );
+  const hasName = fields.some(
+    (f) =>
+      ['firstName', 'lastName', 'fullName'].includes(f.fieldType) &&
+      (f.suggestedValue || f.currentValue)
   );
 
   if (!hasEmail) {
@@ -177,8 +180,19 @@ export async function fillForm(
         continue;
       }
 
-      // Fill the field
-      const success = await fillField(field.element, value);
+      // Fill the field with retry for dynamically loaded elements
+      let success = false;
+      try {
+        success = await fillField(field.element, value);
+      } catch {
+        // First attempt failed - retry once after short delay (SPA re-render)
+        await sleep(200);
+        try {
+          success = await fillField(field.element, value);
+        } catch {
+          // Skip this field entirely - don't block other fills
+        }
+      }
 
       if (success) {
         filledFields.push({
@@ -195,6 +209,7 @@ export async function fillForm(
         });
       }
     } catch (error) {
+      // Error recovery: log and continue to next field
       errors.push(`Error filling ${field.label}: ${(error as Error).message}`);
     }
   }
@@ -263,13 +278,14 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
       // Try to extract from location string
       return personal.location?.split(',')[0]?.trim() || null;
 
-    case 'state':
+    case 'state': {
       // Check autofillData first
       if (autofillData?.state) return autofillData.state;
       // Try to extract from location string (second part after comma)
       const statePart = personal.location?.split(',')[1]?.trim();
       // Remove zip if present (e.g., "NJ 07302" -> "NJ")
       return statePart?.replace(/\s*\d{5}(-\d{4})?$/, '').trim() || null;
+    }
 
     case 'cityState':
       // Combined city/state field - return full location
@@ -280,12 +296,13 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
 
     case 'zip':
     case 'zipCode':
-    case 'postalCode':
+    case 'postalCode': {
       // Check autofillData first
       if (autofillData?.zipCode) return autofillData.zipCode;
       // Extract from location if present
       const zipMatch = personal.location?.match(/\b\d{5}(-\d{4})?\b/);
       return zipMatch ? zipMatch[0] : null;
+    }
 
     case 'country':
       return autofillData?.country || 'United States';
@@ -298,24 +315,29 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
       return experience?.[0]?.title || null;
 
     case 'yearsExperience':
-    case 'yearsExperienceSpecific':
+    case 'yearsExperienceSpecific': {
       if (!experience || experience.length === 0) return null;
-      const firstYear = Math.min(...experience.map(e => parseInt(e.startDate?.slice(0, 4) || '2020')));
+      const firstYear = Math.min(
+        ...experience.map((e) => parseInt(e.startDate?.slice(0, 4) || '2020'))
+      );
       const years = new Date().getFullYear() - firstYear;
       return String(years);
+    }
 
-    case 'employmentDates':
+    case 'employmentDates': {
       if (!experience?.[0]) return null;
       const start = formatDate(experience[0].startDate);
       const end = experience[0].isCurrent ? 'Present' : formatDate(experience[0].endDate);
       return `${start} - ${end}`;
+    }
 
-    case 'responsibilities':
+    case 'responsibilities': {
       if (!experience?.[0]) return null;
       // Combine description and achievements
       const desc = experience[0].description || '';
       const achievements = experience[0].achievements?.slice(0, 3).join('. ') || '';
       return desc || achievements || null;
+    }
 
     // === COMPENSATION ===
     case 'salaryExpectation':
@@ -327,14 +349,15 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
       return null;
 
     // === WORK AUTHORIZATION ===
-    case 'workAuthorization':
+    case 'workAuthorization': {
       const authMap: Record<string, string> = {
-        'citizen': 'US Citizen',
-        'permanent_resident': 'Permanent Resident',
-        'visa': 'Work Visa',
-        'other': 'Other',
+        citizen: 'US Citizen',
+        permanent_resident: 'Permanent Resident',
+        visa: 'Work Visa',
+        other: 'Other',
       };
       return authMap[autofillData?.workAuthorization] || null;
+    }
 
     case 'sponsorship':
       return autofillData?.requiresSponsorship ? 'Yes' : 'No';
@@ -353,14 +376,15 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
     case 'willingToRelocate':
       return autofillData?.willingToRelocate ? 'Yes' : 'No';
 
-    case 'remotePreference':
+    case 'remotePreference': {
       const remoteMap: Record<string, string> = {
-        'remote': 'Remote',
-        'hybrid': 'Hybrid',
-        'onsite': 'On-site',
-        'flexible': 'Flexible',
+        remote: 'Remote',
+        hybrid: 'Hybrid',
+        onsite: 'On-site',
+        flexible: 'Flexible',
       };
       return remoteMap[autofillData?.remotePreference] || 'Flexible';
+    }
 
     case 'canCommute':
       return 'Yes'; // Default to yes
@@ -397,27 +421,31 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
       return education?.[0]?.institution || null;
 
     // === SKILLS ===
-    case 'skillsLanguages':
+    case 'skillsLanguages': {
       // Programming languages - check both technical and tools
       const allSkills = [...(skills?.technical || []), ...(skills?.tools || [])];
-      const languages = allSkills.filter(s => isLanguage(s.toLowerCase()));
+      const languages = allSkills.filter((s) => isLanguage(s.toLowerCase()));
       return languages.length > 0 ? [...new Set(languages)].join(', ') : null;
+    }
 
-    case 'skillsCloud':
+    case 'skillsCloud': {
       const allSkillsCloud = [...(skills?.technical || []), ...(skills?.tools || [])];
-      const cloudSkills = allSkillsCloud.filter(s => isCloudOrDevops(s.toLowerCase()));
+      const cloudSkills = allSkillsCloud.filter((s) => isCloudOrDevops(s.toLowerCase()));
       return cloudSkills.length > 0 ? [...new Set(cloudSkills)].join(', ') : null;
+    }
 
-    case 'skillsFrameworks':
+    case 'skillsFrameworks': {
       // Frameworks and tools
       const allSkillsFramework = [...(skills?.technical || []), ...(skills?.tools || [])];
-      const frameworks = allSkillsFramework.filter(s => isFramework(s.toLowerCase()));
+      const frameworks = allSkillsFramework.filter((s) => isFramework(s.toLowerCase()));
       return frameworks.length > 0 ? [...new Set(frameworks)].join(', ') : null;
+    }
 
-    case 'skillsDatabases':
+    case 'skillsDatabases': {
       const allSkillsDb = [...(skills?.technical || []), ...(skills?.tools || [])];
-      const databases = allSkillsDb.filter(s => isDatabase(s.toLowerCase()));
+      const databases = allSkillsDb.filter((s) => isDatabase(s.toLowerCase()));
       return databases.length > 0 ? [...new Set(databases)].join(', ') : null;
+    }
 
     case 'skillsGeneral':
       // All technical skills
@@ -468,41 +496,126 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
 
 function isLanguage(skill: string): boolean {
   const languages = [
-    'java', 'python', 'javascript', 'typescript', 'c#', 'c++', 'c',
-    'go', 'golang', 'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala',
-    'perl', 'r', 'matlab', 'sql', 'html', 'css', 'bash', 'shell',
-    'powershell', 'groovy', 'lua', 'dart', 'elixir', 'clojure', 'haskell'
+    'java',
+    'python',
+    'javascript',
+    'typescript',
+    'c#',
+    'c++',
+    'c',
+    'go',
+    'golang',
+    'rust',
+    'ruby',
+    'php',
+    'swift',
+    'kotlin',
+    'scala',
+    'perl',
+    'r',
+    'matlab',
+    'sql',
+    'html',
+    'css',
+    'bash',
+    'shell',
+    'powershell',
+    'groovy',
+    'lua',
+    'dart',
+    'elixir',
+    'clojure',
+    'haskell',
   ];
-  return languages.some(lang => skill.includes(lang));
+  return languages.some((lang) => skill.includes(lang));
 }
 
 function isCloudOrDevops(skill: string): boolean {
   const cloudDevops = [
-    'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes', 'k8s',
-    'terraform', 'ansible', 'jenkins', 'ci/cd', 'gitlab', 'github actions',
-    'circleci', 'cloudformation', 'helm', 'prometheus', 'grafana', 'datadog',
-    'splunk', 'elk', 'linux', 'nginx', 'apache', 'serverless', 'lambda'
+    'aws',
+    'azure',
+    'gcp',
+    'google cloud',
+    'docker',
+    'kubernetes',
+    'k8s',
+    'terraform',
+    'ansible',
+    'jenkins',
+    'ci/cd',
+    'gitlab',
+    'github actions',
+    'circleci',
+    'cloudformation',
+    'helm',
+    'prometheus',
+    'grafana',
+    'datadog',
+    'splunk',
+    'elk',
+    'linux',
+    'nginx',
+    'apache',
+    'serverless',
+    'lambda',
   ];
-  return cloudDevops.some(term => skill.includes(term));
+  return cloudDevops.some((term) => skill.includes(term));
 }
 
 function isFramework(skill: string): boolean {
   const frameworks = [
-    'react', 'angular', 'vue', 'node', 'express', 'spring', 'django',
-    'flask', 'fastapi', 'rails', 'laravel', '.net', 'asp.net', 'nextjs',
-    'nuxt', 'svelte', 'jquery', 'bootstrap', 'tailwind', 'redux', 'graphql',
-    'rest', 'nestjs', 'fastify', 'hibernate', 'mybatis'
+    'react',
+    'angular',
+    'vue',
+    'node',
+    'express',
+    'spring',
+    'django',
+    'flask',
+    'fastapi',
+    'rails',
+    'laravel',
+    '.net',
+    'asp.net',
+    'nextjs',
+    'nuxt',
+    'svelte',
+    'jquery',
+    'bootstrap',
+    'tailwind',
+    'redux',
+    'graphql',
+    'rest',
+    'nestjs',
+    'fastify',
+    'hibernate',
+    'mybatis',
   ];
-  return frameworks.some(fw => skill.includes(fw));
+  return frameworks.some((fw) => skill.includes(fw));
 }
 
 function isDatabase(skill: string): boolean {
   const databases = [
-    'mysql', 'postgresql', 'postgres', 'mongodb', 'redis', 'elasticsearch',
-    'oracle', 'sql server', 'mssql', 'sqlite', 'dynamodb', 'cassandra',
-    'couchdb', 'neo4j', 'mariadb', 'firebase', 'supabase', 'cockroachdb'
+    'mysql',
+    'postgresql',
+    'postgres',
+    'mongodb',
+    'redis',
+    'elasticsearch',
+    'oracle',
+    'sql server',
+    'mssql',
+    'sqlite',
+    'dynamodb',
+    'cassandra',
+    'couchdb',
+    'neo4j',
+    'mariadb',
+    'firebase',
+    'supabase',
+    'cockroachdb',
   ];
-  return databases.some(db => skill.includes(db));
+  return databases.some((db) => skill.includes(db));
 }
 
 function formatDate(dateStr?: string): string {
@@ -540,8 +653,10 @@ async function fillField(
       return false;
     }
 
-    if (element instanceof HTMLInputElement &&
-        (element.type === 'checkbox' || element.type === 'radio')) {
+    if (
+      element instanceof HTMLInputElement &&
+      (element.type === 'checkbox' || element.type === 'radio')
+    ) {
       return fillCheckboxOrRadio(element, value);
     }
 
@@ -551,28 +666,36 @@ async function fillField(
     }
 
     // For text inputs and textareas
-    // Clear existing value
-    element.value = '';
+    // Use React-compatible value setter to bypass synthetic event system
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    )?.set;
+    const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      'value'
+    )?.set;
 
-    // Simulate typing for better compatibility
-    for (const char of value) {
-      element.value += char;
+    const setter =
+      element instanceof HTMLTextAreaElement ? nativeTextAreaValueSetter : nativeInputValueSetter;
 
-      // Dispatch input event for each character (React-like frameworks)
-      element.dispatchEvent(new InputEvent('input', {
-        bubbles: true,
-        cancelable: true,
-        inputType: 'insertText',
-        data: char,
-      }));
-
-      // Small delay between characters for more natural input
-      await sleep(5);
+    if (setter) {
+      // Use native setter to bypass React's controlled input handling
+      setter.call(element, value);
+    } else {
+      element.value = value;
     }
 
-    // Final events
+    // Dispatch React-compatible events
+    element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Small delay before blur for frameworks to process
+    await sleep(30);
     element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    // Visual feedback: briefly highlight filled field
+    highlightField(element);
 
     return true;
   } catch (error) {
@@ -582,22 +705,40 @@ async function fillField(
 }
 
 /**
- * Fill select element
+ * Fill select element with enhanced matching
  */
 function fillSelectField(select: HTMLSelectElement, value: string): boolean {
   const lowerValue = value.toLowerCase();
 
-  // Try to find matching option
+  // Try exact match first, then partial
   for (const option of select.options) {
-    const optionText = option.text.toLowerCase();
-    const optionValue = option.value.toLowerCase();
+    const optionText = option.text.toLowerCase().trim();
+    const optionValue = option.value.toLowerCase().trim();
 
-    if (optionText === lowerValue ||
-        optionValue === lowerValue ||
-        optionText.includes(lowerValue) ||
-        lowerValue.includes(optionText)) {
+    if (optionText === lowerValue || optionValue === lowerValue) {
       select.value = option.value;
+      // Use native setter for React compatibility
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      )?.set;
+      if (nativeSetter) nativeSetter.call(select, option.value);
+      select.dispatchEvent(new Event('input', { bubbles: true }));
       select.dispatchEvent(new Event('change', { bubbles: true }));
+      highlightField(select);
+      return true;
+    }
+  }
+
+  // Partial match fallback
+  for (const option of select.options) {
+    const optionText = option.text.toLowerCase().trim();
+
+    if (optionText.includes(lowerValue) || lowerValue.includes(optionText)) {
+      select.value = option.value;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      highlightField(select);
       return true;
     }
   }
@@ -643,8 +784,10 @@ function fillCheckboxOrRadio(element: HTMLInputElement, value: string): boolean 
     const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
     for (const radio of radioGroup) {
       const r = radio as HTMLInputElement;
-      if (r.value.toLowerCase() === value.toLowerCase() ||
-          (shouldCheck && ['yes', 'true', '1'].includes(r.value.toLowerCase()))) {
+      if (
+        r.value.toLowerCase() === value.toLowerCase() ||
+        (shouldCheck && ['yes', 'true', '1'].includes(r.value.toLowerCase()))
+      ) {
         r.checked = true;
         r.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
@@ -683,7 +826,13 @@ function fillDateField(element: HTMLInputElement, value: string): boolean {
     const rangeMatch = value.match(/^(.+?)\s*[-–—]\s*(.+)$/);
     if (rangeMatch) {
       // Check field label/name to determine if this is start or end date
-      const fieldName = (element.name + ' ' + element.id + ' ' + (element.labels?.[0]?.textContent || '')).toLowerCase();
+      const fieldName = (
+        element.name +
+        ' ' +
+        element.id +
+        ' ' +
+        (element.labels?.[0]?.textContent || '')
+      ).toLowerCase();
       const isEndDate = /end|to|through|until/i.test(fieldName);
 
       let datePart = rangeMatch[1].trim(); // Default to start date
@@ -736,8 +885,21 @@ function parseFlexibleDate(dateStr: string): string | null {
   // Handle "Jan 2025", "January 2025", "01/2025", etc.
   const monthYearMatch = dateStr.match(/^(\w+)\s+(\d{4})$/);
   if (monthYearMatch) {
-    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const monthIndex = monthNames.findIndex(m => monthYearMatch[1].toLowerCase().startsWith(m));
+    const monthNames = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    const monthIndex = monthNames.findIndex((m) => monthYearMatch[1].toLowerCase().startsWith(m));
     if (monthIndex >= 0) {
       const year = parseInt(monthYearMatch[2]);
       // Use first day of month
@@ -783,10 +945,10 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
       patterns: [/authorized.*work/i, /work.*authorization/i, /legal.*right/i, /eligible.*work/i],
       getValue: () => {
         const authMap: Record<string, string[]> = {
-          'citizen': ['citizen', 'us citizen', 'u.s. citizen', 'american citizen'],
-          'permanent_resident': ['permanent resident', 'green card', 'lawful permanent'],
-          'visa': ['visa', 'work visa', 'h-1b', 'h1b'],
-          'other': ['other'],
+          citizen: ['citizen', 'us citizen', 'u.s. citizen', 'american citizen'],
+          permanent_resident: ['permanent resident', 'green card', 'lawful permanent'],
+          visa: ['visa', 'work visa', 'h-1b', 'h1b'],
+          other: ['other'],
         };
         const auth = autofillData?.workAuthorization;
         return auth ? authMap[auth]?.[0] : undefined;
@@ -802,20 +964,25 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
     // Willing to Relocate
     {
       patterns: [/relocat/i, /willing.*move/i, /open.*relocation/i],
-      getValue: () => autofillData?.willingToRelocate ? 'yes' : 'no',
+      getValue: () => (autofillData?.willingToRelocate ? 'yes' : 'no'),
       label: 'Relocation',
     },
     // Work Preference (Remote/Hybrid/Onsite)
     {
-      patterns: [/hybrid.*on.?site/i, /work.*preference/i, /remote.*hybrid/i, /willing.*work.*hybrid/i],
+      patterns: [
+        /hybrid.*on.?site/i,
+        /work.*preference/i,
+        /remote.*hybrid/i,
+        /willing.*work.*hybrid/i,
+      ],
       getValue: () => {
         const pref = autofillData?.workPreference || autofillData?.remotePreference;
         const map: Record<string, string> = {
-          'remote': 'remote',
-          'hybrid': 'hybrid',
-          'onsite': 'on-site',
-          'flexible': 'hybrid',
-          'road_warrior': 'road warrior',
+          remote: 'remote',
+          hybrid: 'hybrid',
+          onsite: 'on-site',
+          flexible: 'hybrid',
+          road_warrior: 'road warrior',
         };
         return pref ? map[pref] : undefined;
       },
@@ -859,7 +1026,13 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
     },
     // US Citizenship / Security Clearance
     {
-      patterns: [/us citizen/i, /u\.s\. citizen/i, /american citizen/i, /proof.*citizenship/i, /security clearance/i],
+      patterns: [
+        /us citizen/i,
+        /u\.s\. citizen/i,
+        /american citizen/i,
+        /proof.*citizenship/i,
+        /security clearance/i,
+      ],
       getValue: () => {
         if (autofillData?.workAuthorization === 'citizen') return 'yes';
         return 'no';
@@ -874,10 +1047,16 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
     },
     // Years of Experience (specific role/technology)
     {
-      patterns: [/how many years.*experience/i, /years.*experience.*do you have/i, /years of experience.*working/i],
+      patterns: [
+        /how many years.*experience/i,
+        /years.*experience.*do you have/i,
+        /years of experience.*working/i,
+      ],
       getValue: () => {
         if (!experience || experience.length === 0) return '0-2 years';
-        const firstYear = Math.min(...experience.map(e => parseInt(e.startDate?.slice(0, 4) || '2020')));
+        const firstYear = Math.min(
+          ...experience.map((e) => parseInt(e.startDate?.slice(0, 4) || '2020'))
+        );
         const years = new Date().getFullYear() - firstYear;
         if (years >= 6) return '6+ years';
         if (years >= 3) return '3-5 years';
@@ -887,8 +1066,15 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
     },
     // Commute / Travel
     {
-      patterns: [/commute/i, /travel.*to.*site/i, /report.*to.*office/i, /able.*to.*come.*in/i, /reliably.*commute/i, /commute.*to.*client/i],
-      getValue: () => autofillData?.willingToRelocate !== false ? 'yes' : 'no',
+      patterns: [
+        /commute/i,
+        /travel.*to.*site/i,
+        /report.*to.*office/i,
+        /able.*to.*come.*in/i,
+        /reliably.*commute/i,
+        /commute.*to.*client/i,
+      ],
+      getValue: () => (autofillData?.willingToRelocate !== false ? 'yes' : 'no'),
       label: 'Commute',
     },
     // Referral source
@@ -900,7 +1086,9 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
   ];
 
   // Find all checkbox and radio groups on the page
-  const allInputs = document.querySelectorAll<HTMLInputElement>('input[type="checkbox"], input[type="radio"]');
+  const allInputs = document.querySelectorAll<HTMLInputElement>(
+    'input[type="checkbox"], input[type="radio"]'
+  );
 
   // Group by name, or by parent container for nameless inputs
   const groups = new Map<string, HTMLInputElement[]>();
@@ -911,7 +1099,9 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
 
     // If no name, group by parent container
     if (!groupKey) {
-      const container = input.closest('fieldset, [role="group"], .checkbox-group, .radio-group, .form-group, .field-group');
+      const container = input.closest(
+        'fieldset, [role="group"], .checkbox-group, .radio-group, .form-group, .field-group'
+      );
       if (container) {
         // Generate a unique ID for this container
         if (!(container as HTMLElement).dataset.jpGroupId) {
@@ -929,21 +1119,21 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
   }
 
   // For each group, try to match and fill
-  for (const [_name, inputs] of groups) {
+  for (const [, inputs] of groups) {
     if (inputs.length < 2) continue; // Single checkbox, not a group
-    if (inputs.some(i => i.checked)) continue; // Already has selection
+    if (inputs.some((i) => i.checked)) continue; // Already has selection
 
     // Find the group's label/context - search more broadly
     const firstInput = inputs[0];
     const groupContext = findGroupContext(firstInput);
 
     // Also get context from all option labels to detect the type of question
-    const allLabels = inputs.map(i => findCheckboxLabel(i)).join(' ');
+    const allLabels = inputs.map((i) => findCheckboxLabel(i)).join(' ');
     const combinedContext = `${groupContext} ${allLabels}`.toLowerCase();
 
     // Try to match with our patterns
     for (const matcher of groupMatchers) {
-      const matches = matcher.patterns.some(p => p.test(combinedContext));
+      const matches = matcher.patterns.some((p) => p.test(combinedContext));
       if (!matches) continue;
 
       const targetValue = matcher.getValue();
@@ -951,7 +1141,7 @@ async function fillCheckboxGroups(profile: ResumeProfile): Promise<FilledField[]
 
       // Find the input that best matches the target value
       const targetLower = targetValue.toLowerCase();
-      const targetWords = targetLower.split(/[\s\-\/]+/).filter(w => w.length > 2);
+      const targetWords = targetLower.split(/[\s\-/]+/).filter((w) => w.length > 2);
 
       let bestMatch: { input: HTMLInputElement; score: number } | null = null;
 
@@ -1061,7 +1251,7 @@ function findGroupContext(input: HTMLInputElement): string {
 
   // Use input's name as additional context
   if (input.name) {
-    contextParts.push(input.name.replace(/[\[\]_-]/g, ' '));
+    contextParts.push(input.name.replace(/[[\]_-]/g, ' '));
   }
 
   return contextParts.join(' ');
@@ -1104,10 +1294,10 @@ function matchesYesNo(target: string, option: string): boolean {
   const yesTerms = ['yes', 'true', 'agree', 'affirmative'];
   const noTerms = ['no', 'false', 'disagree', 'negative'];
 
-  const targetIsYes = yesTerms.some(t => target.includes(t));
-  const targetIsNo = noTerms.some(t => target.includes(t));
-  const optionIsYes = yesTerms.some(t => option.includes(t));
-  const optionIsNo = noTerms.some(t => option.includes(t));
+  const targetIsYes = yesTerms.some((t) => target.includes(t));
+  const targetIsNo = noTerms.some((t) => target.includes(t));
+  const optionIsYes = yesTerms.some((t) => option.includes(t));
+  const optionIsNo = noTerms.some((t) => option.includes(t));
 
   return (targetIsYes && optionIsYes) || (targetIsNo && optionIsNo);
 }
@@ -1116,7 +1306,25 @@ function matchesYesNo(target: string, option: string): boolean {
  * Sleep helper
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Highlight a single field after filling (visual feedback)
+ */
+function highlightField(element: HTMLElement): void {
+  const originalOutline = element.style.outline;
+  const originalTransition = element.style.transition;
+
+  element.style.transition = 'outline 0.3s ease';
+  element.style.outline = '2px solid #22c55e';
+
+  setTimeout(() => {
+    element.style.outline = originalOutline;
+    setTimeout(() => {
+      element.style.transition = originalTransition;
+    }, 300);
+  }, 2000);
 }
 
 /**
@@ -1124,18 +1332,7 @@ function sleep(ms: number): Promise<void> {
  */
 export function highlightFilledFields(fields: FilledField[]): void {
   for (const field of fields) {
-    const element = field.element as HTMLElement;
-    const originalBorder = element.style.border;
-    const originalBoxShadow = element.style.boxShadow;
-
-    element.style.border = '2px solid #22c55e';
-    element.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.2)';
-
-    // Remove highlight after 3 seconds
-    setTimeout(() => {
-      element.style.border = originalBorder;
-      element.style.boxShadow = originalBoxShadow;
-    }, 3000);
+    highlightField(field.element as HTMLElement);
   }
 }
 
@@ -1147,10 +1344,7 @@ export function highlightFilledFields(fields: FilledField[]): void {
  * Learn from user's manual fills
  * Call this after user manually fills a field that was skipped
  */
-export async function learnFromManualFill(
-  questionLabel: string,
-  answer: string
-): Promise<boolean> {
+export async function learnFromManualFill(questionLabel: string, answer: string): Promise<boolean> {
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'SAVE_ANSWER',
@@ -1224,10 +1418,7 @@ export function watchForManualFills(skippedFields: SkippedField[]): void {
 /**
  * Simple debounce helper
  */
-function debounce(
-  func: (e: Event) => void,
-  wait: number
-): (e: Event) => void {
+function debounce(func: (e: Event) => void, wait: number): (e: Event) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   return (e: Event) => {
     if (timeout) clearTimeout(timeout);

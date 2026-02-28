@@ -5,12 +5,20 @@
  */
 
 import type { AIService } from '@/ai';
-import type { MasterProfile, GeneratedProfile, SkillDetail } from '@shared/types/master-profile.types';
+import type {
+  MasterProfile,
+  GeneratedProfile,
+  SkillDetail,
+} from '@shared/types/master-profile.types';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import type { ExtractedJob } from '@shared/types/job.types';
 import { getCustomPatterns, getCustomVariations } from './custom-keywords';
 import { getAllPatterns, findKeywordByName } from './keywords';
-import { detectBackgroundFromJD, getBackgroundConfig, type BackgroundType } from '@shared/types/background.types';
+import {
+  detectBackgroundFromJD,
+  getBackgroundConfig,
+  type BackgroundType,
+} from '@shared/types/background.types';
 
 export interface KeywordWithWeight {
   keyword: string;
@@ -59,6 +67,36 @@ export interface PrioritizedAction {
 }
 
 /**
+ * Strip HR/EEO/legal boilerplate from job descriptions before keyword extraction.
+ * These sections contain words like "diversity", "inclusion", "equal opportunity"
+ * that pollute keyword matching with non-technical terms.
+ */
+export function stripBoilerplate(text: string): string {
+  // Remove common EEO/legal sections that appear at the end of JDs
+  const boilerplatePatterns = [
+    // EEO statements
+    /(?:^|\n)\s*(?:equal\s+(?:employment\s+)?opportunity|eeo|eeoc|we\s+are\s+an?\s+equal|affirmative\s+action)[^\n]*(?:\n(?!\s*(?:what|how|about|job|role|responsibilities|requirements|qualifications))[^\n]*)*/gi,
+    // Diversity/inclusion boilerplate paragraphs
+    /(?:^|\n)\s*(?:at\s+\w+,?\s+)?(?:we\s+(?:take\s+great\s+pride|value\s+diversity|are\s+(?:committed|proud)|celebrate|believe)\s+(?:in\s+)?(?:the\s+)?(?:diversity|inclusion|celebrating|equal|supporting))[^\n]*(?:\n(?!\s*(?:what|how|about|job|role|responsibilities|requirements|qualifications))[^\n]*)*/gi,
+    // ADA/accommodation notices
+    /(?:^|\n)\s*(?:reasonable\s+accommodations?|americans?\s+with\s+disabilities|ada\s+compliance)[^\n]*(?:\n[^\n]*)*/gi,
+    // Applicant authorization / visa boilerplate
+    /(?:^|\n)\s*(?:applicants?\s+must\s+be\s+(?:currently\s+)?authorized|the\s+company\s+will\s+not\s+sponsor)[^\n]*/gi,
+    // Background check notices
+    /(?:^|\n)\s*(?:background\s+check|drug\s+(?:test|screen)|pre-employment\s+screening)[^\n]*/gi,
+    // Generic legal disclaimers
+    /(?:^|\n)\s*(?:this\s+(?:job\s+)?(?:description|posting)\s+is\s+not\s+(?:intended\s+to\s+be\s+)?(?:an?\s+)?(?:exhaustive|comprehensive|all-inclusive))[^\n]*/gi,
+  ];
+
+  let cleaned = text;
+  for (const pattern of boilerplatePatterns) {
+    cleaned = cleaned.replace(pattern, '\n');
+  }
+
+  return cleaned.trim();
+}
+
+/**
  * Quick ATS Score - Strategic instant analysis (no AI needed)
  * Uses frequency-weighted keyword matching with context awareness
  */
@@ -80,8 +118,11 @@ export function calculateQuickATSScore(
     detectedJobBackground
   );
 
+  // Strip HR/EEO boilerplate before keyword extraction
+  const cleanedJD = stripBoilerplate(jobDescription);
+
   // Extract keywords with frequency and position weighting
-  const weightedKeywords = extractWeightedKeywords(jobDescription);
+  const weightedKeywords = extractWeightedKeywords(cleanedJD);
 
   // Check if we have enough keywords for reliable scoring
   // Need at least 3 keywords to make a meaningful assessment
@@ -114,9 +155,8 @@ export function calculateQuickATSScore(
 
   // Calculate base score from weighted keyword match
   // If not enough keywords, score is 0 (unable to analyze reliably)
-  let score = totalWeight > 0 && hasEnoughKeywords
-    ? Math.round((weightedScore / totalWeight) * 100)
-    : 0;
+  let score =
+    totalWeight > 0 && hasEnoughKeywords ? Math.round((weightedScore / totalWeight) * 100) : 0;
 
   // Determine seniority match
   let seniorityMatch: 'match' | 'over' | 'under' | 'unknown' = 'unknown';
@@ -139,7 +179,11 @@ export function calculateQuickATSScore(
   }
 
   // Bonus for matching experience years
-  if (yearsRequired !== null && 'careerContext' in profile && profile.careerContext?.yearsOfExperience) {
+  if (
+    yearsRequired !== null &&
+    'careerContext' in profile &&
+    profile.careerContext?.yearsOfExperience
+  ) {
     const profileYears = profile.careerContext.yearsOfExperience;
     if (profileYears >= yearsRequired) {
       score = Math.min(score + 5, 100);
@@ -150,9 +194,8 @@ export function calculateQuickATSScore(
     }
   }
 
-  const matchPercentage = weightedKeywords.length > 0
-    ? Math.round((matched.length / weightedKeywords.length) * 100)
-    : 0;
+  const matchPercentage =
+    weightedKeywords.length > 0 ? Math.round((matched.length / weightedKeywords.length) * 100) : 0;
 
   // Apply penalty for background mismatch
   if (backgroundMismatch) {
@@ -180,7 +223,9 @@ export function calculateQuickATSScore(
 /**
  * Extract profile background from MasterProfile or GeneratedProfile
  */
-function extractProfileBackground(profile: MasterProfile | GeneratedProfile | ResumeProfile): BackgroundType | null {
+function extractProfileBackground(
+  profile: MasterProfile | GeneratedProfile | ResumeProfile
+): BackgroundType | null {
   if ('backgroundConfig' in profile && profile.backgroundConfig?.background) {
     return profile.backgroundConfig.background;
   }
@@ -188,10 +233,19 @@ function extractProfileBackground(profile: MasterProfile | GeneratedProfile | Re
   // Try to infer from careerContext
   if ('careerContext' in profile && profile.careerContext?.primaryDomain) {
     const domain = profile.careerContext.primaryDomain.toLowerCase();
-    if (domain.includes('software') || domain.includes('engineer') || domain.includes('developer') || domain.includes('backend') || domain.includes('frontend')) {
+    if (
+      domain.includes('software') ||
+      domain.includes('engineer') ||
+      domain.includes('developer') ||
+      domain.includes('backend') ||
+      domain.includes('frontend')
+    ) {
       return 'computer-science';
     }
-    if (domain.includes('data') && (domain.includes('analyst') || domain.includes('analytics') || domain.includes('science'))) {
+    if (
+      domain.includes('data') &&
+      (domain.includes('analyst') || domain.includes('analytics') || domain.includes('science'))
+    ) {
       return 'data-analytics';
     }
     if (domain.includes('design') || domain.includes('ux') || domain.includes('ui')) {
@@ -200,22 +254,53 @@ function extractProfileBackground(profile: MasterProfile | GeneratedProfile | Re
     if (domain.includes('marketing') || domain.includes('content') || domain.includes('social')) {
       return 'marketing';
     }
-    if (domain.includes('business') || domain.includes('operations') || domain.includes('project') || domain.includes('product')) {
+    if (
+      domain.includes('business') ||
+      domain.includes('operations') ||
+      domain.includes('project') ||
+      domain.includes('product')
+    ) {
       return 'mba-business';
     }
-    if (domain.includes('mechanical') || domain.includes('electrical') || domain.includes('civil') || domain.includes('manufacturing')) {
+    if (
+      domain.includes('mechanical') ||
+      domain.includes('electrical') ||
+      domain.includes('civil') ||
+      domain.includes('manufacturing')
+    ) {
       return 'engineering';
     }
-    if (domain.includes('healthcare') || domain.includes('medical') || domain.includes('nursing') || domain.includes('clinical') || domain.includes('patient')) {
+    if (
+      domain.includes('healthcare') ||
+      domain.includes('medical') ||
+      domain.includes('nursing') ||
+      domain.includes('clinical') ||
+      domain.includes('patient')
+    ) {
       return 'healthcare';
     }
-    if (domain.includes('finance') || domain.includes('accounting') || domain.includes('banking') || domain.includes('investment')) {
+    if (
+      domain.includes('finance') ||
+      domain.includes('accounting') ||
+      domain.includes('banking') ||
+      domain.includes('investment')
+    ) {
       return 'finance';
     }
-    if (domain.includes('legal') || domain.includes('lawyer') || domain.includes('attorney') || domain.includes('law')) {
+    if (
+      domain.includes('legal') ||
+      domain.includes('lawyer') ||
+      domain.includes('attorney') ||
+      domain.includes('law')
+    ) {
       return 'legal';
     }
-    if (domain.includes('education') || domain.includes('teaching') || domain.includes('teacher') || domain.includes('instructor')) {
+    if (
+      domain.includes('education') ||
+      domain.includes('teaching') ||
+      domain.includes('teacher') ||
+      domain.includes('instructor')
+    ) {
       return 'education';
     }
   }
@@ -245,14 +330,14 @@ function checkBackgroundMismatch(
     'computer-science': ['data-analytics', 'design'], // Devs sometimes do data or design
     'data-analytics': ['computer-science', 'mba-business'], // Data overlaps with CS and business
     'mba-business': ['marketing', 'finance'], // Business overlaps with marketing and finance
-    'marketing': ['mba-business', 'design'], // Marketing overlaps with business and design
-    'design': ['marketing', 'computer-science'], // Design overlaps with marketing and CS
-    'engineering': [], // Traditional engineering is quite specific
-    'healthcare': [], // Healthcare is specific
-    'finance': ['mba-business'], // Finance overlaps with business
-    'legal': [], // Legal is specific
-    'education': [], // Education is specific
-    'other': [], // No relations
+    marketing: ['mba-business', 'design'], // Marketing overlaps with business and design
+    design: ['marketing', 'computer-science'], // Design overlaps with marketing and CS
+    engineering: [], // Traditional engineering is quite specific
+    healthcare: [], // Healthcare is specific
+    finance: ['mba-business'], // Finance overlaps with business
+    legal: [], // Legal is specific
+    education: [], // Education is specific
+    other: [], // No relations
   };
 
   const related = relatedBackgrounds[profileBackground] || [];
@@ -279,24 +364,91 @@ function checkBackgroundMismatch(
 function detectJobDomain(jdLower: string): 'tech' | 'non-tech' | 'unknown' {
   // Tech indicators
   const techIndicators = [
-    'software', 'engineer', 'developer', 'programming', 'code', 'api', 'database',
-    'frontend', 'backend', 'full stack', 'devops', 'cloud', 'aws', 'azure', 'gcp',
-    'react', 'angular', 'vue', 'node', 'python', 'java', 'javascript', 'typescript',
-    'kubernetes', 'docker', 'microservice', 'machine learning', 'data science',
-    'artificial intelligence', 'ml', 'ai', 'data engineer', 'sre', 'qa engineer',
-    'test automation', 'mobile developer', 'ios', 'android', 'security engineer',
+    'software',
+    'engineer',
+    'developer',
+    'programming',
+    'code',
+    'api',
+    'database',
+    'frontend',
+    'backend',
+    'full stack',
+    'devops',
+    'cloud',
+    'aws',
+    'azure',
+    'gcp',
+    'react',
+    'angular',
+    'vue',
+    'node',
+    'python',
+    'java',
+    'javascript',
+    'typescript',
+    'kubernetes',
+    'docker',
+    'microservice',
+    'machine learning',
+    'data science',
+    'artificial intelligence',
+    'ml',
+    'ai',
+    'data engineer',
+    'sre',
+    'qa engineer',
+    'test automation',
+    'mobile developer',
+    'ios',
+    'android',
+    'security engineer',
   ];
 
   // Non-tech indicators
   const nonTechIndicators = [
-    'retail', 'store', 'cashier', 'sales associate', 'customer service', 'warehouse',
-    'driver', 'delivery', 'cook', 'chef', 'restaurant', 'server', 'bartender',
-    'nurse', 'nursing', 'medical assistant', 'pharmacy', 'healthcare', 'patient',
-    'teacher', 'instructor', 'tutor', 'education', 'administrative assistant',
-    'receptionist', 'office manager', 'accountant', 'bookkeeper', 'hr coordinator',
-    'marketing coordinator', 'sales representative', 'account executive',
-    'construction', 'electrician', 'plumber', 'mechanic', 'technician',
-    'security guard', 'janitor', 'housekeeper', 'cleaner', 'landscaper',
+    'retail',
+    'store',
+    'cashier',
+    'sales associate',
+    'customer service',
+    'warehouse',
+    'driver',
+    'delivery',
+    'cook',
+    'chef',
+    'restaurant',
+    'server',
+    'bartender',
+    'nurse',
+    'nursing',
+    'medical assistant',
+    'pharmacy',
+    'healthcare',
+    'patient',
+    'teacher',
+    'instructor',
+    'tutor',
+    'education',
+    'administrative assistant',
+    'receptionist',
+    'office manager',
+    'accountant',
+    'bookkeeper',
+    'hr coordinator',
+    'marketing coordinator',
+    'sales representative',
+    'account executive',
+    'construction',
+    'electrician',
+    'plumber',
+    'mechanic',
+    'technician',
+    'security guard',
+    'janitor',
+    'housekeeper',
+    'cleaner',
+    'landscaper',
   ];
 
   let techScore = 0;
@@ -381,32 +533,196 @@ function autoExtractTechKeywords(
   existingKeywords: Map<string, KeywordWithWeight>
 ): KeywordWithWeight[] {
   const detected: KeywordWithWeight[] = [];
-  const existingLower = new Set([...existingKeywords.keys()].map(k => k.toLowerCase()));
+  const existingLower = new Set([...existingKeywords.keys()].map((k) => k.toLowerCase()));
   const text = jobDescription;
 
   // Common words to ignore (not tech terms)
   const stopWords = new Set([
-    'the', 'and', 'for', 'with', 'you', 'your', 'our', 'this', 'that', 'will',
-    'are', 'have', 'has', 'been', 'being', 'their', 'them', 'they', 'what',
-    'when', 'where', 'which', 'who', 'how', 'all', 'each', 'every', 'both',
-    'few', 'more', 'most', 'other', 'some', 'such', 'into', 'through',
-    'during', 'before', 'after', 'above', 'below', 'between', 'under',
-    'about', 'team', 'work', 'working', 'experience', 'years', 'required',
-    'preferred', 'strong', 'good', 'excellent', 'ability', 'skills', 'knowledge',
-    'understanding', 'proficiency', 'familiar', 'familiarity', 'minimum',
-    'must', 'should', 'would', 'could', 'can', 'may', 'might', 'shall',
-    'looking', 'seeking', 'join', 'opportunity', 'role', 'position', 'job',
-    'company', 'organization', 'business', 'industry', 'market', 'client',
-    'customer', 'user', 'project', 'product', 'service', 'solution',
-    'develop', 'development', 'developer', 'engineer', 'engineering',
-    'design', 'designer', 'build', 'building', 'create', 'creating',
-    'implement', 'implementation', 'maintain', 'maintenance', 'support',
-    'manage', 'management', 'lead', 'leading', 'senior', 'junior', 'mid',
-    'level', 'plus', 'bonus', 'nice', 'equal', 'employer', 'opportunity',
-    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-    'january', 'february', 'march', 'april', 'june', 'july', 'august',
-    'september', 'october', 'november', 'december', 'remote', 'onsite', 'hybrid',
-    'full', 'time', 'part', 'contract', 'permanent', 'salary', 'benefits',
+    'the',
+    'and',
+    'for',
+    'with',
+    'you',
+    'your',
+    'our',
+    'this',
+    'that',
+    'will',
+    'are',
+    'have',
+    'has',
+    'been',
+    'being',
+    'their',
+    'them',
+    'they',
+    'what',
+    'when',
+    'where',
+    'which',
+    'who',
+    'how',
+    'all',
+    'each',
+    'every',
+    'both',
+    'few',
+    'more',
+    'most',
+    'other',
+    'some',
+    'such',
+    'into',
+    'through',
+    'during',
+    'before',
+    'after',
+    'above',
+    'below',
+    'between',
+    'under',
+    'about',
+    'team',
+    'work',
+    'working',
+    'experience',
+    'years',
+    'required',
+    'preferred',
+    'strong',
+    'good',
+    'excellent',
+    'ability',
+    'skills',
+    'knowledge',
+    'understanding',
+    'proficiency',
+    'familiar',
+    'familiarity',
+    'minimum',
+    'must',
+    'should',
+    'would',
+    'could',
+    'can',
+    'may',
+    'might',
+    'shall',
+    'looking',
+    'seeking',
+    'join',
+    'opportunity',
+    'role',
+    'position',
+    'job',
+    'company',
+    'organization',
+    'business',
+    'industry',
+    'market',
+    'client',
+    'customer',
+    'user',
+    'project',
+    'product',
+    'service',
+    'solution',
+    'develop',
+    'development',
+    'developer',
+    'engineer',
+    'engineering',
+    'design',
+    'designer',
+    'build',
+    'building',
+    'create',
+    'creating',
+    'implement',
+    'implementation',
+    'maintain',
+    'maintenance',
+    'support',
+    'manage',
+    'management',
+    'lead',
+    'leading',
+    'senior',
+    'junior',
+    'mid',
+    'level',
+    'plus',
+    'bonus',
+    'nice',
+    'equal',
+    'employer',
+    'opportunity',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+    'january',
+    'february',
+    'march',
+    'april',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+    'remote',
+    'onsite',
+    'hybrid',
+    'full',
+    'time',
+    'part',
+    'contract',
+    'permanent',
+    'salary',
+    'benefits',
+    // HR/EEO/legal terms that leak through
+    'diversity',
+    'inclusion',
+    'inclusive',
+    'belonging',
+    'equity',
+    'accommodation',
+    'accommodations',
+    'disability',
+    'disabilities',
+    'affirmative',
+    'discrimination',
+    'harassment',
+    'veteran',
+    'veterans',
+    'gender',
+    'race',
+    'ethnicity',
+    'religion',
+    'orientation',
+    'identity',
+    'protected',
+    'status',
+    'applicant',
+    'applicants',
+    'authorize',
+    'authorized',
+    'sponsor',
+    'sponsorship',
+    'visa',
+    'citizenship',
+    'comply',
+    'compliance',
+    'background',
+    'screening',
+    'check',
+    'drug',
+    'test',
   ]);
 
   // Pattern 1: Capitalized technology names (e.g., "Splunk", "Terraform", "Airflow")
@@ -450,13 +766,36 @@ function autoExtractTechKeywords(
     const acronymLower = acronym.toLowerCase();
 
     // Skip common non-tech acronyms
-    const skipAcronyms = new Set(['USA', 'USD', 'CEO', 'CTO', 'CFO', 'COO', 'HR', 'IT', 'PM', 'QA', 'BA', 'UI', 'UX']);
+    const skipAcronyms = new Set([
+      'USA',
+      'USD',
+      'CEO',
+      'CTO',
+      'CFO',
+      'COO',
+      'HR',
+      'IT',
+      'PM',
+      'QA',
+      'BA',
+      'UI',
+      'UX',
+      'EEO',
+      'EEOC',
+      'ADA',
+      'OFCCP',
+      'EOE',
+      'AA',
+      'FLSA',
+      'FMLA',
+    ]);
     if (existingLower.has(acronymLower) || skipAcronyms.has(acronym) || acronym.length < 2) {
       continue;
     }
 
     const frequency = (text.match(new RegExp(`\\b${acronym}\\b`, 'g')) || []).length;
-    if (frequency >= 2) { // Acronyms need at least 2 mentions
+    if (frequency >= 2) {
+      // Acronyms need at least 2 mentions
       detected.push({
         keyword: acronym,
         weight: Math.min(frequency, 3),
@@ -475,12 +814,19 @@ function autoExtractTechKeywords(
     const combined = `${tech} ${version}`;
     const combinedLower = combined.toLowerCase();
 
-    if (existingLower.has(combinedLower) || existingLower.has(tech.toLowerCase()) || tech.length < 2) {
+    if (
+      existingLower.has(combinedLower) ||
+      existingLower.has(tech.toLowerCase()) ||
+      tech.length < 2
+    ) {
       continue;
     }
 
     // Only include if the tech name looks like a technology
-    if (/^[A-Z]/.test(tech) || ['java', 'python', 'node', 'es', 'php', 'go', 'ruby'].includes(tech.toLowerCase())) {
+    if (
+      /^[A-Z]/.test(tech) ||
+      ['java', 'python', 'node', 'es', 'php', 'go', 'ruby'].includes(tech.toLowerCase())
+    ) {
       detected.push({
         keyword: combined,
         weight: 2,
@@ -501,7 +847,9 @@ function autoExtractTechKeywords(
       continue;
     }
 
-    const frequency = (text.match(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')) || []).length;
+    const frequency = (
+      text.match(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')) || []
+    ).length;
     detected.push({
       keyword: word,
       weight: Math.min(frequency + 1, 3),
@@ -522,7 +870,9 @@ function autoExtractTechKeywords(
     }
 
     // Check frequency
-    const frequency = (text.match(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')) || []).length;
+    const frequency = (
+      text.match(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')) || []
+    ).length;
     if (frequency >= 1) {
       detected.push({
         keyword: word,
@@ -563,7 +913,10 @@ function extractRequirementsSection(text: string): string | null {
 /**
  * Extract seniority level and years required from JD
  */
-function extractSeniorityContext(jdLower: string): { seniorityLevel: string | null; yearsRequired: number | null } {
+function extractSeniorityContext(jdLower: string): {
+  seniorityLevel: string | null;
+  yearsRequired: number | null;
+} {
   // Extract years of experience
   const yearsPatterns = [
     /(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)/i,
@@ -609,7 +962,9 @@ function extractSeniorityContext(jdLower: string): { seniorityLevel: string | nu
 /**
  * Extract profile seniority level
  */
-function extractProfileSeniority(profile: MasterProfile | GeneratedProfile | ResumeProfile): string | null {
+function extractProfileSeniority(
+  profile: MasterProfile | GeneratedProfile | ResumeProfile
+): string | null {
   if ('careerContext' in profile && profile.careerContext?.seniorityLevel) {
     const level = profile.careerContext.seniorityLevel.toLowerCase();
     if (level.includes('principal') || level.includes('staff')) return 'principal';
@@ -704,10 +1059,10 @@ Return a JSON object:
 Be direct and honest. Inflated scores waste everyone's time.`;
 
   try {
-    const response = await aiService.chat(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.3, maxTokens: 1500 }
-    );
+    const response = await aiService.chat([{ role: 'user', content: prompt }], {
+      temperature: 0.3,
+      maxTokens: 1500,
+    });
 
     const jsonMatch = response.content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -740,15 +1095,11 @@ Be direct and honest. Inflated scores waste everyone's time.`;
       skillMatchScore: quickScore.matchPercentage,
       experienceMatchScore: 50,
       cultureFitScore: 50,
-      strengths: quickScore.matchedKeywords.length > 5
-        ? ['Strong keyword alignment']
-        : [],
-      gaps: quickScore.missingKeywords.length > 5
-        ? ['Several required skills missing']
-        : [],
-      suggestions: quickScore.missingKeywords.slice(0, 3).map(
-        (kw) => `Consider adding ${kw} to your resume`
-      ),
+      strengths: quickScore.matchedKeywords.length > 5 ? ['Strong keyword alignment'] : [],
+      gaps: quickScore.missingKeywords.length > 5 ? ['Several required skills missing'] : [],
+      suggestions: quickScore.missingKeywords
+        .slice(0, 3)
+        .map((kw) => `Consider adding ${kw} to your resume`),
       prioritizedActions: quickScore.missingKeywords.slice(0, 2).map((kw) => ({
         priority: 'high' as const,
         action: `Add ${kw} to your skills`,
@@ -763,7 +1114,9 @@ Be direct and honest. Inflated scores waste everyone's time.`;
 /**
  * Extract skills from different profile types
  */
-function extractProfileSkills(profile: MasterProfile | GeneratedProfile | ResumeProfile): Set<string> {
+function extractProfileSkills(
+  profile: MasterProfile | GeneratedProfile | ResumeProfile
+): Set<string> {
   const skills = new Set<string>();
 
   if ('skills' in profile && profile.skills) {
@@ -811,7 +1164,6 @@ function extractProfileSkills(profile: MasterProfile | GeneratedProfile | Resume
   return skills;
 }
 
-
 /**
  * Check if a keyword matches any skill
  * Uses the comprehensive keyword library for variation matching
@@ -828,7 +1180,10 @@ function matchesSkill(keyword: string, skills: Set<string>): boolean {
   const keywordEntry = findKeywordByName(keyword);
   if (keywordEntry) {
     // Check if any variation matches a skill
-    const allVariations = [keywordEntry.name.toLowerCase(), ...keywordEntry.variations.map(v => v.toLowerCase())];
+    const allVariations = [
+      keywordEntry.name.toLowerCase(),
+      ...keywordEntry.variations.map((v) => v.toLowerCase()),
+    ];
     for (const variation of allVariations) {
       if (skills.has(variation)) {
         return true;
@@ -906,7 +1261,12 @@ Name: ${mp.personal?.fullName || 'Unknown'}
 Years of Experience: ${mp.careerContext?.yearsOfExperience || 0}
 Seniority: ${mp.careerContext?.seniorityLevel || 'Unknown'}
 Primary Domain: ${mp.careerContext?.primaryDomain || 'Unknown'}
-Top Skills: ${mp.skills?.technical?.slice(0, 15).map((s) => typeof s === 'string' ? s : s.name).join(', ') || 'N/A'}
+Top Skills: ${
+      mp.skills?.technical
+        ?.slice(0, 15)
+        .map((s) => (typeof s === 'string' ? s : s.name))
+        .join(', ') || 'N/A'
+    }
 Key Strengths: ${mp.careerContext?.strengthAreas?.join(', ') || 'N/A'}
 `.trim();
   } else {
@@ -956,9 +1316,7 @@ export function getQuickRecommendations(quickScore: QuickATSScore): string[] {
         'This appears to be a non-tech role. Our analysis works best with tech/IT positions.'
       );
     } else if (quickScore.detectedJobDomain === 'unknown') {
-      recommendations.push(
-        'Could not determine the job type. Consider reviewing manually.'
-      );
+      recommendations.push('Could not determine the job type. Consider reviewing manually.');
     }
 
     return recommendations;
@@ -992,9 +1350,7 @@ export function getQuickRecommendations(quickScore: QuickATSScore): string[] {
   // General keyword advice
   if (quickScore.missingKeywords.length > 0 && quickScore.criticalMissing.length === 0) {
     const topMissing = quickScore.missingKeywords.slice(0, 3);
-    recommendations.push(
-      `Consider adding: ${topMissing.join(', ')}`
-    );
+    recommendations.push(`Consider adding: ${topMissing.join(', ')}`);
   }
 
   // Tier-specific advice

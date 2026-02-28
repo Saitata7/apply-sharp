@@ -4,6 +4,7 @@ import { IndeedDetector } from './indeed';
 import { GreenhouseDetector } from './greenhouse';
 import { LeverDetector } from './lever';
 import { DiceDetector } from './dice';
+import { WorkdayDetector } from './workday';
 import { GenericDetector } from './generic';
 
 export interface JobDetector {
@@ -30,8 +31,7 @@ export function createDetector(platform: JobPlatform): JobDetector | null {
       // Monster uses similar structure to generic
       return new GenericDetector();
     case 'workday':
-      // TODO: Implement WorkdayDetector
-      return new GenericDetector();
+      return new WorkdayDetector();
     case 'generic':
       return new GenericDetector();
     default:

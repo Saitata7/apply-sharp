@@ -12,7 +12,14 @@ import type { Job, ExtractedJob } from '@shared/types/job.types';
 import { AIService } from '@/ai';
 import { CareerContextEngine } from '@core/profile/context-engine';
 import { getKeywordsToAdd } from '@core/ats/matcher';
-import { calculateQuickATSScore, getQuickRecommendations } from '@core/ats/hybrid-scorer';
+import {
+  calculateQuickATSScore,
+  getQuickRecommendations,
+  stripBoilerplate,
+} from '@core/ats/hybrid-scorer';
+import { validateATSFormat, extractResumeContent } from '@core/ats/format-validator';
+import { validateAllBullets } from '@core/resume/bullet-validator';
+import type { SeniorityLevel } from '@core/resume/bullet-validator';
 import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
@@ -313,6 +320,24 @@ export async function handleMessage(
 
     case 'DELETE_RESUME_VERSION':
       return handleDeleteResumeVersion(message.payload as string);
+
+    case 'SCORE_RESUME_ATS':
+      return handleScoreResumeATS(
+        message.payload as {
+          masterProfileId: string;
+          targetPages: number;
+          jobDescription?: string;
+        }
+      );
+
+    case 'SCORE_RESUME_FILE_ATS':
+      return handleScoreResumeFileATS(
+        message.payload as {
+          rawText: string;
+          targetPages: number;
+          jobDescription?: string;
+        }
+      );
 
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
@@ -1846,7 +1871,7 @@ Return ONLY valid JSON, no explanations.`;
 
 // Calculate years of experience from experience array
 function calculateYearsFromExperience(
-  experiences: { startDate?: string; endDate?: string }[]
+  experiences: { startDate?: string; endDate?: string; isCurrent?: boolean }[]
 ): number {
   if (!experiences || experiences.length === 0) return 0;
 
@@ -2066,7 +2091,9 @@ async function handleAnalyzeJDForResume(payload: {
       return { success: false, error: 'AI provider is not available' };
     }
 
-    const jdLower = payload.jobDescription.toLowerCase();
+    // Strip HR/EEO boilerplate before any analysis
+    const cleanedJD = stripBoilerplate(payload.jobDescription);
+    const jdLower = cleanedJD.toLowerCase();
 
     // =========================================================================
     // STEP 1: Deep JD Analysis - Parse INTENT, not just words
@@ -2076,7 +2103,7 @@ async function handleAnalyzeJDForResume(payload: {
 
 You are a senior hiring manager who has reviewed 10,000 resumes. Analyze this job description DEEPLY.
 
-${sanitizePromptInput(payload.jobDescription, 'job_description')}
+${sanitizePromptInput(cleanedJD, 'job_description')}
 
 Don't just extract keywords. Think like a hiring manager:
 
@@ -2279,9 +2306,19 @@ Return ONLY valid JSON.`;
       }
     });
 
-    // Add AI-extracted skills to keywords
+    // Add AI-extracted skills to keywords (only short, keyword-like items)
     [...jdAnalysis.requiredSkills, ...jdAnalysis.preferredSkills].forEach((skill) => {
-      const normalized = skill.toLowerCase();
+      const normalized = skill.toLowerCase().trim();
+      // Skip verbose phrases (>4 words) — these are descriptions, not keywords
+      const wordCount = normalized.split(/\s+/).length;
+      if (wordCount > 4 || normalized.length > 40) return;
+      // Skip generic non-skill phrases
+      if (
+        /^(ability|experience|knowledge|understanding|familiarity|strong|bachelor|master|degree)\b/.test(
+          normalized
+        )
+      )
+        return;
       if (!keywordFrequency.has(normalized)) {
         keywordFrequency.set(normalized, 1);
       }
@@ -3730,6 +3767,261 @@ async function handleDeleteResumeVersion(id: string): Promise<MessageResponse> {
     }
     return { success: true };
   } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ── ATS Score Handler ───────────────────────────────────────────────────
+
+function mapSeniority(level: string): SeniorityLevel {
+  const map: Record<string, SeniorityLevel> = {
+    entry: 'entry',
+    junior: 'entry',
+    mid: 'mid',
+    intermediate: 'mid',
+    senior: 'senior',
+    lead: 'lead',
+    staff: 'lead',
+    principal: 'principal',
+    executive: 'executive',
+    director: 'executive',
+    vp: 'executive',
+  };
+  return map[level.toLowerCase()] || 'mid';
+}
+
+async function handleScoreResumeATS(payload: {
+  masterProfileId: string;
+  targetPages: number;
+  jobDescription?: string;
+}): Promise<MessageResponse> {
+  try {
+    const profile = await masterProfileRepo.getById(payload.masterProfileId);
+    if (!profile) {
+      return { success: false, error: 'Master profile not found' };
+    }
+
+    type AchievementLike = string | { statement: string };
+    type SkillLike = string | { name: string };
+
+    const yearsOfExp = profile.careerContext?.yearsOfExperience || 0;
+    const seniority = mapSeniority(profile.careerContext?.seniorityLevel || 'mid');
+
+    const getAchievementStrings = (exp: {
+      achievements?: AchievementLike[];
+      responsibilities?: string[];
+    }) => [
+      ...(exp.achievements?.map((a: AchievementLike) =>
+        typeof a === 'string' ? a : a.statement
+      ) || []),
+      ...(exp.responsibilities || []),
+    ];
+
+    const getSkillNames = (skills: SkillLike[]) =>
+      skills.map((s: SkillLike) => (typeof s === 'string' ? s : s.name));
+
+    // Build data for extractResumeContent
+    const data = {
+      summary: profile.careerContext?.summary || '',
+      experience: (profile.experience || []).map((exp: (typeof profile.experience)[number]) => ({
+        company: exp.company,
+        title: exp.title,
+        startDate: exp.startDate,
+        endDate: exp.endDate || (exp.isCurrent ? 'Present' : undefined),
+        achievements: getAchievementStrings(exp),
+      })),
+      skills: {
+        technical: getSkillNames(profile.skills?.technical || []),
+        tools: getSkillNames(profile.skills?.tools || []),
+        frameworks: getSkillNames(profile.skills?.frameworks || []),
+      },
+      education: (profile.education || []).map((edu: (typeof profile.education)[number]) => ({
+        institution: edu.institution,
+        degree: edu.degree || edu.normalizedDegree || '',
+        year: edu.endDate,
+      })),
+      certifications: (profile.certifications || []).map(
+        (c: (typeof profile.certifications)[number]) => (typeof c === 'string' ? c : c.name)
+      ),
+      projects: (profile.projects || []).map((p: (typeof profile.projects)[number]) => ({
+        name: p.name,
+        highlights: p.highlights,
+      })),
+    };
+
+    // 1. Format validation
+    const resumeContent = extractResumeContent(data, yearsOfExp, payload.targetPages);
+    const formatScore = validateATSFormat(resumeContent);
+
+    // 2. Bullet validation
+    const roles = (profile.experience || []).map((exp: (typeof profile.experience)[number]) => ({
+      company: exp.company,
+      title: exp.title,
+      bullets: getAchievementStrings(exp),
+      seniority,
+    }));
+    const bulletReport = validateAllBullets(roles);
+
+    // 3. Optional keyword scoring (needs JD)
+    let keywordScore = undefined;
+    if (payload.jobDescription?.trim()) {
+      try {
+        keywordScore = calculateQuickATSScore(profile, payload.jobDescription);
+      } catch {
+        // Keyword scoring failed — not critical
+      }
+    }
+
+    // 4. Compute overall weighted score
+    let overallScore: number;
+    if (keywordScore) {
+      overallScore = Math.round(
+        formatScore.overallScore * 0.25 +
+          bulletReport.overallScore * 0.35 +
+          keywordScore.score * 0.4
+      );
+    } else {
+      overallScore = Math.round(formatScore.overallScore * 0.4 + bulletReport.overallScore * 0.6);
+    }
+
+    return {
+      success: true,
+      data: {
+        formatScore,
+        bulletReport,
+        keywordScore,
+        overallScore,
+      },
+    };
+  } catch (error) {
+    console.error('[ApplySharp] ATS scoring failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ── File-based ATS Score Handler ────────────────────────────────────────
+
+function parseResumeContentFromText(
+  rawText: string,
+  targetPages: number
+): import('@core/ats/format-validator').ResumeContent {
+  const lines = rawText.split('\n').filter((l) => l.trim());
+  const sections: Array<{ header: string; content: string }> = [];
+  const bullets: string[] = [];
+  const dates: string[] = [];
+
+  // Common section header patterns
+  const sectionPattern =
+    /^(summary|profile|professional summary|executive summary|work experience|professional experience|experience|employment history|education|academic background|skills|technical skills|core competencies|certifications|projects|academic projects|personal projects|key projects|publications|awards|honors|volunteer experience)$/i;
+
+  let currentSection: { header: string; content: string } | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Check if line is a section header
+    if (
+      sectionPattern.test(trimmed) ||
+      (trimmed.length < 40 &&
+        trimmed === trimmed.toUpperCase() &&
+        /^[A-Z\s&/]+$/.test(trimmed) &&
+        trimmed.length > 3)
+    ) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { header: trimmed, content: '' };
+      continue;
+    }
+
+    // Check if line is a bullet point
+    if (/^[•\-–*]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+      const bulletText = trimmed.replace(/^[•\-–*\d.]\s*/, '');
+      if (bulletText.length > 20) bullets.push(bulletText);
+    }
+
+    // Extract dates
+    const dateMatches = trimmed.match(
+      /\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4}|\d{1,2}\/\d{4}|(?:19|20)\d{2}|Present|Current)\b/gi
+    );
+    if (dateMatches) dates.push(...dateMatches);
+
+    // Add to current section content
+    if (currentSection) {
+      currentSection.content += (currentSection.content ? ' ' : '') + trimmed;
+    }
+  }
+  if (currentSection) sections.push(currentSection);
+
+  // Estimate years of experience from date ranges
+  let yearsOfExperience = 0;
+  const yearPattern = /\b((?:19|20)\d{2})\s*[-–]\s*(Present|Current|(?:19|20)\d{2})/gi;
+  const currentYear = new Date().getFullYear();
+  let totalMonths = 0;
+  let match;
+  while ((match = yearPattern.exec(rawText)) !== null) {
+    const start = parseInt(match[1], 10);
+    const end = /present|current/i.test(match[2]) ? currentYear : parseInt(match[2], 10);
+    if (end >= start) totalMonths += (end - start + 1) * 12;
+  }
+  yearsOfExperience = Math.round(totalMonths / 12);
+
+  const wordCount = rawText.split(/\s+/).filter(Boolean).length;
+
+  return {
+    sections,
+    bullets,
+    dates,
+    fullText: rawText,
+    wordCount,
+    yearsOfExperience,
+    pageCount: targetPages,
+  };
+}
+
+async function handleScoreResumeFileATS(payload: {
+  rawText: string;
+  targetPages: number;
+  jobDescription?: string;
+}): Promise<MessageResponse> {
+  try {
+    if (!payload.rawText?.trim()) {
+      return { success: false, error: 'No text content to score' };
+    }
+
+    // Build ResumeContent from raw text
+    const resumeContent = parseResumeContentFromText(payload.rawText, payload.targetPages);
+
+    // 1. Format validation
+    const formatScore = validateATSFormat(resumeContent);
+
+    // 2. Bullet validation — group all bullets under a single "Uploaded Resume" role
+    const bulletRoles =
+      resumeContent.bullets.length > 0
+        ? [
+            {
+              company: 'Uploaded Resume',
+              title: 'All Roles',
+              bullets: resumeContent.bullets,
+              seniority: mapSeniority('mid'),
+            },
+          ]
+        : [];
+    const bulletReport = validateAllBullets(bulletRoles);
+
+    // 3. Compute overall (no keyword scoring for file-only — no profile context)
+    const overallScore = Math.round(
+      formatScore.overallScore * 0.4 + bulletReport.overallScore * 0.6
+    );
+
+    return {
+      success: true,
+      data: {
+        formatScore,
+        bulletReport,
+        overallScore,
+      },
+    };
+  } catch (error) {
+    console.error('[ApplySharp] File ATS scoring failed:', error);
     return { success: false, error: (error as Error).message };
   }
 }

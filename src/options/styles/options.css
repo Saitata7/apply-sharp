@@ -5154,7 +5154,280 @@ body {
   color: #10b981;
 }
 
-/* Download Buttons */
+/* ============================================================================
+   Step Indicator
+   ============================================================================ */
+
+.resume-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 16px 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.resume-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.4;
+  transition: all 0.2s;
+}
+
+.resume-step.active {
+  opacity: 1;
+}
+
+.resume-step.completed {
+  opacity: 0.7;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.resume-step.active .step-num {
+  background: #3b82f6;
+  color: white;
+}
+
+.resume-step.completed .step-num {
+  background: #22c55e;
+  color: white;
+}
+
+.step-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.resume-step.active .step-text {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.step-line {
+  width: 40px;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 12px;
+  transition: background 0.2s;
+}
+
+.step-line.completed {
+  background: #22c55e;
+}
+
+/* ============================================================================
+   Keywords Collapse Toggle
+   ============================================================================ */
+
+.keywords-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.keywords-collapse-toggle:hover {
+  opacity: 0.8;
+}
+
+.keywords-collapse-toggle h4 {
+  margin: 0 !important;
+}
+
+.collapse-arrow {
+  font-size: 14px;
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+
+.collapse-arrow.open {
+  transform: rotate(90deg);
+}
+
+/* ============================================================================
+   Generate Section (in body)
+   ============================================================================ */
+
+.generate-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.generate-section h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.generate-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 16px 0;
+}
+
+.page-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.page-control label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.page-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+  color: #374151;
+  background: white;
+}
+
+.page-hint {
+  font-size: 11px;
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.format-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.format-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  position: relative;
+}
+
+.format-card:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.format-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.format-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.format-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.format-info strong {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.format-info span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.format-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.format-badge.recommended {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* ============================================================================
+   Post-Download Card
+   ============================================================================ */
+
+.post-download-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-top: 16px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+}
+
+.post-download-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.post-download-content {
+  flex: 1;
+}
+
+.post-download-content strong {
+  display: block;
+  font-size: 14px;
+  color: #065f46;
+  margin-bottom: 2px;
+}
+
+.post-download-content p {
+  font-size: 13px;
+  color: #047857;
+  margin: 0;
+}
+
+.post-download-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Download Buttons (legacy) */
 .download-buttons {
   display: flex;
   gap: 8px;

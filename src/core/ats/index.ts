@@ -21,6 +21,10 @@ export {
 } from './layered-scorer';
 export type { SkillAreaWeight, LayeredScoreInput } from './layered-scorer';
 
+// ATS Format Validator
+export { validateATSFormat, extractResumeContent } from './format-validator';
+export type { ATSFormatScore, FormatIssue, ResumeContent } from './format-validator';
+
 // Keywords Library
 export {
   getAllPatterns,

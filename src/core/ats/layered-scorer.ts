@@ -14,7 +14,11 @@
  * - Helps resume optimization (know what to emphasize)
  */
 
-import type { MasterProfile, GeneratedProfile, SkillDetail } from '@shared/types/master-profile.types';
+import type {
+  MasterProfile,
+  GeneratedProfile,
+  SkillDetail,
+} from '@shared/types/master-profile.types';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import type {
   BackgroundType,
@@ -28,6 +32,7 @@ import {
   getRoleConfig,
 } from '@shared/types/background.types';
 import { getPatternsForSkillArea, getKeywordsForSkillArea } from './keywords';
+import { stripBoilerplate } from './hybrid-scorer';
 
 // ============================================
 // SKILL AREA INDICATORS
@@ -40,114 +45,409 @@ import { getPatternsForSkillArea, getKeywordsForSkillArea } from './keywords';
 const SKILL_AREA_INDICATORS: Record<string, string[]> = {
   // === TECH SKILL AREAS ===
   frontend: [
-    'react', 'angular', 'vue', 'frontend', 'front-end', 'front end',
-    'html', 'css', 'javascript', 'typescript', 'ui', 'user interface',
-    'responsive', 'spa', 'single page', 'web app', 'browser', 'dom',
-    'redux', 'next.js', 'nextjs', 'tailwind', 'sass', 'scss',
+    'react',
+    'angular',
+    'vue',
+    'frontend',
+    'front-end',
+    'front end',
+    'html',
+    'css',
+    'javascript',
+    'typescript',
+    'ui',
+    'user interface',
+    'responsive',
+    'spa',
+    'single page',
+    'web app',
+    'browser',
+    'dom',
+    'redux',
+    'next.js',
+    'nextjs',
+    'tailwind',
+    'sass',
+    'scss',
   ],
   backend: [
-    'backend', 'back-end', 'back end', 'server', 'api', 'rest',
-    'graphql', 'microservice', 'java', 'python', 'node', 'golang', 'go',
-    'spring', 'django', 'flask', 'express', 'php', 'laravel', 'ruby',
-    'rails', '.net', 'c#', 'scala', 'kotlin', 'rust', 'service',
+    'backend',
+    'back-end',
+    'back end',
+    'server',
+    'api',
+    'rest',
+    'graphql',
+    'microservice',
+    'java',
+    'python',
+    'node',
+    'golang',
+    'go',
+    'spring',
+    'django',
+    'flask',
+    'express',
+    'php',
+    'laravel',
+    'ruby',
+    'rails',
+    '.net',
+    'c#',
+    'scala',
+    'kotlin',
+    'rust',
+    'service',
   ],
   database: [
-    'database', 'sql', 'mysql', 'postgresql', 'postgres', 'mongodb',
-    'redis', 'elasticsearch', 'dynamodb', 'oracle', 'sql server',
-    'nosql', 'data model', 'query', 'stored procedure', 'index',
-    'cassandra', 'firebase', 'rds', 'aurora',
+    'database',
+    'sql',
+    'mysql',
+    'postgresql',
+    'postgres',
+    'mongodb',
+    'redis',
+    'elasticsearch',
+    'dynamodb',
+    'oracle',
+    'sql server',
+    'nosql',
+    'data model',
+    'query',
+    'stored procedure',
+    'index',
+    'cassandra',
+    'firebase',
+    'rds',
+    'aurora',
   ],
   devops: [
-    'devops', 'docker', 'kubernetes', 'k8s', 'aws', 'azure', 'gcp',
-    'cloud', 'ci/cd', 'cicd', 'jenkins', 'terraform', 'ansible',
-    'deploy', 'infrastructure', 'linux', 'pipeline', 'github actions',
-    'gitlab', 'helm', 'monitoring', 'prometheus', 'grafana',
+    'devops',
+    'docker',
+    'kubernetes',
+    'k8s',
+    'aws',
+    'azure',
+    'gcp',
+    'cloud',
+    'ci/cd',
+    'cicd',
+    'jenkins',
+    'terraform',
+    'ansible',
+    'deploy',
+    'infrastructure',
+    'linux',
+    'pipeline',
+    'github actions',
+    'gitlab',
+    'helm',
+    'monitoring',
+    'prometheus',
+    'grafana',
   ],
   testing: [
-    'test', 'testing', 'qa', 'quality', 'selenium', 'cypress', 'jest',
-    'junit', 'pytest', 'automation', 'tdd', 'bdd', 'unit test',
-    'integration test', 'e2e', 'end-to-end', 'coverage', 'mock',
+    'test',
+    'testing',
+    'qa',
+    'quality',
+    'selenium',
+    'cypress',
+    'jest',
+    'junit',
+    'pytest',
+    'automation',
+    'tdd',
+    'bdd',
+    'unit test',
+    'integration test',
+    'e2e',
+    'end-to-end',
+    'coverage',
+    'mock',
   ],
   architecture: [
-    'architect', 'architecture', 'system design', 'scalab', 'distributed',
-    'microservice', 'design pattern', 'solid', 'ddd', 'domain driven',
-    'event driven', 'cqrs', 'high availability', 'performance',
+    'architect',
+    'architecture',
+    'system design',
+    'scalab',
+    'distributed',
+    'microservice',
+    'design pattern',
+    'solid',
+    'ddd',
+    'domain driven',
+    'event driven',
+    'cqrs',
+    'high availability',
+    'performance',
   ],
   mobile: [
-    'mobile', 'ios', 'android', 'react native', 'flutter', 'swift',
-    'kotlin', 'xamarin', 'app store', 'play store', 'mobile app',
-    'native app', 'hybrid app', 'cordova', 'capacitor',
+    'mobile',
+    'ios',
+    'android',
+    'react native',
+    'flutter',
+    'swift',
+    'kotlin',
+    'xamarin',
+    'app store',
+    'play store',
+    'mobile app',
+    'native app',
+    'hybrid app',
+    'cordova',
+    'capacitor',
   ],
   'ml-ai': [
-    'machine learning', 'ml', 'ai', 'artificial intelligence', 'deep learning',
-    'tensorflow', 'pytorch', 'nlp', 'natural language', 'computer vision',
-    'model', 'neural network', 'llm', 'gpt', 'generative', 'data science',
+    'machine learning',
+    'ml',
+    'ai',
+    'artificial intelligence',
+    'deep learning',
+    'tensorflow',
+    'pytorch',
+    'nlp',
+    'natural language',
+    'computer vision',
+    'model',
+    'neural network',
+    'llm',
+    'gpt',
+    'generative',
+    'data science',
   ],
   security: [
-    'security', 'oauth', 'authentication', 'authorization', 'encrypt',
-    'owasp', 'vulnerability', 'penetration', 'ssl', 'tls', 'jwt',
-    'sso', 'identity', 'compliance', 'gdpr', 'soc2',
+    'security',
+    'oauth',
+    'authentication',
+    'authorization',
+    'encrypt',
+    'owasp',
+    'vulnerability',
+    'penetration',
+    'ssl',
+    'tls',
+    'jwt',
+    'sso',
+    'identity',
+    'compliance',
+    'gdpr',
+    'soc2',
   ],
   'data-analytics': [
-    'analytics', 'tableau', 'power bi', 'looker', 'dashboard', 'report',
-    'bi', 'business intelligence', 'visualization', 'insight', 'metric',
-    'kpi', 'excel', 'data analyst', 'etl', 'warehouse',
+    'analytics',
+    'tableau',
+    'power bi',
+    'looker',
+    'dashboard',
+    'report',
+    'bi',
+    'business intelligence',
+    'visualization',
+    'insight',
+    'metric',
+    'kpi',
+    'excel',
+    'data analyst',
+    'etl',
+    'warehouse',
   ],
 
   // === NON-TECH SKILL AREAS ===
   'retail-operations': [
-    'retail', 'store', 'merchandis', 'inventory', 'pos', 'point of sale',
-    'cash register', 'cashier', 'front end', 'check stand', 'checkout',
-    'shrink', 'loss prevention', 'planogram', 'stock', 'replenish',
-    'pricing', 'markdown', 'promotion', 'display', 'shelf',
+    'retail',
+    'store',
+    'merchandis',
+    'inventory',
+    'pos',
+    'point of sale',
+    'cash register',
+    'cashier',
+    'front end',
+    'check stand',
+    'checkout',
+    'shrink',
+    'loss prevention',
+    'planogram',
+    'stock',
+    'replenish',
+    'pricing',
+    'markdown',
+    'promotion',
+    'display',
+    'shelf',
   ],
   'customer-service': [
-    'customer service', 'customer experience', 'customer satisfaction',
-    'client service', 'customer support', 'call center', 'help desk',
-    'complaint', 'resolution', 'escalation', 'customer relations',
-    'service recovery', 'nps', 'csat', 'customer feedback',
+    'customer service',
+    'customer experience',
+    'customer satisfaction',
+    'client service',
+    'customer support',
+    'call center',
+    'help desk',
+    'complaint',
+    'resolution',
+    'escalation',
+    'customer relations',
+    'service recovery',
+    'nps',
+    'csat',
+    'customer feedback',
   ],
   'management-leadership': [
-    'manage', 'manager', 'supervisor', 'lead', 'leadership', 'team lead',
-    'direct report', 'coach', 'mentor', 'train', 'develop', 'performance review',
-    'hiring', 'staffing', 'scheduling', 'delegate', 'motivate',
-    'conflict resolution', 'decision making', 'accountability',
+    'manage',
+    'manager',
+    'supervisor',
+    'lead',
+    'leadership',
+    'team lead',
+    'direct report',
+    'coach',
+    'mentor',
+    'train',
+    'develop',
+    'performance review',
+    'hiring',
+    'staffing',
+    'scheduling',
+    'delegate',
+    'motivate',
+    'conflict resolution',
+    'decision making',
+    'accountability',
   ],
-  'operations': [
-    'operations', 'process', 'procedure', 'workflow', 'efficiency',
-    'productivity', 'logistics', 'supply chain', 'vendor', 'compliance',
-    'audit', 'quality control', 'sop', 'standard operating', 'kpi',
-    'continuous improvement', 'lean', 'six sigma', 'optimization',
+  operations: [
+    'operations',
+    'process',
+    'procedure',
+    'workflow',
+    'efficiency',
+    'productivity',
+    'logistics',
+    'supply chain',
+    'vendor',
+    'compliance',
+    'audit',
+    'quality control',
+    'sop',
+    'standard operating',
+    'kpi',
+    'continuous improvement',
+    'lean',
+    'six sigma',
+    'optimization',
   ],
   'finance-accounting': [
-    'accounting', 'finance', 'budget', 'forecast', 'p&l', 'profit',
-    'revenue', 'expense', 'cost control', 'financial report', 'audit',
-    'accounts payable', 'accounts receivable', 'reconciliation', 'ledger',
-    'gaap', 'quickbooks', 'sap', 'erp', 'invoice', 'billing',
+    'accounting',
+    'finance',
+    'budget',
+    'forecast',
+    'p&l',
+    'profit',
+    'revenue',
+    'expense',
+    'cost control',
+    'financial report',
+    'audit',
+    'accounts payable',
+    'accounts receivable',
+    'reconciliation',
+    'ledger',
+    'gaap',
+    'quickbooks',
+    'sap',
+    'erp',
+    'invoice',
+    'billing',
   ],
   'sales-marketing': [
-    'sales', 'selling', 'revenue', 'quota', 'target', 'pipeline',
-    'lead generation', 'prospecting', 'closing', 'negotiation', 'crm',
-    'salesforce', 'marketing', 'campaign', 'brand', 'promotion',
-    'digital marketing', 'seo', 'social media', 'content', 'advertising',
+    'sales',
+    'selling',
+    'revenue',
+    'quota',
+    'target',
+    'pipeline',
+    'lead generation',
+    'prospecting',
+    'closing',
+    'negotiation',
+    'crm',
+    'salesforce',
+    'marketing',
+    'campaign',
+    'brand',
+    'promotion',
+    'digital marketing',
+    'seo',
+    'social media',
+    'content',
+    'advertising',
   ],
   'human-resources': [
-    'hr', 'human resources', 'recruiting', 'talent acquisition', 'onboarding',
-    'employee relations', 'benefits', 'compensation', 'payroll', 'hris',
-    'performance management', 'training', 'development', 'engagement',
-    'retention', 'succession planning', 'labor law', 'eeoc',
+    'hr',
+    'human resources',
+    'recruiting',
+    'talent acquisition',
+    'onboarding',
+    'employee relations',
+    'benefits',
+    'compensation',
+    'payroll',
+    'hris',
+    'performance management',
+    'training',
+    'development',
+    'engagement',
+    'retention',
+    'succession planning',
+    'labor law',
+    'eeoc',
   ],
-  'healthcare': [
-    'patient', 'clinical', 'medical', 'healthcare', 'health care',
-    'nursing', 'physician', 'diagnosis', 'treatment', 'care plan',
-    'hipaa', 'ehr', 'emr', 'epic', 'cerner', 'pharmacy', 'lab',
-    'vital signs', 'medication', 'charting', 'bedside',
+  healthcare: [
+    'patient',
+    'clinical',
+    'medical',
+    'healthcare',
+    'health care',
+    'nursing',
+    'physician',
+    'diagnosis',
+    'treatment',
+    'care plan',
+    'hipaa',
+    'ehr',
+    'emr',
+    'epic',
+    'cerner',
+    'pharmacy',
+    'lab',
+    'vital signs',
+    'medication',
+    'charting',
+    'bedside',
   ],
-  'administrative': [
-    'administrative', 'admin', 'office', 'clerical', 'reception',
-    'calendar', 'scheduling', 'correspondence', 'filing', 'data entry',
-    'microsoft office', 'word', 'excel', 'powerpoint', 'outlook',
-    'typing', 'phone', 'meeting', 'travel arrangement', 'expense report',
+  administrative: [
+    'administrative',
+    'admin',
+    'office',
+    'clerical',
+    'reception',
+    'calendar',
+    'scheduling',
+    'correspondence',
+    'filing',
+    'data entry',
+    'microsoft office',
+    'word',
+    'excel',
+    'powerpoint',
+    'outlook',
+    'typing',
+    'phone',
+    'meeting',
+    'travel arrangement',
+    'expense report',
   ],
 };
 
@@ -206,9 +506,8 @@ export function detectBackground(jobDescription: string): {
   const best = results[0];
 
   // Confidence based on how dominant the match is
-  const confidence = results.length === 1
-    ? 1
-    : best.score / (best.score + (results[1]?.score || 0));
+  const confidence =
+    results.length === 1 ? 1 : best.score / (best.score + (results[1]?.score || 0));
 
   return {
     background: best.bg,
@@ -377,8 +676,8 @@ export function getSkillAreasForRole(
   const roleConfig = getRoleConfig(background, roleId);
   if (roleConfig) {
     const defaultAreas: SkillAreaWeight[] = roleConfig.skillAreas
-      .filter(sa => sa.defaultWeight > 0)
-      .map(sa => ({
+      .filter((sa) => sa.defaultWeight > 0)
+      .map((sa) => ({
         areaId: sa.id,
         areaName: sa.name,
         weight: sa.defaultWeight,
@@ -388,7 +687,7 @@ export function getSkillAreasForRole(
 
     // Merge with JD detection
     for (const jdArea of jdAreas) {
-      const existing = defaultAreas.find(a => a.areaId === jdArea.areaId);
+      const existing = defaultAreas.find((a) => a.areaId === jdArea.areaId);
       if (existing) {
         // Boost weight based on JD mentions
         existing.weight = Math.round((existing.weight + jdArea.weight) / 2);
@@ -448,7 +747,7 @@ export function matchKeywordsInArea(
 
   // Check each JD keyword against profile
   for (const [keyword, mentions] of jdKeywords) {
-    const keywordEntry = keywords.find(k => k.name === keyword);
+    const keywordEntry = keywords.find((k) => k.name === keyword);
     const importance = getImportance(mentions, keywordEntry?.isCore || false);
 
     const matchData: KeywordMatch = {
@@ -471,9 +770,7 @@ export function matchKeywordsInArea(
   const totalKeywords = matched.length + missing.length;
   // If no keywords found, return 0 (unable to analyze) instead of 100
   // This prevents inflated scores for areas we can't measure
-  const matchScore = totalKeywords > 0
-    ? Math.round((matched.length / totalKeywords) * 100)
-    : 0;
+  const matchScore = totalKeywords > 0 ? Math.round((matched.length / totalKeywords) * 100) : 0;
 
   return { matched, missing, matchScore };
 }
@@ -494,7 +791,7 @@ function matchesProfileSkill(
   }
 
   // Check variations from keyword entry
-  const entry = areaKeywords.find(k => k.name.toLowerCase() === lower);
+  const entry = areaKeywords.find((k) => k.name.toLowerCase() === lower);
   if (entry) {
     for (const variation of entry.variations) {
       if (profileSkills.has(variation.toLowerCase())) {
@@ -521,7 +818,9 @@ function matchesProfileSkill(
  * Calculate the full layered ATS score
  */
 export function calculateLayeredATSScore(input: LayeredScoreInput): LayeredATSResult {
-  const { profile, jobDescription, jobTitle } = input;
+  const { profile, jobTitle } = input;
+  // Strip HR/EEO boilerplate before any analysis
+  const jobDescription = stripBoilerplate(input.jobDescription);
 
   // Extract profile skills
   const profileSkills = extractProfileSkills(profile);
@@ -535,9 +834,10 @@ export function calculateLayeredATSScore(input: LayeredScoreInput): LayeredATSRe
     : { roleId: null, roleName: null, confidence: 0 };
 
   // Layer 2: Skill Area Detection
-  const skillAreas = backgroundResult.background && roleResult.roleId
-    ? getSkillAreasForRole(backgroundResult.background, roleResult.roleId, jobDescription)
-    : detectSkillAreas(jobDescription);
+  const skillAreas =
+    backgroundResult.background && roleResult.roleId
+      ? getSkillAreasForRole(backgroundResult.background, roleResult.roleId, jobDescription)
+      : detectSkillAreas(jobDescription);
 
   // Layer 3: Keyword Matching per Skill Area
   const skillAreaScores: SkillAreaScore[] = [];
@@ -560,8 +860,8 @@ export function calculateLayeredATSScore(input: LayeredScoreInput): LayeredATSRe
       jdWeight: area.weight,
       userStrength: getProfileStrengthInArea(profile, area.areaId),
       matchScore,
-      matchedKeywords: matched.map(m => m.keyword),
-      missingKeywords: missing.map(m => m.keyword),
+      matchedKeywords: matched.map((m) => m.keyword),
+      missingKeywords: missing.map((m) => m.keyword),
     });
 
     // Collect all matches
@@ -580,9 +880,7 @@ export function calculateLayeredATSScore(input: LayeredScoreInput): LayeredATSRe
   }
 
   // Calculate overall score
-  const overallScore = totalWeight > 0
-    ? Math.round(weightedScore / totalWeight)
-    : 0;
+  const overallScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0;
 
   // Detect seniority
   const { seniorityLevel } = extractSeniorityFromJD(jobDescription);
@@ -668,23 +966,28 @@ function formatAreaName(areaId: string): string {
     'retail-operations': 'Retail Operations',
     'customer-service': 'Customer Service',
     'management-leadership': 'Management & Leadership',
-    'operations': 'Operations',
+    operations: 'Operations',
     'finance-accounting': 'Finance & Accounting',
     'sales-marketing': 'Sales & Marketing',
     'human-resources': 'Human Resources',
-    'healthcare': 'Healthcare',
-    'administrative': 'Administrative',
+    healthcare: 'Healthcare',
+    administrative: 'Administrative',
   };
   return names[areaId] || areaId;
 }
 
-function getImportance(mentions: number, isCore: boolean): 'critical' | 'important' | 'nice-to-have' {
+function getImportance(
+  mentions: number,
+  isCore: boolean
+): 'critical' | 'important' | 'nice-to-have' {
   if (isCore || mentions >= 3) return 'critical';
   if (mentions >= 2) return 'important';
   return 'nice-to-have';
 }
 
-function extractProfileSkills(profile: MasterProfile | GeneratedProfile | ResumeProfile): Set<string> {
+function extractProfileSkills(
+  profile: MasterProfile | GeneratedProfile | ResumeProfile
+): Set<string> {
   const skills = new Set<string>();
 
   if ('skills' in profile && profile.skills) {
@@ -722,7 +1025,10 @@ function extractProfileSkills(profile: MasterProfile | GeneratedProfile | Resume
       }
     }
 
-    if ('programmingLanguages' in profile.skills && Array.isArray(profile.skills.programmingLanguages)) {
+    if (
+      'programmingLanguages' in profile.skills &&
+      Array.isArray(profile.skills.programmingLanguages)
+    ) {
       for (const s of profile.skills.programmingLanguages) {
         if (typeof s === 'object' && 'name' in s) {
           skills.add((s as SkillDetail).name.toLowerCase());
@@ -752,7 +1058,7 @@ function getProfileStrengthInArea(
 ): number {
   // If profile has backgroundConfig, use it
   if ('backgroundConfig' in profile && profile.backgroundConfig) {
-    const area = profile.backgroundConfig.skillAreas?.find(a => a.id === areaId);
+    const area = profile.backgroundConfig.skillAreas?.find((a) => a.id === areaId);
     if (area) {
       return area.strength;
     }
@@ -773,7 +1079,10 @@ function getProfileStrengthInArea(
   return Math.min(Math.round((matchCount / 10) * 80), 95);
 }
 
-function extractSeniorityFromJD(jd: string): { seniorityLevel: string | null; yearsRequired: number | null } {
+function extractSeniorityFromJD(jd: string): {
+  seniorityLevel: string | null;
+  yearsRequired: number | null;
+} {
   const jdLower = jd.toLowerCase();
 
   // Years extraction
@@ -814,7 +1123,9 @@ function extractSeniorityFromJD(jd: string): { seniorityLevel: string | null; ye
   return { seniorityLevel, yearsRequired };
 }
 
-function extractProfileSeniority(profile: MasterProfile | GeneratedProfile | ResumeProfile): string | null {
+function extractProfileSeniority(
+  profile: MasterProfile | GeneratedProfile | ResumeProfile
+): string | null {
   if ('careerContext' in profile && profile.careerContext?.seniorityLevel) {
     return profile.careerContext.seniorityLevel;
   }
@@ -864,7 +1175,7 @@ function generateRecommendations(
 
   // Weakest skill areas
   const weakAreas = skillAreaScores
-    .filter(a => a.matchScore < 50 && a.jdWeight >= 15)
+    .filter((a) => a.matchScore < 50 && a.jdWeight >= 15)
     .sort((a, b) => a.matchScore - b.matchScore);
 
   if (weakAreas.length > 0) {
@@ -887,7 +1198,7 @@ function generateRecommendations(
 
   // Strong areas to emphasize
   const strongAreas = skillAreaScores
-    .filter(a => a.matchScore >= 80 && a.jdWeight >= 20)
+    .filter((a) => a.matchScore >= 80 && a.jdWeight >= 20)
     .sort((a, b) => b.matchScore - a.matchScore);
 
   if (strongAreas.length > 0) {
@@ -898,9 +1209,13 @@ function generateRecommendations(
 
   // Overall advice
   if (score >= 75) {
-    recommendations.push('Strong match! Focus on quantifying achievements and showing impact at scale.');
+    recommendations.push(
+      'Strong match! Focus on quantifying achievements and showing impact at scale.'
+    );
   } else if (score < 50) {
-    recommendations.push('Consider if this role aligns with your experience, or heavily tailor your resume.');
+    recommendations.push(
+      'Consider if this role aligns with your experience, or heavily tailor your resume.'
+    );
   }
 
   return recommendations;
@@ -954,8 +1269,8 @@ export function getAreasToEmphasize(
       priority,
       jdWeight: area.weight,
       currentMatch: matchScore,
-      keywordsToAdd: missing.slice(0, 5).map(m => m.keyword),
-      keywordsYouHave: matched.map(m => m.keyword),
+      keywordsToAdd: missing.slice(0, 5).map((m) => m.keyword),
+      keywordsYouHave: matched.map((m) => m.keyword),
     });
   }
 

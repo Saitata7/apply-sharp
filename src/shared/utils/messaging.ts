@@ -67,7 +67,10 @@ export type MessageType =
   | 'GET_APPLICATION_STATS'
   | 'GET_IMPROVEMENTS'
   | 'GET_KEYWORD_RECOMMENDATIONS'
-  | 'RUN_LEARNING_ANALYSIS';
+  | 'RUN_LEARNING_ANALYSIS'
+  // ATS Score page
+  | 'SCORE_RESUME_ATS'
+  | 'SCORE_RESUME_FILE_ATS';
 
 export interface Message<T = unknown> {
   type: MessageType;

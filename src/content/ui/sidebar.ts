@@ -5,7 +5,11 @@
 
 import type { ExtractedJob, JobPlatform } from '@shared/types/job.types';
 import type { ATSScore } from '@core/ats/matcher';
-import { scanRequirements, type RequirementGap, type UserRequirementProfile } from '@core/ats/requirement-scanner';
+import {
+  scanRequirements,
+  type RequirementGap,
+  type UserRequirementProfile,
+} from '@core/ats/requirement-scanner';
 import { escapeHtml } from '@shared/utils/dom-utils';
 
 let overlayElement: HTMLElement | null = null;
@@ -52,19 +56,21 @@ export function hideSidebar(): void {
   }
 }
 
-export function updateATSScore(score: ATSScore & {
-  highPriority?: { matched: string[]; missing: string[] };
-  lowPriority?: { matched: string[]; missing: string[] };
-  keywordSource?: 'ai' | 'library';
-  suggestions?: string[];
-  backgroundMismatch?: boolean;
-  backgroundMismatchMessage?: string;
-  detectedJobBackground?: string | null;
-  layeredAnalysis?: {
-    background?: { detected: string | null; confidence: number };
-    role?: { detectedRole: string | null; matchScore: number };
-  };
-}): void {
+export function updateATSScore(
+  score: ATSScore & {
+    highPriority?: { matched: string[]; missing: string[] };
+    lowPriority?: { matched: string[]; missing: string[] };
+    keywordSource?: 'ai' | 'library';
+    suggestions?: string[];
+    backgroundMismatch?: boolean;
+    backgroundMismatchMessage?: string;
+    detectedJobBackground?: string | null;
+    layeredAnalysis?: {
+      background?: { detected: string | null; confidence: number };
+      role?: { detectedRole: string | null; matchScore: number };
+    };
+  }
+): void {
   currentScore = score;
 
   if (!overlayElement) return;
@@ -104,23 +110,29 @@ export function updateATSScore(score: ATSScore & {
       let html = '';
       if (score.highPriority?.matched?.length) {
         html += `<span class="jp-priority-label">High:</span> `;
-        html += score.highPriority.matched.slice(0, 5).map(k =>
-          `<span class="jp-tag jp-tag-match jp-tag-high">${escapeHtml(k)}</span>`
-        ).join('');
+        html += score.highPriority.matched
+          .slice(0, 5)
+          .map((k) => `<span class="jp-tag jp-tag-match jp-tag-high">${escapeHtml(k)}</span>`)
+          .join('');
       }
       if (score.lowPriority?.matched?.length) {
         if (html) html += ' ';
         html += `<span class="jp-priority-label">Low:</span> `;
-        html += score.lowPriority.matched.slice(0, 3).map(k =>
-          `<span class="jp-tag jp-tag-match jp-tag-low">${escapeHtml(k)}</span>`
-        ).join('');
+        html += score.lowPriority.matched
+          .slice(0, 3)
+          .map((k) => `<span class="jp-tag jp-tag-match jp-tag-low">${escapeHtml(k)}</span>`)
+          .join('');
       }
       matchedEl.innerHTML = html || '<span class="jp-tag jp-tag-placeholder">None found</span>';
     } else {
       const keywords = score.matchedKeywords || [];
-      matchedEl.innerHTML = keywords.length > 0
-        ? keywords.slice(0, 6).map(k => `<span class="jp-tag jp-tag-match">${escapeHtml(k)}</span>`).join('')
-        : '<span class="jp-tag jp-tag-placeholder">None found</span>';
+      matchedEl.innerHTML =
+        keywords.length > 0
+          ? keywords
+              .slice(0, 6)
+              .map((k) => `<span class="jp-tag jp-tag-match">${escapeHtml(k)}</span>`)
+              .join('')
+          : '<span class="jp-tag jp-tag-placeholder">None found</span>';
     }
   }
 
@@ -130,23 +142,29 @@ export function updateATSScore(score: ATSScore & {
       let html = '';
       if (score.highPriority?.missing?.length) {
         html += `<span class="jp-priority-label" style="color:#ef4444;">Must Add:</span> `;
-        html += score.highPriority.missing.slice(0, 4).map(k =>
-          `<span class="jp-tag jp-tag-missing jp-tag-high">${escapeHtml(k)}</span>`
-        ).join('');
+        html += score.highPriority.missing
+          .slice(0, 4)
+          .map((k) => `<span class="jp-tag jp-tag-missing jp-tag-high">${escapeHtml(k)}</span>`)
+          .join('');
       }
       if (score.lowPriority?.missing?.length) {
         if (html) html += ' ';
         html += `<span class="jp-priority-label" style="color:#f59e0b;">Nice:</span> `;
-        html += score.lowPriority.missing.slice(0, 3).map(k =>
-          `<span class="jp-tag jp-tag-missing jp-tag-low">${escapeHtml(k)}</span>`
-        ).join('');
+        html += score.lowPriority.missing
+          .slice(0, 3)
+          .map((k) => `<span class="jp-tag jp-tag-missing jp-tag-low">${escapeHtml(k)}</span>`)
+          .join('');
       }
       missingEl.innerHTML = html || '<span class="jp-tag jp-tag-placeholder">All matched!</span>';
     } else {
       const keywords = score.missingKeywords || [];
-      missingEl.innerHTML = keywords.length > 0
-        ? keywords.slice(0, 6).map(k => `<span class="jp-tag jp-tag-missing">${escapeHtml(k)}</span>`).join('')
-        : '<span class="jp-tag jp-tag-placeholder">All matched!</span>';
+      missingEl.innerHTML =
+        keywords.length > 0
+          ? keywords
+              .slice(0, 6)
+              .map((k) => `<span class="jp-tag jp-tag-missing">${escapeHtml(k)}</span>`)
+              .join('')
+          : '<span class="jp-tag jp-tag-placeholder">All matched!</span>';
     }
   }
 
@@ -190,13 +208,15 @@ export function updateATSScore(score: ATSScore & {
 
     // Show detected background
     if (score.layeredAnalysis?.background?.detected) {
-      insights.push(`🎓 Background: ${formatBackground(score.layeredAnalysis.background.detected)}`);
+      insights.push(
+        `🎓 Background: ${formatBackground(score.layeredAnalysis.background.detected)}`
+      );
     }
 
     // Show top suggestions (filter out the background mismatch one)
     if (score.suggestions && score.suggestions.length > 0) {
       const otherSuggestions = score.suggestions
-        .filter(s => !s.includes('Background Mismatch'))
+        .filter((s) => !s.includes('Background Mismatch'))
         .slice(0, 3);
       insights.push(...otherSuggestions);
     }
@@ -206,9 +226,11 @@ export function updateATSScore(score: ATSScore & {
       if (insightsCount) {
         insightsCount.textContent = `(${insights.length})`;
       }
-      insightsList.innerHTML = insights.map(insight => {
-        return `<div class="jp-insight-item jp-insight-info">${escapeHtml(insight)}</div>`;
-      }).join('');
+      insightsList.innerHTML = insights
+        .map((insight) => {
+          return `<div class="jp-insight-item jp-insight-info">${escapeHtml(insight)}</div>`;
+        })
+        .join('');
     } else {
       insightsSection.style.display = 'none';
     }
@@ -220,13 +242,13 @@ function formatBackground(background: string): string {
     'computer-science': 'Software/Tech',
     'data-analytics': 'Data Analytics',
     'mba-business': 'Business/MBA',
-    'engineering': 'Engineering',
-    'design': 'Design/Creative',
-    'marketing': 'Marketing',
-    'healthcare': 'Healthcare',
-    'finance': 'Finance',
-    'legal': 'Legal',
-    'education': 'Education',
+    engineering: 'Engineering',
+    design: 'Design/Creative',
+    marketing: 'Marketing',
+    healthcare: 'Healthcare',
+    finance: 'Finance',
+    legal: 'Legal',
+    education: 'Education',
   };
   return names[background] || background;
 }
@@ -252,12 +274,15 @@ export function updateRequirementGaps(gaps: RequirementGap[]): void {
   gapsSection.style.display = 'block';
 
   // Generate HTML for gaps
-  const gapsHTML = gaps.map(gap => {
-    const icon = gap.userStatus === 'risk' ? '🚨' : '⚠️';
-    const statusClass = gap.userStatus === 'risk' ? 'jp-gap-risk' : 'jp-gap-unknown';
-    const userText = gap.userValue ? ` - You: ${escapeHtml(gap.userValue)}` : ' - Not set in profile';
+  const gapsHTML = gaps
+    .map((gap) => {
+      const icon = gap.userStatus === 'risk' ? '🚨' : '⚠️';
+      const statusClass = gap.userStatus === 'risk' ? 'jp-gap-risk' : 'jp-gap-unknown';
+      const userText = gap.userValue
+        ? ` - You: ${escapeHtml(gap.userValue)}`
+        : ' - Not set in profile';
 
-    return `
+      return `
       <div class="jp-gap-item ${statusClass}">
         <span class="jp-gap-icon">${icon}</span>
         <span class="jp-gap-text">
@@ -266,7 +291,8 @@ export function updateRequirementGaps(gaps: RequirementGap[]): void {
         </span>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 
   gapsList.innerHTML = gapsHTML;
 }
@@ -468,6 +494,14 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
           </div>
         </div>
 
+        <!-- Profile Score Comparison (1b.4) -->
+        <div class="jp-comparison-section" id="jp-comparison-section" style="display: none;">
+          <div class="jp-section-label">Profile Match Scores</div>
+          <div class="jp-comparison-list" id="jp-comparison-list">
+            <!-- Scores loaded dynamically -->
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="jp-actions">
           <button class="jp-btn jp-btn-primary" id="jp-autofill-btn">
@@ -484,12 +518,19 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
               </svg>
               Cover Letter
             </button>
-            <button class="jp-btn jp-btn-outline" id="jp-save-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-              </svg>
-              Save Job
-            </button>
+            <div class="jp-save-group">
+              <button class="jp-btn jp-btn-outline" id="jp-save-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span id="jp-save-label">Save Job</span>
+              </button>
+              <select class="jp-status-select" id="jp-status-select" title="Job status">
+                <option value="saved">Saved</option>
+                <option value="interested">Interested</option>
+                <option value="applied">Applied</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -518,9 +559,15 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
   return overlay;
 }
 
-function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform: JobPlatform): void {
+function attachEventListeners(
+  overlay: HTMLElement,
+  job: ExtractedJob,
+  platform: JobPlatform
+): void {
   // Minimize/Expand
-  overlay.querySelector('#jp-minimize-btn')?.addEventListener('click', () => toggleMinimize(overlay, true));
+  overlay
+    .querySelector('#jp-minimize-btn')
+    ?.addEventListener('click', () => toggleMinimize(overlay, true));
   overlay.querySelector('#jp-minimized')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (!target.closest('#jp-mini-drag')) {
@@ -578,8 +625,16 @@ function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform:
 
       if (response?.success && response.data) {
         console.log('[ApplySharp] Score:', response.data.overallScore);
-        console.log('[ApplySharp] Matched:', response.data.matchedKeywords?.length || 0, 'keywords');
-        console.log('[ApplySharp] Missing:', response.data.missingKeywords?.length || 0, 'keywords');
+        console.log(
+          '[ApplySharp] Matched:',
+          response.data.matchedKeywords?.length || 0,
+          'keywords'
+        );
+        console.log(
+          '[ApplySharp] Missing:',
+          response.data.missingKeywords?.length || 0,
+          'keywords'
+        );
         updateATSScore(response.data);
       } else {
         // Show error in UI
@@ -610,29 +665,33 @@ function attachEventListeners(overlay: HTMLElement, job: ExtractedJob, platform:
     }
   });
 
-  // Save Job
+  // Save Job with status
   overlay.querySelector('#jp-save-btn')?.addEventListener('click', async () => {
     const btn = overlay.querySelector('#jp-save-btn') as HTMLButtonElement;
+    const statusSelect = overlay.querySelector('#jp-status-select') as HTMLSelectElement;
+    const labelEl = overlay.querySelector('#jp-save-label');
     btn.disabled = true;
 
     try {
+      const status = statusSelect?.value || 'saved';
       await chrome.runtime.sendMessage({
         type: 'SAVE_JOB',
-        payload: { ...job, url: window.location.href, platform },
+        payload: { ...job, url: window.location.href, platform, status },
       });
 
-      btn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20,6 9,17 4,12"/>
-        </svg>
-        Saved!
-      `;
+      if (labelEl) labelEl.textContent = 'Saved!';
       btn.classList.add('jp-btn-success');
     } catch (error) {
       console.error('Save failed:', error);
       btn.disabled = false;
     }
   });
+
+  // Check if job is already saved
+  checkIfJobSaved(overlay);
+
+  // Load profile comparison scores (1b.4)
+  loadProfileComparison(overlay, job);
 
   // Auto-Fill
   overlay.querySelector('#jp-autofill-btn')?.addEventListener('click', () => {
@@ -690,17 +749,24 @@ async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
       const profiles = profilesRes.data as Array<{ id: string; personal?: { fullName?: string } }>;
       const activeId = activeRes?.data?.id;
 
-      select.innerHTML = profiles.length > 0
-        ? profiles.map(p => {
-            const profileName = p.personal?.fullName || 'Unnamed Profile';
-            return `<option value="${escapeHtml(p.id)}" ${p.id === activeId ? 'selected' : ''}>${escapeHtml(profileName)}</option>`;
-          }).join('')
-        : '<option value="">No profiles - Create one</option>';
+      select.innerHTML =
+        profiles.length > 0
+          ? profiles
+              .map((p) => {
+                const profileName = p.personal?.fullName || 'Unnamed Profile';
+                return `<option value="${escapeHtml(p.id)}" ${p.id === activeId ? 'selected' : ''}>${escapeHtml(profileName)}</option>`;
+              })
+              .join('')
+          : '<option value="">No profiles - Create one</option>';
 
       if (profiles.length === 0) {
-        select.addEventListener('click', () => {
-          chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS', payload: { tab: 'profiles' } });
-        }, { once: true });
+        select.addEventListener(
+          'click',
+          () => {
+            chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS', payload: { tab: 'profiles' } });
+          },
+          { once: true }
+        );
       }
     } else {
       select.innerHTML = '<option value="">No profiles - Create one</option>';
@@ -724,7 +790,8 @@ async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
         const refreshHint = document.createElement('div');
         refreshHint.className = 'jp-refresh-hint';
         refreshHint.innerHTML = '⟳ Extension updated - refresh page';
-        refreshHint.style.cssText = 'font-size: 9px; color: #f59e0b; margin-top: 4px; cursor: pointer;';
+        refreshHint.style.cssText =
+          'font-size: 9px; color: #f59e0b; margin-top: 4px; cursor: pointer;';
         refreshHint.addEventListener('click', () => window.location.reload());
         profileSection.appendChild(refreshHint);
       }
@@ -796,6 +863,124 @@ function toggleMinimize(overlay: HTMLElement, minimize: boolean): void {
 
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Check if the current job URL is already saved (1b.3)
+ */
+async function checkIfJobSaved(overlay: HTMLElement): Promise<void> {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_JOB',
+      payload: window.location.href,
+    });
+
+    if (response?.success && response.data) {
+      const btn = overlay.querySelector('#jp-save-btn') as HTMLButtonElement;
+      const labelEl = overlay.querySelector('#jp-save-label');
+      if (btn && labelEl) {
+        labelEl.textContent = 'Saved';
+        btn.classList.add('jp-btn-success');
+      }
+    }
+  } catch {
+    // Job not saved or extension context invalidated - ok
+  }
+}
+
+/**
+ * Load ATS scores for all generated profiles and show comparison (1b.4)
+ */
+async function loadProfileComparison(overlay: HTMLElement, job: ExtractedJob): Promise<void> {
+  if (!job.description) return;
+
+  const section = overlay.querySelector('#jp-comparison-section') as HTMLElement;
+  const list = overlay.querySelector('#jp-comparison-list') as HTMLElement;
+  if (!section || !list) return;
+
+  try {
+    const profileRes = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
+    if (!profileRes?.success || !profileRes.data) return;
+
+    const profile = profileRes.data;
+    const roles = profile.generatedProfiles || [];
+
+    // Need at least 2 profiles for comparison to be useful
+    if (roles.length < 2) return;
+
+    // Score each profile against the job description
+    const scores: Array<{ name: string; id: string; score: number; isActive: boolean }> = [];
+
+    for (const role of roles) {
+      try {
+        const scoreRes = await chrome.runtime.sendMessage({
+          type: 'SCORE_JOB',
+          payload: {
+            jobDescription: job.description,
+            roleProfile: role,
+          },
+        });
+
+        if (scoreRes?.success && scoreRes.data) {
+          scores.push({
+            name: role.targetRole || 'Unnamed Role',
+            id: role.id,
+            score: scoreRes.data.overallScore || 0,
+            isActive: role.id === profile.activeRoleProfileId,
+          });
+        }
+      } catch {
+        // Skip failed scores
+      }
+    }
+
+    if (scores.length < 2) return;
+
+    // Sort by score descending
+    scores.sort((a, b) => b.score - a.score);
+
+    // Render comparison
+    section.style.display = 'block';
+    list.innerHTML = scores
+      .map((s, i) => {
+        const scoreColor = s.score >= 80 ? '#22c55e' : s.score >= 60 ? '#f59e0b' : '#ef4444';
+        const isBest = i === 0;
+        return `
+        <div class="jp-comparison-item ${s.isActive ? 'jp-comparison-active' : ''} ${isBest ? 'jp-comparison-best' : ''}"
+             data-role-id="${escapeHtml(s.id)}">
+          <span class="jp-comparison-name">${escapeHtml(s.name)}</span>
+          <span class="jp-comparison-score" style="color: ${scoreColor}">${s.score}%</span>
+          ${isBest ? '<span class="jp-comparison-badge">Best</span>' : ''}
+        </div>
+      `;
+      })
+      .join('');
+
+    // Click to switch profile
+    list.querySelectorAll('.jp-comparison-item').forEach((item) => {
+      item.addEventListener('click', async () => {
+        const roleId = (item as HTMLElement).dataset.roleId;
+        if (!roleId || !profile.id) return;
+
+        await chrome.runtime.sendMessage({
+          type: 'SET_ACTIVE_ROLE_PROFILE',
+          payload: { masterProfileId: profile.id, roleProfileId: roleId },
+        });
+
+        // Update active indicator
+        list
+          .querySelectorAll('.jp-comparison-item')
+          .forEach((el) => el.classList.remove('jp-comparison-active'));
+        item.classList.add('jp-comparison-active');
+
+        // Re-analyze with new role
+        const analyzeBtn = overlay.querySelector('#jp-analyze-btn') as HTMLButtonElement;
+        analyzeBtn?.click();
+      });
+    });
+  } catch {
+    // Profile comparison failed - hide section
+  }
 }
 
 function getOverlayStyles(): string {
@@ -1295,6 +1480,102 @@ function getOverlayStyles(): string {
     .jp-footer-link:hover { color: #2563eb; background: #eff6ff; }
     .jp-footer-link svg { width: 9px; height: 9px; }
     .jp-footer-divider { color: #e2e8f0; }
+
+    /* Save Group with Status Selector */
+    .jp-save-group {
+      display: flex;
+      flex: 1;
+      gap: 0;
+    }
+
+    .jp-save-group .jp-btn {
+      border-radius: 5px 0 0 5px;
+      flex: 1;
+    }
+
+    .jp-status-select {
+      width: 26px;
+      min-width: 26px;
+      padding: 0 2px;
+      border: 1px solid #e2e8f0;
+      border-left: none;
+      border-radius: 0 5px 5px 0;
+      background: white;
+      font-size: 9px;
+      color: #64748b;
+      cursor: pointer;
+      appearance: none;
+      text-align: center;
+    }
+
+    .jp-status-select:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    /* Profile Score Comparison (1b.4) */
+    .jp-comparison-section {
+      margin-bottom: 10px;
+    }
+
+    .jp-comparison-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .jp-comparison-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .jp-comparison-item:hover {
+      background: #eff6ff;
+    }
+
+    .jp-comparison-active {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+    }
+
+    .jp-comparison-best {
+      background: #f0fdf4;
+    }
+
+    .jp-comparison-best.jp-comparison-active {
+      background: #dcfce7;
+      border-color: #86efac;
+    }
+
+    .jp-comparison-name {
+      flex: 1;
+      font-size: 10px;
+      color: #475569;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jp-comparison-score {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .jp-comparison-badge {
+      font-size: 8px;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: #22c55e;
+      color: white;
+      text-transform: uppercase;
+    }
 
     /* Scrollbar */
     .jp-body::-webkit-scrollbar { width: 3px; }

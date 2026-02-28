@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
@@ -16,10 +17,11 @@ function serviceWorkerPreloadPlugin(): Plugin {
     generateBundle(_, bundle) {
       // Only modify chunks that are part of the service worker
       for (const [fileName, chunk] of Object.entries(bundle)) {
-        if (chunk.type === 'chunk' && (
-          fileName.includes('index.ts-') || // Background service worker chunks
-          fileName.includes('settings.types-') // Shared chunk used by SW
-        )) {
+        if (
+          chunk.type === 'chunk' &&
+          (fileName.includes('index.ts-') || // Background service worker chunks
+            fileName.includes('settings.types-')) // Shared chunk used by SW
+        ) {
           // Check if this chunk has the document-based preload code
           if (chunk.code.includes('typeof document<"u"&&document.createElement')) {
             // Find the variable name used for the preload function (exported as _)
@@ -46,11 +48,7 @@ function serviceWorkerPreloadPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [
-    react(),
-    crx({ manifest }),
-    serviceWorkerPreloadPlugin(),
-  ],
+  plugins: [react(), crx({ manifest }), serviceWorkerPreloadPlugin()],
 
   resolve: {
     alias: {
@@ -86,6 +84,24 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       port: 5173,
+    },
+  },
+
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/core/**', 'src/shared/**'],
+      thresholds: {
+        // Start with achievable thresholds, increase as tests grow
+        statements: 30,
+        branches: 20,
+        functions: 25,
+        lines: 30,
+      },
     },
   },
 });
