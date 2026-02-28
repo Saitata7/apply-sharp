@@ -63,6 +63,7 @@ export default function ATSScore() {
   const [isScoring, setIsScoring] = useState(false);
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [expandedRoles, setExpandedRoles] = useState<Set<number>>(new Set());
 
   // File upload state
@@ -87,6 +88,10 @@ export default function ATSScore() {
       });
       if (response.success && response.data) {
         setResult(response.data);
+        setSuccessMsg(
+          `Score: ${response.data.overallScore}/100 — ${getScoreTier(response.data.overallScore)}`
+        );
+        setTimeout(() => setSuccessMsg(null), 3000);
       } else {
         setError(response.error || 'Scoring failed');
       }
@@ -127,6 +132,10 @@ export default function ATSScore() {
 
       if (response.success && response.data) {
         setResult(response.data);
+        setSuccessMsg(
+          `Score: ${response.data.overallScore}/100 — ${getScoreTier(response.data.overallScore)}`
+        );
+        setTimeout(() => setSuccessMsg(null), 3000);
       } else {
         setError(response.error || 'Scoring failed');
       }
@@ -163,8 +172,34 @@ export default function ATSScore() {
   };
 
   const handleScore = () => {
-    if (mode === 'profile') runProfileScore();
-    else runFileScore();
+    setError(null);
+    setSuccessMsg(null);
+
+    if (mode === 'profile') {
+      if (!profile?.experience?.length) {
+        setError('Your profile has no experience data to score. Add work experience first.');
+        return;
+      }
+      if (jobDescription.trim() && jobDescription.trim().length < 50) {
+        setError(
+          'Job description seems too short for keyword matching — consider pasting the full listing.'
+        );
+        return;
+      }
+      runProfileScore();
+    } else {
+      if (!uploadedFile) {
+        setError('Please upload a resume file first.');
+        return;
+      }
+      if (jobDescription.trim() && jobDescription.trim().length < 50) {
+        setError(
+          'Job description seems too short for keyword matching — consider pasting the full listing.'
+        );
+        return;
+      }
+      runFileScore();
+    }
   };
 
   // ── File upload handlers ─────────────────────────────────────────────
@@ -230,6 +265,7 @@ export default function ATSScore() {
       {/* Mode Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
         <button
+          data-testid="mode-profile"
           onClick={() => switchMode('profile')}
           style={{
             flex: 1,
@@ -247,6 +283,7 @@ export default function ATSScore() {
           Score My Profile
         </button>
         <button
+          data-testid="mode-file"
           onClick={() => switchMode('file')}
           style={{
             flex: 1,
@@ -273,6 +310,7 @@ export default function ATSScore() {
               Upload a resume file (PDF, DOCX, or TXT)
             </label>
             <div
+              data-testid="file-dropzone"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -394,6 +432,7 @@ export default function ATSScore() {
 
             <button
               className="btn btn-primary"
+              data-testid="score-button"
               onClick={handleScore}
               disabled={
                 isScoring ||
@@ -415,6 +454,7 @@ export default function ATSScore() {
             </label>
             <textarea
               className="textarea"
+              data-testid="jd-textarea"
               placeholder="Paste a job description here for keyword match scoring..."
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
@@ -426,14 +466,26 @@ export default function ATSScore() {
       </div>
 
       {error && (
-        <div className="settings-section" style={{ color: '#ef4444', marginBottom: 16 }}>
-          Scoring failed: {error}
+        <div className="error-message" data-testid="ats-error" style={{ marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
+
+      {successMsg && (
+        <div
+          className="current-profile-notice"
+          data-testid="ats-success"
+          style={{ marginBottom: 16 }}
+        >
+          {successMsg}
         </div>
       )}
 
       {result && (
         <>
-          <OverallScoreCard score={result.overallScore} hasJD={!!result.keywordScore} />
+          <div data-testid="overall-score">
+            <OverallScoreCard score={result.overallScore} hasJD={!!result.keywordScore} />
+          </div>
           <FormatBreakdown formatScore={result.formatScore} />
           <BulletQuality
             report={result.bulletReport}
