@@ -929,7 +929,7 @@ files       = [
     "src/background/__tests__/message-handler.test.ts",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 [[phases.phase6.tasks]]
 id          = "6.4"
