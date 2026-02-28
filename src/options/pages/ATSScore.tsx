@@ -5,7 +5,9 @@ import { parseResumeFile } from '@/core/resume/file-parser';
 import type { ATSFormatScore, FormatIssue } from '@core/ats/format-validator';
 import type { BulletValidationReport, BulletIssue } from '@core/resume/bullet-validator';
 import type { GapAnalysisResult } from '@core/ats/gap-analyzer';
+import type { RedFlagReport } from '@core/resume/red-flag-scanner';
 import SkillsGapAnalysis from '../components/SkillsGapAnalysis';
+import RedFlagSection from '../components/RedFlagSection';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -21,6 +23,7 @@ interface ScoreResult {
   bulletReport: BulletValidationReport;
   keywordScore?: QuickATSScore;
   gapAnalysis?: GapAnalysisResult;
+  redFlagReport?: RedFlagReport;
   overallScore: number;
 }
 
@@ -497,6 +500,7 @@ export default function ATSScore() {
           />
           {result.keywordScore && <KeywordMatch score={result.keywordScore} />}
           {result.gapAnalysis && <SkillsGapAnalysis analysis={result.gapAnalysis} />}
+          {result.redFlagReport && <RedFlagSection report={result.redFlagReport} />}
           <IssuesList
             formatIssues={result.formatScore.issues}
             bulletIssues={result.bulletReport.topIssues}

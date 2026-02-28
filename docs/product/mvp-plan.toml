@@ -581,7 +581,7 @@ Return: RedFlagReport with severity levels and fix suggestions
 """
 files       = ["src/core/resume/red-flag-scanner.ts"]
 priority    = "p1-high"
-status      = "pending"
+status      = "done"
 
 [[phases.phase3.tasks]]
 id          = "3.3"

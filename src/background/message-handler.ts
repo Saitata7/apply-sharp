@@ -22,6 +22,7 @@ import { validateAllBullets } from '@core/resume/bullet-validator';
 import type { SeniorityLevel } from '@core/resume/bullet-validator';
 import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { analyzeSkillGaps } from '@core/ats/gap-analyzer';
+import { scanRedFlags } from '@core/resume/red-flag-scanner';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
@@ -3896,6 +3897,9 @@ async function handleScoreResumeATS(payload: {
       gapAnalysis = analyzeSkillGaps(keywordScore, profileSkills);
     }
 
+    // 6. Red flag scan (always available — profile-based, no JD needed)
+    const redFlagReport = scanRedFlags(profile);
+
     return {
       success: true,
       data: {
@@ -3903,6 +3907,7 @@ async function handleScoreResumeATS(payload: {
         bulletReport,
         keywordScore,
         gapAnalysis,
+        redFlagReport,
         overallScore,
       },
     };
