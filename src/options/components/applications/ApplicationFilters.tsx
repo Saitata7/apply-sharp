@@ -11,6 +11,8 @@ interface ApplicationFiltersProps {
   counts: Record<string, number>;
   sponsorshipFilter: 'all' | 'available' | 'not_available';
   onSponsorshipChange: (val: 'all' | 'available' | 'not_available') => void;
+  sortMode: 'newest' | 'deadline';
+  onSortChange: (val: 'newest' | 'deadline') => void;
 }
 
 const STATUS_OPTIONS: { value: ApplicationStatus | 'all'; label: string }[] = [
@@ -36,6 +38,8 @@ export default function ApplicationFilters({
   counts,
   sponsorshipFilter,
   onSponsorshipChange,
+  sortMode,
+  onSortChange,
 }: ApplicationFiltersProps) {
   return (
     <div className="app-filters">
@@ -103,6 +107,15 @@ export default function ApplicationFilters({
           <option value="all">All Sponsorship</option>
           <option value="available">Sponsors Visa</option>
           <option value="not_available">No Sponsorship</option>
+        </select>
+
+        <select
+          className="filter-select"
+          value={sortMode}
+          onChange={(e) => onSortChange(e.target.value as 'newest' | 'deadline')}
+        >
+          <option value="newest">Newest First</option>
+          <option value="deadline">Deadline First</option>
         </select>
       </div>
     </div>

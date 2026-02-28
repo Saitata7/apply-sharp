@@ -104,5 +104,6 @@ export interface ExtractedJob {
   salary?: JobSalary;
   employmentType?: EmploymentType;
   postedDate?: Date;
+  applicationDeadline?: Date;
   sponsorshipStatus?: SponsorshipStatus;
 }

@@ -1,6 +1,7 @@
 import { initDB } from '@storage/idb-client';
 import { handleMessage } from './message-handler';
 import { setupContextMenus } from './context-menu';
+import { handleDeadlineAlarm } from './deadline-alarms';
 
 let dbInitialized = false;
 
@@ -52,12 +53,21 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle extension icon click when no popup
 chrome.action.onClicked.addListener((tab) => {
   if (tab.id) {
-    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SIDEBAR' })
-      .catch((error) => {
-        // Tab might not have content script loaded (e.g., chrome:// pages)
-        console.log('[ApplySharp] Could not toggle sidebar:', error?.message || 'Content script not available');
-      });
+    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SIDEBAR' }).catch((error) => {
+      // Tab might not have content script loaded (e.g., chrome:// pages)
+      console.log(
+        '[ApplySharp] Could not toggle sidebar:',
+        error?.message || 'Content script not available'
+      );
+    });
   }
+});
+
+// Handle deadline reminder alarms
+chrome.alarms.onAlarm.addListener((alarm) => {
+  handleDeadlineAlarm(alarm.name).catch((err) => {
+    console.error('[ApplySharp] Deadline alarm handler failed:', err);
+  });
 });
 
 console.log('[ApplySharp] Background service worker started');

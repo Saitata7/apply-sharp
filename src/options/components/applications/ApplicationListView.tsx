@@ -18,6 +18,27 @@ function formatDate(date: Date | string): string {
   });
 }
 
+function formatDeadline(deadline: Date | string): string {
+  const d = new Date(deadline);
+  const daysLeft = Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const formatted = d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  if (daysLeft < 0) return `${formatted} (passed)`;
+  if (daysLeft === 0) return `${formatted} (today!)`;
+  if (daysLeft === 1) return `${formatted} (tomorrow)`;
+  return `${formatted} (${daysLeft}d left)`;
+}
+
+function getDeadlineClass(deadline: Date | string): string {
+  const daysLeft = Math.ceil((new Date(deadline).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (daysLeft <= 1) return 'deadline-urgent';
+  if (daysLeft <= 7) return 'deadline-soon';
+  return '';
+}
+
 function getPlatformLabel(platform: string): string {
   return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
@@ -177,6 +198,14 @@ export default function ApplicationListView({
                               <div className="detail-item">
                                 <span className="detail-label">Notes</span>
                                 <span>{app.userNotes}</span>
+                              </div>
+                            )}
+                            {app.job?.applicationDeadline && (
+                              <div className="detail-item">
+                                <span className="detail-label">Deadline</span>
+                                <span className={getDeadlineClass(app.job.applicationDeadline)}>
+                                  {formatDeadline(app.job.applicationDeadline)}
+                                </span>
                               </div>
                             )}
                           </div>

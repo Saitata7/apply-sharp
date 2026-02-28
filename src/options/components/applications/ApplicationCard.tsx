@@ -24,6 +24,23 @@ function getPlatformLabel(platform: string): string {
   return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 
+function formatDeadlineShort(deadline: Date | string): string {
+  const d = new Date(deadline);
+  const daysLeft = Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (daysLeft < 0) return `Due ${dateStr} (passed)`;
+  if (daysLeft === 0) return `Due today!`;
+  if (daysLeft === 1) return `Due tomorrow`;
+  return `Due ${dateStr} (${daysLeft}d)`;
+}
+
+function getDeadlineClass(deadline: Date | string): string {
+  const daysLeft = Math.ceil((new Date(deadline).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (daysLeft <= 1) return 'deadline-urgent';
+  if (daysLeft <= 7) return 'deadline-soon';
+  return '';
+}
+
 export default function ApplicationCard({
   app,
   onStatusChange,
@@ -68,6 +85,11 @@ export default function ApplicationCard({
           <span className="app-card-date">{formatDate(app.createdAt)}</span>
           {app.appliedAt && (
             <span className="app-card-applied">Applied {formatDate(app.appliedAt)}</span>
+          )}
+          {app.job?.applicationDeadline && (
+            <span className={`app-card-deadline ${getDeadlineClass(app.job.applicationDeadline)}`}>
+              {formatDeadlineShort(app.job.applicationDeadline)}
+            </span>
           )}
         </div>
       )}

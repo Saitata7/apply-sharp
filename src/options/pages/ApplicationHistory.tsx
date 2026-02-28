@@ -20,6 +20,7 @@ export default function ApplicationHistory() {
   const [sponsorshipFilter, setSponsorshipFilter] = useState<'all' | 'available' | 'not_available'>(
     'all'
   );
+  const [sortMode, setSortMode] = useState<'newest' | 'deadline'>('newest');
 
   useEffect(() => {
     loadApplications();
@@ -82,11 +83,20 @@ export default function ApplicationHistory() {
       result = result.filter((a) => a.job?.sponsorshipStatus === sponsorshipFilter);
     }
 
-    // Sort newest first
-    return [...result].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [applications, statusFilter, searchQuery, platformFilter, sponsorshipFilter]);
+    // Sort
+    return [...result].sort((a, b) => {
+      if (sortMode === 'deadline') {
+        const da = a.job?.applicationDeadline
+          ? new Date(a.job.applicationDeadline).getTime()
+          : Infinity;
+        const db = b.job?.applicationDeadline
+          ? new Date(b.job.applicationDeadline).getTime()
+          : Infinity;
+        return da - db; // soonest deadline first
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [applications, statusFilter, searchQuery, platformFilter, sponsorshipFilter, sortMode]);
 
   // Handlers
   async function handleStatusChange(id: string, status: ApplicationStatus, note?: string) {
@@ -206,6 +216,8 @@ export default function ApplicationHistory() {
         counts={counts}
         sponsorshipFilter={sponsorshipFilter}
         onSponsorshipChange={setSponsorshipFilter}
+        sortMode={sortMode}
+        onSortChange={setSortMode}
       />
 
       {oldAppsCount > 0 && (

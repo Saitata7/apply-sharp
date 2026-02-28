@@ -27,6 +27,7 @@ import { generateInterviewPrep } from '@core/interview/question-generator';
 import { generateEmailTemplate } from '@core/communication/email-templates';
 import type { EmailGenerationPayload } from '@core/communication/email-templates';
 import { exportAllData, importData, exportApplicationsCSV } from '@storage/export-import';
+import { scheduleDeadlineAlarm, clearDeadlineAlarm } from './deadline-alarms';
 import type { ExportData } from '@storage/export-import';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
@@ -367,6 +368,9 @@ export async function handleMessage(
     case 'EXPORT_APPLICATIONS_CSV':
       return handleExportApplicationsCSV();
 
+    case 'SET_JOB_DEADLINE':
+      return handleSetJobDeadline(message.payload as { jobId: string; deadline: string | null });
+
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
@@ -552,11 +556,48 @@ async function handleSaveJob(
       salary: jobData.salary,
       employmentType: jobData.employmentType || 'unknown',
       postedDate: jobData.postedDate,
+      applicationDeadline: jobData.applicationDeadline
+        ? new Date(jobData.applicationDeadline)
+        : undefined,
       sponsorshipStatus: jobData.sponsorshipStatus,
     };
 
     const saved = await jobRepo.upsertByUrl(job);
+
+    // Schedule deadline reminder if deadline is set
+    if (saved.applicationDeadline) {
+      await scheduleDeadlineAlarm(
+        saved.id,
+        new Date(saved.applicationDeadline),
+        saved.title,
+        saved.company
+      );
+    }
+
     return { success: true, data: saved };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleSetJobDeadline(payload: {
+  jobId: string;
+  deadline: string | null;
+}): Promise<MessageResponse> {
+  try {
+    const job = await jobRepo.getById(payload.jobId);
+    if (!job) return { success: false, error: 'Job not found' };
+
+    const deadline = payload.deadline ? new Date(payload.deadline) : undefined;
+    await jobRepo.update(payload.jobId, { applicationDeadline: deadline });
+
+    if (deadline) {
+      await scheduleDeadlineAlarm(payload.jobId, deadline, job.title, job.company);
+    } else {
+      await clearDeadlineAlarm(payload.jobId);
+    }
+
+    return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };
   }

@@ -13,6 +13,7 @@ import {
 } from '@core/ats/requirement-scanner';
 import type { SponsorshipStatus } from '@shared/types/job.types';
 import { escapeHtml } from '@shared/utils/dom-utils';
+import { extractDeadlineFromJD } from '@core/jobs/deadline-extractor';
 
 let overlayElement: HTMLElement | null = null;
 let isMinimized = false;
@@ -46,6 +47,16 @@ export function showSidebar(job: ExtractedJob, platform: JobPlatform): void {
       overlayElement.style.transform = 'translateX(0)';
     }
   });
+
+  // Auto-extract deadline from JD
+  if (job.description) {
+    const extracted = extractDeadlineFromJD(job.description);
+    if (extracted) {
+      currentJob.applicationDeadline = extracted;
+    }
+  }
+  renderDeadline(overlayElement, currentJob.applicationDeadline ?? null);
+  attachDeadlineListeners(overlayElement);
 
   // Scan for requirement gaps (async, updates UI when done)
   scanAndShowRequirementGaps();
@@ -317,6 +328,74 @@ function updateSponsorshipBadge(status: SponsorshipStatus): void {
   }
 }
 
+function formatDeadlineDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderDeadline(overlay: HTMLElement, deadline: Date | null): void {
+  const row = overlay.querySelector('#jp-deadline-row') as HTMLElement;
+  const label = overlay.querySelector('#jp-deadline-label') as HTMLElement;
+  if (!row || !label) return;
+  if (!deadline) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'flex';
+  const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const urgencyClass =
+    daysLeft <= 3 ? 'jp-deadline-urgent' : daysLeft <= 7 ? 'jp-deadline-soon' : 'jp-deadline-ok';
+  const countdownText =
+    daysLeft < 0
+      ? '(passed)'
+      : daysLeft === 0
+        ? '(today!)'
+        : daysLeft === 1
+          ? '(tomorrow)'
+          : `(${daysLeft}d left)`;
+  label.textContent = `Due ${formatDeadlineDate(deadline)} ${countdownText}`;
+  row.className = `jp-deadline-row ${urgencyClass}`;
+}
+
+function attachDeadlineListeners(overlay: HTMLElement): void {
+  const editBtn = overlay.querySelector('#jp-deadline-edit-btn');
+  const saveBtn = overlay.querySelector('#jp-deadline-save-btn');
+  const cancelBtn = overlay.querySelector('#jp-deadline-cancel-btn');
+  const inputRow = overlay.querySelector('#jp-deadline-input-row') as HTMLElement;
+  const deadlineRow = overlay.querySelector('#jp-deadline-row') as HTMLElement;
+  const input = overlay.querySelector('#jp-deadline-input') as HTMLInputElement;
+
+  editBtn?.addEventListener('click', () => {
+    if (inputRow) inputRow.style.display = 'flex';
+    if (currentJob?.applicationDeadline) {
+      const d = new Date(currentJob.applicationDeadline);
+      input.value = d.toISOString().split('T')[0];
+    }
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    if (inputRow) inputRow.style.display = 'none';
+  });
+
+  saveBtn?.addEventListener('click', () => {
+    if (!input.value || !currentJob) return;
+    currentJob.applicationDeadline = new Date(input.value);
+    renderDeadline(overlay, currentJob.applicationDeadline);
+    if (inputRow) inputRow.style.display = 'none';
+    // Show the deadline row if it was hidden (no auto-detected deadline)
+    if (deadlineRow) deadlineRow.style.display = 'flex';
+  });
+
+  // Also add a "Set deadline" link when no deadline is shown
+  if (!currentJob?.applicationDeadline) {
+    if (deadlineRow) {
+      deadlineRow.style.display = 'flex';
+      deadlineRow.className = 'jp-deadline-row jp-deadline-empty';
+      const label = overlay.querySelector('#jp-deadline-label') as HTMLElement;
+      if (label) label.textContent = 'No deadline detected';
+    }
+  }
+}
+
 /**
  * Scan the current job for requirement gaps
  * Call this after showing the sidebar and getting the user profile
@@ -422,6 +501,22 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             <span class="jp-badge jp-badge-platform">${capitalize(platform)}</span>
             ${job.location ? `<span class="jp-badge">${escapeHtml(job.location)}</span>` : ''}
             <span id="jp-sponsorship-badge" style="display:none;"></span>
+          </div>
+          <div class="jp-deadline-row" id="jp-deadline-row" style="display:none;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span id="jp-deadline-label"></span>
+            <button class="jp-deadline-edit-btn" id="jp-deadline-edit-btn" title="Edit deadline">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="jp-deadline-input-row" id="jp-deadline-input-row" style="display:none;">
+            <input type="date" id="jp-deadline-input" class="jp-deadline-input" />
+            <button class="jp-btn-xs" id="jp-deadline-save-btn">Set</button>
+            <button class="jp-btn-xs jp-btn-ghost" id="jp-deadline-cancel-btn">Cancel</button>
           </div>
         </div>
 
@@ -1171,6 +1266,76 @@ function getOverlayStyles(): string {
     .jp-badge-sponsor {
       background: #dcfce7;
       color: #166534;
+    }
+
+    /* Deadline */
+    .jp-deadline-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .jp-deadline-urgent {
+      color: #dc2626;
+      font-weight: 600;
+    }
+    .jp-deadline-soon {
+      color: #d97706;
+      font-weight: 500;
+    }
+    .jp-deadline-ok {
+      color: #059669;
+    }
+    .jp-deadline-empty {
+      color: #9ca3af;
+      font-style: italic;
+    }
+    .jp-deadline-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+    }
+    .jp-deadline-edit-btn:hover {
+      color: #4b5563;
+    }
+    .jp-deadline-input-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .jp-deadline-input {
+      font-size: 11px;
+      padding: 2px 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #fff;
+      color: #374151;
+    }
+    .jp-btn-xs {
+      font-size: 11px;
+      padding: 2px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #f3f4f6;
+      cursor: pointer;
+      color: #374151;
+    }
+    .jp-btn-xs:hover {
+      background: #e5e7eb;
+    }
+    .jp-btn-ghost {
+      background: transparent;
+      border-color: transparent;
+    }
+    .jp-btn-ghost:hover {
+      background: #f3f4f6;
     }
 
     /* Score Section */

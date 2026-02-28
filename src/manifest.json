@@ -8,7 +8,9 @@
     "storage",
     "unlimitedStorage",
     "activeTab",
-    "contextMenus"
+    "contextMenus",
+    "alarms",
+    "notifications"
   ],
 
   "host_permissions": [
