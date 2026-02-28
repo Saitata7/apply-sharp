@@ -72,7 +72,11 @@ export type MessageType =
   | 'SCORE_RESUME_ATS'
   | 'SCORE_RESUME_FILE_ATS'
   // Interview Prep
-  | 'GENERATE_INTERVIEW_PREP';
+  | 'GENERATE_INTERVIEW_PREP'
+  // Data Export/Import
+  | 'EXPORT_ALL_DATA'
+  | 'IMPORT_DATA'
+  | 'EXPORT_APPLICATIONS_CSV';
 
 export interface Message<T = unknown> {
   type: MessageType;

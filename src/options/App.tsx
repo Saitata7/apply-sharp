@@ -7,6 +7,7 @@ import ATSScore from './pages/ATSScore';
 import InterviewPrep from './pages/InterviewPrep';
 import ApplicationHistory from './pages/ApplicationHistory';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import DataManager from './pages/DataManager';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import OnboardingWizard from './components/OnboardingWizard';
 import { ProfileProvider } from './context/ProfileContext';
@@ -19,7 +20,8 @@ type Tab =
   | 'interview'
   | 'ai'
   | 'history'
-  | 'analytics';
+  | 'analytics'
+  | 'data';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('resume');
@@ -236,6 +238,25 @@ export default function App() {
               </svg>
               Analytics
             </button>
+
+            <button
+              className={`nav-item ${activeTab === 'data' ? 'active' : ''}`}
+              onClick={() => setActiveTab('data')}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <ellipse cx="12" cy="5" rx="9" ry="3" />
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+              </svg>
+              Data Manager
+            </button>
           </nav>
 
           <div className="sidebar-footer">
@@ -252,6 +273,7 @@ export default function App() {
           {activeTab === 'ai' && <AISettings />}
           {activeTab === 'history' && <ApplicationHistory />}
           {activeTab === 'analytics' && <AnalyticsDashboard />}
+          {activeTab === 'data' && <DataManager />}
         </main>
       </div>
     </ProfileProvider>

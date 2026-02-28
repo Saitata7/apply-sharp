@@ -24,6 +24,8 @@ import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { analyzeSkillGaps } from '@core/ats/gap-analyzer';
 import { scanRedFlags } from '@core/resume/red-flag-scanner';
 import { generateInterviewPrep } from '@core/interview/question-generator';
+import { exportAllData, importData, exportApplicationsCSV } from '@storage/export-import';
+import type { ExportData } from '@storage/export-import';
 import { learningService } from '@core/learning';
 import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
@@ -350,6 +352,15 @@ export async function handleMessage(
           jobTitle: string;
         }
       );
+
+    case 'EXPORT_ALL_DATA':
+      return handleExportAllData();
+
+    case 'IMPORT_DATA':
+      return handleImportData(message.payload as { data: ExportData });
+
+    case 'EXPORT_APPLICATIONS_CSV':
+      return handleExportApplicationsCSV();
 
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
@@ -4095,6 +4106,41 @@ async function handleGenerateInterviewPrep(payload: {
     return { success: true, data: result };
   } catch (error) {
     console.error('[ApplySharp] Interview prep generation failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ── Data Export / Import ───────────────────────────────────────────────
+
+async function handleExportAllData(): Promise<MessageResponse> {
+  try {
+    const data = await exportAllData();
+    return { success: true, data };
+  } catch (error) {
+    console.error('[ApplySharp] Export failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleImportData(payload: { data: ExportData }): Promise<MessageResponse> {
+  try {
+    if (!payload?.data) {
+      return { success: false, error: 'No import data provided' };
+    }
+    const result = await importData(payload.data);
+    return { success: result.success, data: result };
+  } catch (error) {
+    console.error('[ApplySharp] Import failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function handleExportApplicationsCSV(): Promise<MessageResponse> {
+  try {
+    const csv = await exportApplicationsCSV();
+    return { success: true, data: csv };
+  } catch (error) {
+    console.error('[ApplySharp] CSV export failed:', error);
     return { success: false, error: (error as Error).message };
   }
 }
