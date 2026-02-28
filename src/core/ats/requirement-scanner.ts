@@ -3,6 +3,8 @@
  * Detects job requirements from description and compares with user profile
  */
 
+import type { SponsorshipStatus } from '@shared/types/job.types';
+
 export interface RequirementGap {
   type: RequirementType;
   label: string;
@@ -98,6 +100,9 @@ const REQUIREMENT_PATTERNS: RequirementPattern[] = [
       /without\s*(visa\s*)?sponsorship/i,
       /must be authorized to work.*(without|no).*sponsor/i,
       /sponsorship\s*(is\s*)?not\s*(available|offered|provided)/i,
+      /\bh[-\s]?1b\b.*(?:no|not|cannot|will not)/i,
+      /(?:no|not|cannot|will not).*\bh[-\s]?1b\b/i,
+      /must be (?:currently )?(?:legally )?authorized to work/i,
     ],
   },
   // Language Requirements
@@ -111,7 +116,20 @@ const REQUIREMENT_PATTERNS: RequirementPattern[] = [
       /(speak|speaking)\s*(spanish|mandarin|chinese|french|german|japanese|korean)/i,
     ],
     extractValue: (match) => {
-      const languages = ['spanish', 'mandarin', 'chinese', 'french', 'german', 'japanese', 'korean', 'portuguese', 'arabic', 'hindi', 'russian', 'italian'];
+      const languages = [
+        'spanish',
+        'mandarin',
+        'chinese',
+        'french',
+        'german',
+        'japanese',
+        'korean',
+        'portuguese',
+        'arabic',
+        'hindi',
+        'russian',
+        'italian',
+      ];
       const matchText = match[0].toLowerCase();
       for (const lang of languages) {
         if (matchText.includes(lang)) {
@@ -229,37 +247,49 @@ function checkUserStatus(
       }
       return {
         status: 'risk',
-        userValue: profile.workAuthorization === 'permanent_resident'
-          ? 'Permanent Resident'
-          : profile.workAuthorization === 'visa'
-          ? 'Visa holder'
-          : 'Other',
+        userValue:
+          profile.workAuthorization === 'permanent_resident'
+            ? 'Permanent Resident'
+            : profile.workAuthorization === 'visa'
+              ? 'Visa holder'
+              : 'Other',
       };
 
     case 'security_clearance':
       if (!profile.securityClearance || profile.securityClearance === 'none') {
         // Check what level is required
         if (jdLower.includes('ts/sci') || jdLower.includes('ts sci')) {
-          return { status: profile.securityClearance ? 'risk' : 'unknown', userValue: profile.securityClearance || 'Not set' };
+          return {
+            status: profile.securityClearance ? 'risk' : 'unknown',
+            userValue: profile.securityClearance || 'Not set',
+          };
         }
         if (jdLower.includes('top secret')) {
-          return { status: profile.securityClearance ? 'risk' : 'unknown', userValue: profile.securityClearance || 'Not set' };
+          return {
+            status: profile.securityClearance ? 'risk' : 'unknown',
+            userValue: profile.securityClearance || 'Not set',
+          };
         }
-        return { status: profile.securityClearance ? 'risk' : 'unknown', userValue: profile.securityClearance || 'Not set' };
+        return {
+          status: profile.securityClearance ? 'risk' : 'unknown',
+          userValue: profile.securityClearance || 'Not set',
+        };
       }
-      // User has clearance - check if level is sufficient
-      const clearanceLevels = ['none', 'public_trust', 'secret', 'top_secret', 'ts_sci'];
-      const userLevel = clearanceLevels.indexOf(profile.securityClearance);
+      {
+        // User has clearance - check if level is sufficient
+        const clearanceLevels = ['none', 'public_trust', 'secret', 'top_secret', 'ts_sci'];
+        const userLevel = clearanceLevels.indexOf(profile.securityClearance);
 
-      let requiredLevel = 1; // Default to public trust
-      if (jdLower.includes('ts/sci') || jdLower.includes('ts sci')) requiredLevel = 4;
-      else if (jdLower.includes('top secret')) requiredLevel = 3;
-      else if (jdLower.includes('secret')) requiredLevel = 2;
+        let requiredLevel = 1; // Default to public trust
+        if (jdLower.includes('ts/sci') || jdLower.includes('ts sci')) requiredLevel = 4;
+        else if (jdLower.includes('top secret')) requiredLevel = 3;
+        else if (jdLower.includes('secret')) requiredLevel = 2;
 
-      if (userLevel >= requiredLevel) {
-        return { status: 'met', userValue: profile.securityClearance };
+        if (userLevel >= requiredLevel) {
+          return { status: 'met', userValue: profile.securityClearance };
+        }
+        return { status: 'risk', userValue: profile.securityClearance };
       }
-      return { status: 'risk', userValue: profile.securityClearance };
 
     case 'background_check':
       if (profile.canPassBackgroundCheck === undefined) {
@@ -279,15 +309,28 @@ function checkUserStatus(
       }
       return { status: 'met', userValue: 'No sponsorship needed' };
 
-    case 'language':
+    case 'language': {
       if (!profile.languages || profile.languages.length === 0) {
         return { status: 'unknown', userValue: 'Not set' };
       }
       // Extract required language from JD
-      const languages = ['spanish', 'mandarin', 'chinese', 'french', 'german', 'japanese', 'korean', 'portuguese', 'arabic', 'hindi', 'russian', 'italian'];
+      const languages = [
+        'spanish',
+        'mandarin',
+        'chinese',
+        'french',
+        'german',
+        'japanese',
+        'korean',
+        'portuguese',
+        'arabic',
+        'hindi',
+        'russian',
+        'italian',
+      ];
       for (const lang of languages) {
         if (jdLower.includes(lang)) {
-          const hasLang = profile.languages.some(l => l.toLowerCase().includes(lang));
+          const hasLang = profile.languages.some((l) => l.toLowerCase().includes(lang));
           if (hasLang) {
             return { status: 'met', userValue: profile.languages.join(', ') };
           }
@@ -295,12 +338,17 @@ function checkUserStatus(
         }
       }
       return { status: 'unknown' };
+    }
 
     case 'location':
       if (profile.remotePreference === 'remote') {
         return { status: 'risk', userValue: 'Prefers remote' };
       }
-      if (profile.remotePreference === 'flexible' || profile.remotePreference === 'hybrid' || profile.remotePreference === 'onsite') {
+      if (
+        profile.remotePreference === 'flexible' ||
+        profile.remotePreference === 'hybrid' ||
+        profile.remotePreference === 'onsite'
+      ) {
         return { status: 'met', userValue: profile.remotePreference };
       }
       return { status: 'unknown', userValue: 'Not set' };
@@ -333,4 +381,37 @@ export function formatGap(gap: RequirementGap): string {
   const icon = gap.userStatus === 'risk' ? '🚨' : '⚠️';
   const statusText = gap.userValue ? ` - ${gap.userValue}` : '';
   return `${icon} ${gap.jdRequirement}${statusText}`;
+}
+
+// ── Sponsorship Status Detection ────────────────────────────────────────
+
+const SPONSORSHIP_AVAILABLE_PATTERNS: RegExp[] = [
+  /(?:we\s+)?(?:do\s+)?(?:offer|provide|support)\s+(?:visa\s+)?sponsorship/i,
+  /visa\s+sponsorship\s+(?:is\s+)?(?:available|provided|offered)/i,
+  /will\s+sponsor\s+(?:h[-\s]?1b|visa|work\s+authorization)/i,
+  /open\s+to\s+sponsoring/i,
+  /sponsorship\s+(?:is\s+)?available/i,
+  /h[-\s]?1b\s+(?:sponsorship\s+)?(?:available|provided|offered)/i,
+];
+
+/**
+ * Parse a job description and determine sponsorship status.
+ * Checks positive patterns first ("we sponsor"), then negative ("no sponsorship").
+ * Returns 'unknown' if neither matches.
+ */
+export function parseSponsorshipStatus(jobDescription: string): SponsorshipStatus {
+  // Check positive (sponsorship available) first
+  for (const pattern of SPONSORSHIP_AVAILABLE_PATTERNS) {
+    if (pattern.test(jobDescription)) return 'available';
+  }
+
+  // Check negative (no sponsorship) — use existing patterns
+  const sponsorshipEntry = REQUIREMENT_PATTERNS.find((p) => p.type === 'sponsorship');
+  if (sponsorshipEntry) {
+    for (const pattern of sponsorshipEntry.patterns) {
+      if (pattern.test(jobDescription)) return 'not_available';
+    }
+  }
+
+  return 'unknown';
 }

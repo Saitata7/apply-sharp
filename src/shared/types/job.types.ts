@@ -37,6 +37,7 @@ export interface Job {
   experienceLevel?: ExperienceLevel;
   industry?: string;
   department?: string;
+  sponsorshipStatus?: SponsorshipStatus;
 
   analysis?: JobAnalysis;
 
@@ -65,6 +66,7 @@ export interface JobSalary {
 
 export type EmploymentType = 'full-time' | 'part-time' | 'contract' | 'internship' | 'unknown';
 export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
+export type SponsorshipStatus = 'available' | 'not_available' | 'unknown';
 
 export interface JobAnalysis {
   analyzedAt: Date;
@@ -102,4 +104,5 @@ export interface ExtractedJob {
   salary?: JobSalary;
   employmentType?: EmploymentType;
   postedDate?: Date;
+  sponsorshipStatus?: SponsorshipStatus;
 }

@@ -9,6 +9,8 @@ interface ApplicationFiltersProps {
   onPlatformChange: (platform: string) => void;
   platforms: string[];
   counts: Record<string, number>;
+  sponsorshipFilter: 'all' | 'available' | 'not_available';
+  onSponsorshipChange: (val: 'all' | 'available' | 'not_available') => void;
 }
 
 const STATUS_OPTIONS: { value: ApplicationStatus | 'all'; label: string }[] = [
@@ -32,6 +34,8 @@ export default function ApplicationFilters({
   onPlatformChange,
   platforms,
   counts,
+  sponsorshipFilter,
+  onSponsorshipChange,
 }: ApplicationFiltersProps) {
   return (
     <div className="app-filters">
@@ -88,6 +92,18 @@ export default function ApplicationFilters({
             ))}
           </select>
         )}
+
+        <select
+          className="filter-select"
+          value={sponsorshipFilter}
+          onChange={(e) =>
+            onSponsorshipChange(e.target.value as 'all' | 'available' | 'not_available')
+          }
+        >
+          <option value="all">All Sponsorship</option>
+          <option value="available">Sponsors Visa</option>
+          <option value="not_available">No Sponsorship</option>
+        </select>
       </div>
     </div>
   );

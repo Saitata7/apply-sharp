@@ -552,6 +552,7 @@ async function handleSaveJob(
       salary: jobData.salary,
       employmentType: jobData.employmentType || 'unknown',
       postedDate: jobData.postedDate,
+      sponsorshipStatus: jobData.sponsorshipStatus,
     };
 
     const saved = await jobRepo.upsertByUrl(job);

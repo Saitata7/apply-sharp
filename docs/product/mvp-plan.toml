@@ -863,7 +863,7 @@ files       = [
     "src/content/ui/sidebar.ts",
 ]
 priority    = "p3-low"
-status      = "pending"
+status      = "done"
 
 # ============================================================================
 # PHASE 6: Testing & Quality (Release Readiness)

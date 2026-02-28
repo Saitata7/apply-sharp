@@ -17,6 +17,9 @@ export default function ApplicationHistory() {
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('all');
+  const [sponsorshipFilter, setSponsorshipFilter] = useState<'all' | 'available' | 'not_available'>(
+    'all'
+  );
 
   useEffect(() => {
     loadApplications();
@@ -75,11 +78,15 @@ export default function ApplicationHistory() {
       result = result.filter((a) => a.job?.platform === platformFilter);
     }
 
+    if (sponsorshipFilter !== 'all') {
+      result = result.filter((a) => a.job?.sponsorshipStatus === sponsorshipFilter);
+    }
+
     // Sort newest first
     return [...result].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [applications, statusFilter, searchQuery, platformFilter]);
+  }, [applications, statusFilter, searchQuery, platformFilter, sponsorshipFilter]);
 
   // Handlers
   async function handleStatusChange(id: string, status: ApplicationStatus, note?: string) {
@@ -197,6 +204,8 @@ export default function ApplicationHistory() {
         onPlatformChange={setPlatformFilter}
         platforms={platforms}
         counts={counts}
+        sponsorshipFilter={sponsorshipFilter}
+        onSponsorshipChange={setSponsorshipFilter}
       />
 
       {oldAppsCount > 0 && (

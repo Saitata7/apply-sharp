@@ -7,9 +7,11 @@ import type { ExtractedJob, JobPlatform } from '@shared/types/job.types';
 import type { ATSScore } from '@core/ats/matcher';
 import {
   scanRequirements,
+  parseSponsorshipStatus,
   type RequirementGap,
   type UserRequirementProfile,
 } from '@core/ats/requirement-scanner';
+import type { SponsorshipStatus } from '@shared/types/job.types';
 import { escapeHtml } from '@shared/utils/dom-utils';
 
 let overlayElement: HTMLElement | null = null;
@@ -297,6 +299,24 @@ export function updateRequirementGaps(gaps: RequirementGap[]): void {
   gapsList.innerHTML = gapsHTML;
 }
 
+function updateSponsorshipBadge(status: SponsorshipStatus): void {
+  if (!overlayElement) return;
+  const badge = overlayElement.querySelector('#jp-sponsorship-badge') as HTMLElement;
+  if (!badge) return;
+
+  if (status === 'not_available') {
+    badge.className = 'jp-badge jp-badge-no-sponsor';
+    badge.textContent = 'No Visa Sponsorship';
+    badge.style.display = '';
+  } else if (status === 'available') {
+    badge.className = 'jp-badge jp-badge-sponsor';
+    badge.textContent = 'Sponsors Visa';
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 /**
  * Scan the current job for requirement gaps
  * Call this after showing the sidebar and getting the user profile
@@ -335,6 +355,10 @@ export async function scanAndShowRequirementGaps(): Promise<void> {
 
     // Update the UI
     updateRequirementGaps(gaps);
+
+    // Detect and show sponsorship status
+    const sponsorStatus = parseSponsorshipStatus(currentJob.description);
+    updateSponsorshipBadge(sponsorStatus);
 
     console.log('[ApplySharp] Requirement gaps found:', gaps.length);
   } catch (error) {
@@ -397,6 +421,7 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
           <div class="jp-job-meta">
             <span class="jp-badge jp-badge-platform">${capitalize(platform)}</span>
             ${job.location ? `<span class="jp-badge">${escapeHtml(job.location)}</span>` : ''}
+            <span id="jp-sponsorship-badge" style="display:none;"></span>
           </div>
         </div>
 
@@ -674,9 +699,10 @@ function attachEventListeners(
 
     try {
       const status = statusSelect?.value || 'saved';
+      const sponsorshipStatus = parseSponsorshipStatus(job.description || '');
       await chrome.runtime.sendMessage({
         type: 'SAVE_JOB',
-        payload: { ...job, url: window.location.href, platform, status },
+        payload: { ...job, url: window.location.href, platform, status, sponsorshipStatus },
       });
 
       if (labelEl) labelEl.textContent = 'Saved!';
@@ -1116,7 +1142,35 @@ function getOverlayStyles(): string {
     }
 
     .jp-job-meta {
-      display: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .jp-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .jp-badge-platform {
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    .jp-badge-no-sponsor {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .jp-badge-sponsor {
+      background: #dcfce7;
+      color: #166534;
     }
 
     /* Score Section */
