@@ -124,7 +124,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   }, [profile]);
 
   if (loading) {
-    return <div className="page-loading">Loading dashboard...</div>;
+    return (
+      <div className="page-loading" role="status">
+        Loading dashboard...
+      </div>
+    );
   }
 
   const name = profile?.personal?.fullName?.split(' ')[0] || 'there';
@@ -194,6 +198,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="8.5" cy="7" r="4" />
@@ -210,6 +215,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
@@ -223,6 +229,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -237,6 +244,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <line x1="18" y1="20" x2="18" y2="10" />
                 <line x1="12" y1="20" x2="12" y2="4" />
@@ -251,7 +259,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <h4 className="dashboard-completeness-title">
                 Profile Setup — {profileCompleteness.score}%
               </h4>
-              <div className="dashboard-progress-bar">
+              <div
+                className="dashboard-progress-bar"
+                role="progressbar"
+                aria-valuenow={profileCompleteness.score}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Profile setup ${profileCompleteness.score}% complete`}
+              >
                 <div
                   className="dashboard-progress-fill"
                   style={{ width: `${profileCompleteness.score}%` }}

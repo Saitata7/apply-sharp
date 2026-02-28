@@ -269,8 +269,15 @@ export default function ATSScore() {
       </div>
 
       {/* Mode Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
+      <div
+        role="tablist"
+        aria-label="Scoring mode"
+        style={{ display: 'flex', gap: 0, marginBottom: 16 }}
+      >
         <button
+          role="tab"
+          id="tab-profile"
+          aria-selected={mode === 'profile'}
           data-testid="mode-profile"
           onClick={() => switchMode('profile')}
           style={{
@@ -289,6 +296,9 @@ export default function ATSScore() {
           Score My Profile
         </button>
         <button
+          role="tab"
+          id="tab-file"
+          aria-selected={mode === 'file'}
           data-testid="mode-file"
           onClick={() => switchMode('file')}
           style={{
@@ -345,6 +355,7 @@ export default function ATSScore() {
                       fill="none"
                       stroke="#10b981"
                       strokeWidth="2"
+                      aria-hidden="true"
                     >
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
@@ -358,6 +369,7 @@ export default function ATSScore() {
                   </div>
                   <button
                     className="btn btn-sm"
+                    aria-label="Remove uploaded file"
                     onClick={(e) => {
                       e.stopPropagation();
                       setUploadedFile(null);
@@ -378,6 +390,7 @@ export default function ATSScore() {
                     stroke="#64748b"
                     strokeWidth="1.5"
                     style={{ margin: '0 auto 8px', display: 'block' }}
+                    aria-hidden="true"
                   >
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
@@ -398,6 +411,7 @@ export default function ATSScore() {
                 accept=".pdf,.docx,.txt"
                 onChange={handleFileSelect}
                 hidden
+                aria-label="Upload resume file"
               />
             </div>
           </div>
@@ -424,6 +438,8 @@ export default function ATSScore() {
                     key={p}
                     className={`btn btn-sm ${targetPages === p ? 'btn-primary' : ''}`}
                     onClick={() => setTargetPages(p)}
+                    aria-label={`${p} page${p > 1 ? 's' : ''}`}
+                    aria-pressed={targetPages === p}
                     style={{
                       minWidth: 36,
                       background: targetPages === p ? undefined : '#1e293b',
@@ -472,7 +488,12 @@ export default function ATSScore() {
       </div>
 
       {error && (
-        <div className="error-message" data-testid="ats-error" style={{ marginBottom: 16 }}>
+        <div
+          className="error-message"
+          data-testid="ats-error"
+          role="alert"
+          style={{ marginBottom: 16 }}
+        >
           {error}
         </div>
       )}
@@ -481,6 +502,7 @@ export default function ATSScore() {
         <div
           className="current-profile-notice"
           data-testid="ats-success"
+          role="status"
           style={{ marginBottom: 16 }}
         >
           {successMsg}
@@ -631,6 +653,8 @@ function BulletQuality({
         >
           <button
             onClick={() => toggleRole(i)}
+            aria-expanded={expandedRoles.has(i)}
+            aria-label={`${role.title} at ${role.company}, score ${role.roleScore}`}
             style={{
               width: '100%',
               padding: '8px 12px',

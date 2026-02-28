@@ -679,7 +679,7 @@ files       = [
     "src/popup/App.tsx",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 [[phases.phase4.tasks]]
 id          = "4.3"

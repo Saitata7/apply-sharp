@@ -198,6 +198,7 @@ export default function InterviewPrep() {
                   stroke="currentColor"
                   strokeWidth="2"
                   style={{ marginRight: 8 }}
+                  aria-hidden="true"
                 >
                   <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
                   <path d="M12 2a10 10 0 0 1 10 10" />
@@ -214,6 +215,7 @@ export default function InterviewPrep() {
       {error && (
         <div
           className="settings-section"
+          role="alert"
           style={{ padding: 16, marginBottom: 20, borderColor: '#ef4444' }}
         >
           <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>
@@ -282,6 +284,7 @@ export default function InterviewPrep() {
             <div className="settings-section" style={{ padding: '0', marginBottom: 16 }}>
               <button
                 onClick={() => setShowInsights(!showInsights)}
+                aria-expanded={showInsights}
                 style={{
                   width: '100%',
                   padding: '14px 20px',
@@ -302,6 +305,7 @@ export default function InterviewPrep() {
                   fill="none"
                   stroke="#64748b"
                   strokeWidth="2"
+                  aria-hidden="true"
                   style={{
                     transform: showInsights ? 'rotate(180deg)' : 'rotate(0)',
                     transition: 'transform 0.2s',
@@ -367,6 +371,7 @@ export default function InterviewPrep() {
                     {/* Question header */}
                     <button
                       onClick={() => toggleQuestion(q.id)}
+                      aria-expanded={isExpanded}
                       style={{
                         width: '100%',
                         padding: '14px 16px',
@@ -386,6 +391,7 @@ export default function InterviewPrep() {
                         fill="none"
                         stroke="#64748b"
                         strokeWidth="2"
+                        aria-hidden="true"
                         style={{
                           marginTop: 2,
                           flexShrink: 0,
@@ -540,6 +546,7 @@ export default function InterviewPrep() {
             <div className="settings-section" style={{ padding: 0, marginBottom: 16 }}>
               <button
                 onClick={() => setShowTips(!showTips)}
+                aria-expanded={showTips}
                 style={{
                   width: '100%',
                   padding: '14px 20px',
@@ -560,6 +567,7 @@ export default function InterviewPrep() {
                   fill="none"
                   stroke="#64748b"
                   strokeWidth="2"
+                  aria-hidden="true"
                   style={{
                     transform: showTips ? 'rotate(180deg)' : 'rotate(0)',
                     transition: 'transform 0.2s',

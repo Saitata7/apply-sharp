@@ -52,6 +52,9 @@ export default function StatusDropdown({ currentStatus, onStatusChange }: Status
       <button
         className={`status-badge status-badge--${current.color}`}
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={`Application status: ${current.label}`}
       >
         {current.label}
         <svg
@@ -61,6 +64,7 @@ export default function StatusDropdown({ currentStatus, onStatusChange }: Status
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
+          aria-hidden="true"
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -76,9 +80,13 @@ export default function StatusDropdown({ currentStatus, onStatusChange }: Status
               <input
                 type="text"
                 placeholder="Add a note (optional)..."
+                aria-label="Status change note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConfirm();
+                  if (e.key === 'Escape') handleCancel();
+                }}
                 autoFocus
               />
               <div className="status-note-actions">
@@ -91,12 +99,20 @@ export default function StatusDropdown({ currentStatus, onStatusChange }: Status
               </div>
             </div>
           ) : (
-            <div className="status-options">
+            <div className="status-options" role="listbox" aria-label="Select application status">
               {STATUS_CONFIG.map(({ value, label, color }) => (
                 <button
                   key={value}
+                  role="option"
+                  aria-selected={value === currentStatus}
                   className={`status-option status-option--${color} ${value === currentStatus ? 'current' : ''}`}
                   onClick={() => handleSelect(value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsOpen(false);
+                      setPendingStatus(null);
+                    }
+                  }}
                 >
                   <span className={`status-dot status-dot--${color}`} />
                   {label}
@@ -108,6 +124,7 @@ export default function StatusDropdown({ currentStatus, onStatusChange }: Status
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
+                      aria-hidden="true"
                     >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>

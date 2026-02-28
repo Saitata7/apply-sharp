@@ -409,6 +409,7 @@ export default function EmailTemplates() {
       {/* Error */}
       {error && (
         <div
+          role="alert"
           style={{
             padding: '1rem',
             background: '#fef2f2',
@@ -444,6 +445,7 @@ export default function EmailTemplates() {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => setIsEditing(!isEditing)}
+                aria-label={isEditing ? 'Switch to preview mode' : 'Switch to edit mode'}
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: isEditing ? '#dbeafe' : '#fff',
@@ -457,6 +459,7 @@ export default function EmailTemplates() {
               </button>
               <button
                 onClick={handleCopy}
+                aria-label="Copy email to clipboard"
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: copied ? '#dcfce7' : '#fff',
@@ -471,6 +474,7 @@ export default function EmailTemplates() {
               </button>
               <button
                 onClick={handleMailto}
+                aria-label="Open email in email client"
                 style={{
                   padding: '0.375rem 0.75rem',
                   background: '#2563eb',
