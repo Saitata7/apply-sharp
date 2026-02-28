@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Dashboard from './pages/Dashboard';
 import ResumeUpload from './pages/ResumeUpload';
 import MyProfile from './pages/MyProfile';
 import ProfileManager from './pages/ProfileManager';
@@ -13,6 +14,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import { ProfileProvider } from './context/ProfileContext';
 
 type Tab =
+  | 'dashboard'
   | 'resume'
   | 'myprofile'
   | 'profiles'
@@ -24,7 +26,7 @@ type Tab =
   | 'data';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('resume');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
@@ -89,6 +91,24 @@ export default function App() {
           <WorkspaceSwitcher />
 
           <nav className="sidebar-nav">
+            <button
+              className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              Dashboard
+            </button>
+
             <button
               className={`nav-item ${activeTab === 'resume' ? 'active' : ''}`}
               onClick={() => setActiveTab('resume')}
@@ -265,6 +285,9 @@ export default function App() {
         </aside>
 
         <main className="main-content">
+          {activeTab === 'dashboard' && (
+            <Dashboard onNavigate={(tab) => setActiveTab(tab as Tab)} />
+          )}
           {activeTab === 'resume' && <ResumeUpload />}
           {activeTab === 'myprofile' && <MyProfile />}
           {activeTab === 'profiles' && <ProfileManager />}

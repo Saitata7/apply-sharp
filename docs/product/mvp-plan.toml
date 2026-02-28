@@ -720,7 +720,7 @@ files       = [
     "src/options/components/DashboardWidgets.tsx",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 # ============================================================================
 # PHASE 5: Advanced Features (Competitive Moat)
