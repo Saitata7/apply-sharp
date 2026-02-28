@@ -24,6 +24,8 @@ import { calculateLayeredATSScore } from '@core/ats/layered-scorer';
 import { analyzeSkillGaps } from '@core/ats/gap-analyzer';
 import { scanRedFlags } from '@core/resume/red-flag-scanner';
 import { generateInterviewPrep } from '@core/interview/question-generator';
+import { generateEmailTemplate } from '@core/communication/email-templates';
+import type { EmailGenerationPayload } from '@core/communication/email-templates';
 import { exportAllData, importData, exportApplicationsCSV } from '@storage/export-import';
 import type { ExportData } from '@storage/export-import';
 import { learningService } from '@core/learning';
@@ -352,6 +354,9 @@ export async function handleMessage(
           jobTitle: string;
         }
       );
+
+    case 'GENERATE_EMAIL_TEMPLATE':
+      return handleGenerateEmailTemplate(message.payload as EmailGenerationPayload);
 
     case 'EXPORT_ALL_DATA':
       return handleExportAllData();
@@ -4106,6 +4111,40 @@ async function handleGenerateInterviewPrep(payload: {
     return { success: true, data: result };
   } catch (error) {
     console.error('[ApplySharp] Interview prep generation failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ── Email Templates ──────────────────────────────────────────────────
+
+async function handleGenerateEmailTemplate(
+  payload: EmailGenerationPayload
+): Promise<MessageResponse> {
+  try {
+    if (!payload?.emailType) {
+      return { success: false, error: 'Email type is required' };
+    }
+
+    const settings = await settingsRepo.get();
+    if (!settings?.ai) {
+      return { success: false, error: 'AI not configured. Set up an AI provider in AI Settings.' };
+    }
+
+    const aiService = new AIService(settings.ai);
+    const isAvailable = await aiService.isAvailable();
+    if (!isAvailable) {
+      return { success: false, error: 'AI service not available. Check your provider settings.' };
+    }
+
+    const masterProfile = await masterProfileRepo.getActive();
+    if (!masterProfile) {
+      return { success: false, error: 'No active profile found. Upload a resume first.' };
+    }
+
+    const result = await generateEmailTemplate(aiService, masterProfile, payload);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[ApplySharp] Email template generation failed:', error);
     return { success: false, error: (error as Error).message };
   }
 }

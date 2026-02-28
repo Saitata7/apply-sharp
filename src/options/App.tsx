@@ -6,6 +6,7 @@ import ProfileManager from './pages/ProfileManager';
 import AISettings from './pages/AISettings';
 import ATSScore from './pages/ATSScore';
 import InterviewPrep from './pages/InterviewPrep';
+import EmailTemplates from './pages/EmailTemplates';
 import ApplicationHistory from './pages/ApplicationHistory';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import DataManager from './pages/DataManager';
@@ -20,6 +21,7 @@ type Tab =
   | 'profiles'
   | 'atsscore'
   | 'interview'
+  | 'email'
   | 'ai'
   | 'history'
   | 'analytics'
@@ -205,6 +207,24 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-item ${activeTab === 'email' ? 'active' : ''}`}
+              onClick={() => setActiveTab('email')}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+              Email Templates
+            </button>
+
+            <button
               className={`nav-item ${activeTab === 'ai' ? 'active' : ''}`}
               onClick={() => setActiveTab('ai')}
             >
@@ -293,6 +313,7 @@ export default function App() {
           {activeTab === 'profiles' && <ProfileManager />}
           {activeTab === 'atsscore' && <ATSScore />}
           {activeTab === 'interview' && <InterviewPrep />}
+          {activeTab === 'email' && <EmailTemplates />}
           {activeTab === 'ai' && <AISettings />}
           {activeTab === 'history' && <ApplicationHistory />}
           {activeTab === 'analytics' && <AnalyticsDashboard />}

@@ -73,6 +73,8 @@ export type MessageType =
   | 'SCORE_RESUME_FILE_ATS'
   // Interview Prep
   | 'GENERATE_INTERVIEW_PREP'
+  // Email Templates
+  | 'GENERATE_EMAIL_TEMPLATE'
   // Data Export/Import
   | 'EXPORT_ALL_DATA'
   | 'IMPORT_DATA'

@@ -786,7 +786,7 @@ files       = [
     "src/options/components/EmailTemplates.tsx",
 ]
 priority    = "p2-medium"
-status      = "pending"
+status      = "done"
 
 [[phases.phase5.tasks]]
 id          = "5.3"
