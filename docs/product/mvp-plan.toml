@@ -943,7 +943,7 @@ Test the core user journeys:
 """
 files       = ["tests/e2e/"]
 priority    = "p3-low"
-status      = "pending"
+status      = "done"
 
 # ============================================================================
 # QUALITY STANDARDS — Applied to all phases

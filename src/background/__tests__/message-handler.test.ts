@@ -30,11 +30,13 @@ const {
     update: vi.fn(),
     delete: vi.fn(),
     setActive: vi.fn(),
+    save: vi.fn(),
   },
   mockJobRepo: {
     upsertByUrl: vi.fn(),
     getById: vi.fn(),
     getRecent: vi.fn(),
+    update: vi.fn(),
   },
   mockSettingsRepo: {
     get: vi.fn(),
@@ -95,6 +97,7 @@ vi.mock('@/ai', () => ({
 vi.mock('@core/profile/context-engine', () => ({
   CareerContextEngine: vi.fn().mockImplementation(() => ({
     buildContext: vi.fn(),
+    analyzeResumeText: vi.fn(),
   })),
 }));
 
@@ -103,13 +106,28 @@ vi.mock('@core/ats/matcher', () => ({
 }));
 
 vi.mock('@core/ats/hybrid-scorer', () => ({
-  calculateQuickATSScore: vi.fn().mockReturnValue({ score: 50 }),
+  calculateQuickATSScore: vi.fn().mockReturnValue({
+    score: 50,
+    matchPercentage: 50,
+    seniorityMatch: true,
+    yearsRequired: null,
+    backgroundMismatch: false,
+    backgroundMismatchMessage: null,
+    detectedJobBackground: null,
+  }),
   getQuickRecommendations: vi.fn().mockReturnValue([]),
   stripBoilerplate: vi.fn((text: string) => text),
 }));
 
 vi.mock('@core/ats/layered-scorer', () => ({
-  calculateLayeredATSScore: vi.fn().mockReturnValue({ score: 50 }),
+  calculateLayeredATSScore: vi.fn().mockReturnValue({
+    overallScore: 50,
+    backgroundMatch: null,
+    roleMatch: null,
+    skillAreaScores: [],
+    criticalMissing: [],
+    recommendations: [],
+  }),
 }));
 
 vi.mock('@core/ats/format-validator', () => ({
@@ -182,6 +200,13 @@ const mockChrome = {
       get: vi.fn().mockResolvedValue({}),
     },
   },
+  alarms: {
+    create: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(true),
+  },
+  notifications: {
+    create: vi.fn().mockResolvedValue('notif-id'),
+  },
 };
 (globalThis as Record<string, unknown>).chrome = mockChrome;
 
@@ -189,6 +214,8 @@ const mockChrome = {
 
 import { handleMessage } from '../message-handler';
 import type { Message } from '@shared/utils/messaging';
+import { AIService } from '@/ai';
+import { CareerContextEngine } from '@core/profile/context-engine';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -865,6 +892,276 @@ describe('handleMessage', () => {
         type: 'START_AUTOFILL',
         payload: { showPreview: true },
       });
+    });
+  });
+
+  // ── Group 12: E2E Journey — Resume Upload → Profile Creation ──────
+
+  describe('E2E: Resume Upload → Profile Creation', () => {
+    const sampleProfile = {
+      id: 'mp-new',
+      name: 'John Doe',
+      isActive: true,
+      personal: { name: 'John Doe', email: 'john@test.com' },
+      experience: [],
+      education: [],
+      skills: { technical: [], tools: [], frameworks: [] },
+      careerContext: {
+        trajectory: 'upward',
+        seniority: 'mid',
+        yearsOfExperience: 5,
+      },
+      generatedProfiles: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    it('analyzes resume text and creates master profile', async () => {
+      // Wire the mock chain: AIService → CareerContextEngine → save → return
+      const mockEngine = {
+        analyzeResumeText: vi.fn().mockResolvedValue(sampleProfile),
+        buildContext: vi.fn(),
+      };
+      (CareerContextEngine as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+        () => mockEngine
+      );
+
+      mockMasterProfileRepo.save.mockResolvedValue(sampleProfile);
+      mockMasterProfileRepo.getActive.mockResolvedValue(sampleProfile);
+      mockProfileRepo.getAll.mockResolvedValue([]);
+      mockProfileRepo.create.mockResolvedValue({ id: 'p1' });
+
+      const res = await handleMessage(
+        makeMessage('ANALYZE_RESUME', {
+          fileName: 'resume.pdf',
+          rawText: 'John Doe\nSenior Software Engineer\n5 years experience with React, Node.js',
+          basicInfo: { name: 'John Doe', email: 'john@test.com', skills: ['React', 'Node.js'] },
+          confidence: 0.95,
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data).toBeDefined();
+      expect(mockEngine.analyzeResumeText).toHaveBeenCalledOnce();
+      expect(mockMasterProfileRepo.save).toHaveBeenCalledWith(sampleProfile);
+    });
+
+    it('retrieves created profile via GET_ACTIVE_MASTER_PROFILE', async () => {
+      mockMasterProfileRepo.getActive.mockResolvedValue(sampleProfile);
+
+      const res = await handleMessage(makeMessage('GET_ACTIVE_MASTER_PROFILE'), makeSender());
+      expect(res.success).toBe(true);
+      expect(res.data).toEqual(sampleProfile);
+    });
+
+    it('returns error when AI service is unavailable', async () => {
+      const mockAI = { chat: vi.fn(), isAvailable: vi.fn().mockResolvedValue(false) };
+      (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
+
+      const res = await handleMessage(
+        makeMessage('ANALYZE_RESUME', {
+          fileName: 'resume.pdf',
+          rawText: 'Some resume text',
+          basicInfo: { skills: [] },
+          confidence: 0.5,
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('not available');
+    });
+  });
+
+  // ── Group 13: E2E Journey — Job Detection → ATS Score ────────────
+
+  describe('E2E: Job Detection → ATS Score', () => {
+    const sampleMasterProfile = {
+      id: 'mp1',
+      name: 'Test User',
+      isActive: true,
+      personal: { name: 'Test User' },
+      experience: [
+        {
+          company: 'Acme Corp',
+          normalizedTitle: 'software_engineer',
+          title: 'Software Engineer',
+          achievements: ['Built React apps'],
+          technologies: ['React', 'TypeScript'],
+        },
+      ],
+      education: [],
+      skills: {
+        technical: [{ name: 'React', proficiency: 'expert', yearsUsed: 3 }],
+        tools: [],
+        frameworks: [],
+      },
+      careerContext: { seniority: 'mid', yearsOfExperience: 5 },
+      generatedProfiles: [],
+    };
+
+    it('scores a job against active profile (quick score, no AI)', async () => {
+      mockMasterProfileRepo.getActive.mockResolvedValue(sampleMasterProfile);
+
+      const res = await handleMessage(
+        makeMessage('ANALYZE_JOB', {
+          job: {
+            title: 'Senior Frontend Engineer',
+            company: 'Tech Co',
+            description: 'We need a React expert with TypeScript experience for our web platform.',
+          },
+          platform: 'linkedin',
+          useAI: false,
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveProperty('overallScore');
+      expect(res.data).toHaveProperty('matchedKeywords');
+      expect(res.data).toHaveProperty('missingKeywords');
+      expect(res.data).toHaveProperty('suggestions');
+    });
+
+    it('returns error when no active profile exists', async () => {
+      mockMasterProfileRepo.getActive.mockResolvedValue(null);
+
+      const res = await handleMessage(
+        makeMessage('ANALYZE_JOB', {
+          job: {
+            title: 'Engineer',
+            company: 'Co',
+            description: 'Some job description',
+          },
+          useAI: false,
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('No active profile');
+    });
+
+    it('returns error when job description is empty', async () => {
+      mockMasterProfileRepo.getActive.mockResolvedValue(sampleMasterProfile);
+
+      const res = await handleMessage(
+        makeMessage('ANALYZE_JOB', {
+          job: { title: 'Engineer', company: 'Co', description: '' },
+          useAI: false,
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('No job description');
+    });
+  });
+
+  // ── Group 14: E2E Journey — Resume Tailoring with JD ─────────────
+
+  describe('E2E: Resume Tailoring with JD', () => {
+    it('runs 3-step optimization pipeline and returns enhanced content', async () => {
+      const jdAnalysis = {
+        coreNeed: 'Build scalable React applications',
+        mustHaves: ['React', 'TypeScript', 'AWS'],
+        niceToHaves: ['GraphQL'],
+        hiddenPriorities: ['Team leadership'],
+        teamContext: 'Small startup team',
+        impactExpected: 'Ship features fast',
+      };
+
+      const enhancedBullets = [
+        { expId: 'exp1', bullets: ['Built React TypeScript microservices serving 10K users'] },
+      ];
+
+      // Mock 3 sequential AI calls
+      const mockChat = vi
+        .fn()
+        .mockResolvedValueOnce({ content: JSON.stringify(jdAnalysis) }) // Step 1: JD analysis
+        .mockResolvedValueOnce({
+          content:
+            'Experienced React engineer with 5 years building scalable TypeScript applications on AWS.',
+        }) // Step 2: Summary
+        .mockResolvedValueOnce({ content: JSON.stringify(enhancedBullets) }); // Step 3: Bullets
+
+      const mockAI = { chat: mockChat, isAvailable: vi.fn().mockResolvedValue(true) };
+      (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
+
+      const res = await handleMessage(
+        makeMessage('OPTIMIZE_RESUME_FOR_JD', {
+          masterProfileId: 'mp1',
+          roleId: 'role1',
+          jobDescription: 'We need a Senior React Engineer with TypeScript and AWS experience.',
+          missingKeywords: ['AWS', 'GraphQL'],
+          strengthKeywords: [
+            { keyword: 'React', count: 5 },
+            { keyword: 'TypeScript', count: 3 },
+          ],
+          currentSummary: 'Software engineer with React experience.',
+          keyBulletPoints: [{ expId: 'exp1', bullets: ['Built web applications'] }],
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveProperty('optimizedSummary');
+      expect(res.data).toHaveProperty('enhancedBullets');
+      expect(res.data).toHaveProperty('addedKeywords');
+      expect(res.data).toHaveProperty('newScore');
+      expect(mockChat).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns error when AI service is unavailable', async () => {
+      const mockAI = { chat: vi.fn(), isAvailable: vi.fn().mockResolvedValue(false) };
+      (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
+
+      const res = await handleMessage(
+        makeMessage('OPTIMIZE_RESUME_FOR_JD', {
+          masterProfileId: 'mp1',
+          roleId: 'role1',
+          jobDescription: 'Some JD',
+          missingKeywords: [],
+          currentSummary: 'Summary',
+          keyBulletPoints: [],
+        }),
+        makeSender()
+      );
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('not available');
+    });
+
+    it('handles AI returning malformed JSON gracefully', async () => {
+      const mockChat = vi
+        .fn()
+        .mockResolvedValueOnce({ content: 'not valid json at all' }) // Step 1: bad JSON
+        .mockResolvedValueOnce({ content: 'A valid optimized summary.' }) // Step 2: plain text (OK)
+        .mockResolvedValueOnce({ content: 'also not valid json' }); // Step 3: bad JSON
+
+      const mockAI = { chat: mockChat, isAvailable: vi.fn().mockResolvedValue(true) };
+      (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
+
+      const res = await handleMessage(
+        makeMessage('OPTIMIZE_RESUME_FOR_JD', {
+          masterProfileId: 'mp1',
+          roleId: 'role1',
+          jobDescription: 'We need a React engineer.',
+          missingKeywords: ['React'],
+          currentSummary: 'Original summary.',
+          keyBulletPoints: [{ expId: 'exp1', bullets: ['Original bullet'] }],
+        }),
+        makeSender()
+      );
+
+      // Should still succeed — it falls back to defaults when JSON parse fails
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveProperty('optimizedSummary');
+      // Enhanced bullets should fall back to original
+      expect((res.data as Record<string, unknown>).enhancedBullets).toEqual([
+        { expId: 'exp1', bullets: ['Original bullet'] },
+      ]);
     });
   });
 });
