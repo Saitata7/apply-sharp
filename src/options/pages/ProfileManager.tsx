@@ -5,6 +5,7 @@ import { sendMessage } from '@shared/utils/messaging';
 import ResumeGenerator from '../components/ResumeGenerator';
 import CoverLetterGenerator from '../components/CoverLetterGenerator';
 import ResumeVersionManager from '../components/ResumeVersionManager';
+import LinkedInChecker from '../components/LinkedInChecker';
 
 type ModalType =
   | 'create'
@@ -14,6 +15,7 @@ type ModalType =
   | 'generate-resume'
   | 'cover-letter'
   | 'resume-versions'
+  | 'linkedin-checker'
   | null;
 
 interface CreateRoleState {
@@ -247,6 +249,21 @@ export default function ProfileManager() {
                 <circle cx="12" cy="12" r="10" />
               </svg>
               Resume Versions
+            </button>
+            <button className="btn btn-secondary" onClick={() => setModalType('linkedin-checker')}>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+                <rect x="2" y="9" width="4" height="12" />
+                <circle cx="4" cy="4" r="2" />
+              </svg>
+              LinkedIn Check
             </button>
             <button className="btn btn-secondary" onClick={() => setModalType('cover-letter')}>
               <svg
@@ -968,6 +985,11 @@ export default function ProfileManager() {
 
       {/* Cover Letter Generator Modal */}
       {modalType === 'cover-letter' && <CoverLetterGenerator onClose={() => setModalType(null)} />}
+
+      {/* LinkedIn Consistency Checker Modal */}
+      {modalType === 'linkedin-checker' && profile && (
+        <LinkedInChecker profile={profile} onClose={() => setModalType(null)} />
+      )}
 
       {/* Resume Version Manager Modal */}
       {modalType === 'resume-versions' && profile && (
