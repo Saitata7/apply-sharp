@@ -325,6 +325,22 @@ files       = [
 priority    = "p1-high"
 status      = "done"
 
+[[phases.phase1.tasks]]
+id          = "1.7"
+title       = "Add content controls & section priority intelligence"
+description = """
+Smart resume content management:
+- ContentExclusions: users can exclude specific experiences, projects, or entire sections
+- computeSectionPriorities(): scores sections 0-100 based on experience level, graduation recency, JD relevance
+- applyPageSatisfaction(): auto-trims lowest-priority sections when content exceeds target pages
+- Content Controls UI: collapsible panel with section/experience/project toggles
+- Pipeline: computeResumeLayout → user exclusions → section priorities → page satisfaction → final layout
+"""
+files       = ["src/options/components/ResumeGenerator.tsx"]
+priority    = "p1-high"
+status      = "done"
+depends_on  = ["1.2"]
+
 # ============================================================================
 # PHASE 1B: Chrome Extension UX (Competitor-Driven)
 # ============================================================================

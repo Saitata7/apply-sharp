@@ -5,6 +5,7 @@
 ApplySharp is a local-first AI Job Assistant Chrome extension that transforms the job application process from tedious manual work into an intelligent, personalized experience. It combines the automation of tools like Simplify with the AI-powered customization of RightJob, while keeping all data private on the user's machine.
 
 **Key Differentiators:**
+
 - **Self-improving system** that learns from application outcomes automatically
 - **Platform-specific ATS optimization** for maximum matching scores
 - **Humanized content generation** that doesn't sound AI-generated
@@ -13,6 +14,7 @@ ApplySharp is a local-first AI Job Assistant Chrome extension that transforms th
 ## Problem Statement
 
 Job seekers face several challenges:
+
 1. **Repetitive data entry**: Re-entering the same information across hundreds of applications
 2. **One-size-fits-all resumes**: Using generic resumes instead of tailored versions for each role
 3. **No tracking**: Losing track of which jobs they've applied to and their status
@@ -22,6 +24,7 @@ Job seekers face several challenges:
 7. **AI-sounding content**: Generated content that's obviously written by AI
 
 Existing solutions either:
+
 - Require cloud storage of sensitive personal data (privacy concern)
 - Lack AI-powered customization
 - Don't learn from user behavior over time
@@ -114,6 +117,8 @@ ApplySharp addresses these problems with:
 8. **Track my applications** with automatic status updates
 9. **Get platform-specific tips** (e.g., "Workday requires exact phrases")
 10. **Keep my data private** on my own computer
+11. **Control what goes on my resume** — exclude specific jobs, projects, or sections I don't want
+12. **Have smart section decisions** — auto-hide low-value sections (e.g., old education, irrelevant certs) to fit page budget
 
 ## Technical Architecture
 
@@ -147,18 +152,19 @@ ApplySharp addresses these problems with:
 
 ### Core Modules
 
-| Module | Purpose | Key Files |
-|--------|---------|-----------|
-| **Learning Engine** | Self-improving recommendations | `src/core/learning/` |
-| **ATS Optimization** | Platform-specific strategies | `src/core/ats/` |
-| **Profile Engine** | Career context analysis | `src/core/profile/` |
-| **Content Humanizer** | Make AI content natural | `src/core/content/` |
-| **Resume Parser** | PDF/DOCX extraction | `src/core/resume/` |
-| **Job Detectors** | Platform-specific extraction | `src/content/detectors/` |
-| **AI Service** | Provider abstraction | `src/ai/` |
-| **Storage** | IndexedDB repositories | `src/storage/` |
+| Module                | Purpose                        | Key Files                |
+| --------------------- | ------------------------------ | ------------------------ |
+| **Learning Engine**   | Self-improving recommendations | `src/core/learning/`     |
+| **ATS Optimization**  | Platform-specific strategies   | `src/core/ats/`          |
+| **Profile Engine**    | Career context analysis        | `src/core/profile/`      |
+| **Content Humanizer** | Make AI content natural        | `src/core/content/`      |
+| **Resume Parser**     | PDF/DOCX extraction            | `src/core/resume/`       |
+| **Job Detectors**     | Platform-specific extraction   | `src/content/detectors/` |
+| **AI Service**        | Provider abstraction           | `src/ai/`                |
+| **Storage**           | IndexedDB repositories         | `src/storage/`           |
 
 ### Privacy & Security
+
 - All data stored locally in IndexedDB
 - No data sent to external servers except chosen AI provider
 - API keys stored encrypted in browser storage
@@ -166,11 +172,13 @@ ApplySharp addresses these problems with:
 - Learning data never leaves the device
 
 ### Platform Support
+
 - Chrome browser (Manifest V3)
 - Job boards: LinkedIn, Indeed, Greenhouse, Lever, Workday, Dice, Monster
 - Extensible architecture for adding new platforms
 
 ### AI Integration
+
 - Support multiple providers: Ollama (local), OpenAI, Groq
 - User chooses their preferred provider
 - Streaming responses for better UX
@@ -178,6 +186,7 @@ ApplySharp addresses these problems with:
 - Graceful fallback when AI unavailable
 
 ### Performance
+
 - Extension popup loads in <200ms
 - Job detection happens within 1s of page load
 - Instant ATS score (Layer 1) in <100ms
@@ -213,6 +222,7 @@ Application Submitted
 ```
 
 ### Key Metrics Tracked
+
 - Response rate per platform
 - Response rate per keyword
 - Time to response
@@ -240,13 +250,13 @@ Application Submitted
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Job site structure changes | Modular detector architecture, easy to update |
-| AI rate limits | Local Ollama option, Layer 1 instant scoring, caching |
-| User enters sensitive data | Clear warnings, local-only storage, no cloud |
-| Form filling breaks site | Preview/approval flow, conservative field detection |
-| AI content sounds robotic | Humanizer module removes AI patterns |
+| Risk                       | Mitigation                                            |
+| -------------------------- | ----------------------------------------------------- |
+| Job site structure changes | Modular detector architecture, easy to update         |
+| AI rate limits             | Local Ollama option, Layer 1 instant scoring, caching |
+| User enters sensitive data | Clear warnings, local-only storage, no cloud          |
+| Form filling breaks site   | Preview/approval flow, conservative field detection   |
+| AI content sounds robotic  | Humanizer module removes AI patterns                  |
 | Learning needs data volume | Graceful degradation, show "need more data" messaging |
 
 ## Timeline (Completed)
