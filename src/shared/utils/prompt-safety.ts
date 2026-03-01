@@ -30,6 +30,10 @@ export function sanitizePromptInput(input: string, label: string): string {
     sanitized = sanitized.replace(pattern, '');
   }
 
+  // Escape closing XML tags that match the label to prevent delimiter breakout
+  const closingTag = `</${label}>`;
+  sanitized = sanitized.replaceAll(closingTag, `&lt;/${label}&gt;`);
+
   return `<${label}>\n${sanitized}\n</${label}>`;
 }
 

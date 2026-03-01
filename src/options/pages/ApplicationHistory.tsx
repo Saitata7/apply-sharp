@@ -113,7 +113,7 @@ export default function ApplicationHistory() {
                   ...a,
                   status,
                   statusHistory: [
-                    ...a.statusHistory,
+                    ...(a.statusHistory || []),
                     { from: a.status, to: status, changedAt: new Date(), note },
                   ],
                   updatedAt: new Date(),

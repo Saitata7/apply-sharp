@@ -34,14 +34,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false); // Guard against concurrent loads
+  const loadVersionRef = useRef(0); // Guard against stale responses overwriting newer data
 
   // Load all workspaces
   const loadAllProfiles = useCallback(async () => {
+    const version = ++loadVersionRef.current;
     try {
       console.debug('[ProfileContext] Loading all workspaces...');
       const response = await sendMessage<void, MasterProfile[]>({
         type: 'GET_MASTER_PROFILES',
       });
+
+      // Only apply result if no newer load was started
+      if (version !== loadVersionRef.current) return [];
 
       if (response.success && response.data) {
         console.debug('[ProfileContext] Found', response.data.length, 'workspaces');

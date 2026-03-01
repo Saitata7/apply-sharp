@@ -71,7 +71,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
 
   // ── Resume Upload Logic ────────────────────────────────────────────────
 
-  const validateAndSetFile = (f: File) => {
+  const validateAndSetFile = useCallback((f: File) => {
     const validExtensions = ['.pdf', '.docx', '.txt'];
     const hasValidExtension = validExtensions.some((ext) => f.name.toLowerCase().endsWith(ext));
     if (!hasValidExtension) {
@@ -84,7 +84,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
     }
     setFile(f);
     setUploadError(null);
-  };
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

@@ -45,6 +45,7 @@ export interface QuickATSScore {
   detectedJobBackground: string | null; // e.g., 'marketing', 'engineering', etc.
   backgroundMismatch: boolean; // true if profile background differs from job background
   backgroundMismatchMessage?: string; // Human-readable message about the mismatch
+  warnings?: string[]; // User-facing warnings (e.g., too few keywords)
 }
 
 export interface DeepATSScore extends QuickATSScore {
@@ -202,6 +203,12 @@ export function calculateQuickATSScore(
     score = Math.max(score - 20, 0); // Significant penalty for wrong background
   }
 
+  // Collect warnings for the caller
+  const warnings: string[] = [];
+  if (!hasEnoughKeywords) {
+    warnings.push('Too few keywords extracted from job description for reliable scoring');
+  }
+
   return {
     score: Math.min(score, 95), // Cap at 95% - no resume is perfect
     matchedKeywords: matched,
@@ -217,6 +224,7 @@ export function calculateQuickATSScore(
     detectedJobBackground,
     backgroundMismatch,
     backgroundMismatchMessage,
+    warnings,
   };
 }
 

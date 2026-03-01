@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { sendMessage } from '@shared/utils/messaging';
 import { parseResumeFile } from '@/core/resume/file-parser';
@@ -77,6 +77,14 @@ export default function ATSScore() {
   const [isParsing, setIsParsing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    []
+  );
+
   // ── Profile scoring ──────────────────────────────────────────────────
 
   const runProfileScore = useCallback(async () => {
@@ -97,7 +105,9 @@ export default function ATSScore() {
         setSuccessMsg(
           `Score: ${response.data.overallScore}/100 — ${getScoreTier(response.data.overallScore)}`
         );
-        setTimeout(() => setSuccessMsg(null), 3000);
+        setTimeout(() => {
+          if (mountedRef.current) setSuccessMsg(null);
+        }, 3000);
       } else {
         setError(response.error || 'Scoring failed');
       }
@@ -140,7 +150,9 @@ export default function ATSScore() {
         setSuccessMsg(
           `Score: ${response.data.overallScore}/100 — ${getScoreTier(response.data.overallScore)}`
         );
-        setTimeout(() => setSuccessMsg(null), 3000);
+        setTimeout(() => {
+          if (mountedRef.current) setSuccessMsg(null);
+        }, 3000);
       } else {
         setError(response.error || 'Scoring failed');
       }

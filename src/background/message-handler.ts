@@ -844,13 +844,9 @@ async function handleAnalyzeResume(payload: {
     );
 
     // Save the master profile
-    console.log('[MessageHandler] Saving master profile with ID:', masterProfile.id);
+    console.debug('[MessageHandler] Saving master profile');
     await masterProfileRepo.save(masterProfile);
-    console.log('[MessageHandler] Master profile saved successfully');
-
-    // Verify it was saved
-    const savedProfile = await masterProfileRepo.getActive();
-    console.log('[MessageHandler] Verification - Active profile:', savedProfile?.id);
+    console.debug('[MessageHandler] Master profile saved successfully');
 
     // SYNC: Also create/update a ResumeProfile for the Profile Manager
     // This ensures both systems stay in sync
@@ -926,6 +922,8 @@ async function handleAnalyzeResume(payload: {
         customAnswers: {},
       },
       rawResumeText: payload.rawText,
+      sourceFileName: payload.fileName,
+      parseConfidence: payload.confidence,
     };
 
     if (existingResumeProfile) {
@@ -1329,25 +1327,38 @@ function extractProfileSkillsAsSet(
 /**
  * Check if a keyword matches any profile skill
  */
+/** Cache for normalized skill sets to avoid O(n) normalization on every call */
+let _normalizedSkillsCache: { source: Set<string>; normalized: Set<string> } | null = null;
+
+function getNormalizedSkills(profileSkills: Set<string>): Set<string> {
+  if (_normalizedSkillsCache?.source === profileSkills) return _normalizedSkillsCache.normalized;
+  const normalized = new Set<string>();
+  for (const skill of profileSkills) {
+    normalized.add(skill.replace(/[\s\-/]/g, ''));
+  }
+  _normalizedSkillsCache = { source: profileSkills, normalized };
+  return normalized;
+}
+
 function matchesProfileSkill(keyword: string, profileSkills: Set<string>): boolean {
   const kwLower = keyword.toLowerCase();
 
   // Direct match
   if (profileSkills.has(kwLower)) return true;
 
+  const normalizedKw = kwLower.replace(/[\s\-/]/g, '');
+  const normalizedSkills = getNormalizedSkills(profileSkills);
+
+  // Check normalized exact match first
+  if (normalizedSkills.has(normalizedKw)) return true;
+
   // Partial match (e.g., "Java" matches "Java 8+")
   for (const skill of profileSkills) {
     if (skill.includes(kwLower) || kwLower.includes(skill)) {
       return true;
     }
-    // Handle variations (e.g., "Spring Boot" vs "SpringBoot")
-    const normalizedKw = kwLower.replace(/[\s\-/]/g, '');
     const normalizedSkill = skill.replace(/[\s\-/]/g, '');
-    if (
-      normalizedKw === normalizedSkill ||
-      normalizedSkill.includes(normalizedKw) ||
-      normalizedKw.includes(normalizedSkill)
-    ) {
+    if (normalizedSkill.includes(normalizedKw) || normalizedKw.includes(normalizedSkill)) {
       return true;
     }
   }
@@ -1581,12 +1592,19 @@ Return ONLY valid JSON.`;
       if (result) {
         return { success: true, data: result };
       }
-    } catch (error) {
-      // If JSON parsing fails, treat the raw AI response as a preview
-      console.debug(
-        '[MessageHandler] AI response JSON parse failed, using as preview:',
-        (error as Error).message
-      );
+    } catch (parseError) {
+      // Only catch JSON parse errors — rethrow programming errors
+      if (
+        parseError instanceof SyntaxError ||
+        (parseError instanceof Error && parseError.message.includes('JSON'))
+      ) {
+        console.debug(
+          '[MessageHandler] AI response JSON parse failed, using as preview:',
+          (parseError as Error).message
+        );
+      } else {
+        throw parseError;
+      }
       return {
         success: true,
         data: {

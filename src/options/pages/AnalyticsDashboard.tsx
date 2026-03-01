@@ -15,8 +15,16 @@ export default function AnalyticsDashboard() {
     topKeywords?: { keyword: string; score: number }[];
   } | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
-    Promise.all([loadApplications(), loadInsights()]).finally(() => setLoading(false));
+    Promise.allSettled([loadApplications(), loadInsights()]).then((results) => {
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        setLoadError('Some data failed to load');
+      }
+      setLoading(false);
+    });
   }, []);
 
   async function loadApplications() {
@@ -141,6 +149,11 @@ export default function AnalyticsDashboard() {
         <h1>Analytics</h1>
         <p className="page-description">Insights from your job application activity</p>
       </div>
+      {loadError && (
+        <div className="error-message" style={{ marginBottom: '1rem' }}>
+          {loadError}
+        </div>
+      )}
 
       <StatsSummary
         total={stats.total}

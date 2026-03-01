@@ -193,13 +193,16 @@ export default function ProfileManager() {
     if (!editingRole) return;
 
     try {
-      await sendMessage({
+      const response = await sendMessage({
         type: 'DELETE_ROLE_PROFILE',
         payload: {
           masterProfileId: profile.id,
           roleProfileId: editingRole.id,
         },
       });
+      if (!response.success) {
+        throw new Error(response.error || 'Delete failed');
+      }
       await refreshProfile();
       setModalType(null);
       setEditingRole(null);

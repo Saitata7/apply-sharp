@@ -26,7 +26,11 @@ function getPlatformLabel(platform: string): string {
 
 function formatDeadlineShort(deadline: Date | string): string {
   const d = new Date(deadline);
-  const daysLeft = Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  // Normalize both to midnight UTC to avoid timezone discrepancies
+  const deadlineUTC = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysLeft = Math.ceil((deadlineUTC - nowUTC) / (24 * 60 * 60 * 1000));
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   if (daysLeft < 0) return `Due ${dateStr} (passed)`;
   if (daysLeft === 0) return `Due today!`;
@@ -35,7 +39,11 @@ function formatDeadlineShort(deadline: Date | string): string {
 }
 
 function getDeadlineClass(deadline: Date | string): string {
-  const daysLeft = Math.ceil((new Date(deadline).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const d = new Date(deadline);
+  const deadlineUTC = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysLeft = Math.ceil((deadlineUTC - nowUTC) / (24 * 60 * 60 * 1000));
   if (daysLeft <= 1) return 'deadline-urgent';
   if (daysLeft <= 7) return 'deadline-soon';
   return '';

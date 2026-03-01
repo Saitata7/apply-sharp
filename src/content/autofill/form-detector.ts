@@ -622,7 +622,7 @@ function createField(
   return {
     element,
     type,
-    label: label.charAt(0).toUpperCase() + label.slice(1),
+    label: label ? label.charAt(0).toUpperCase() + label.slice(1) : '',
     name: element.name || '',
     id: element.id || '',
     placeholder: ('placeholder' in element ? element.placeholder : '') || '',

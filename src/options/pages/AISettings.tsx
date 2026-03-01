@@ -119,6 +119,7 @@ export default function AISettings() {
   }
 
   async function testConnection() {
+    if (testStatus === 'testing') return; // Prevent overlapping tests
     setTestStatus('testing');
     setTestMessage('Testing connection...');
 

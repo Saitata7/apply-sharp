@@ -62,11 +62,12 @@ export async function showAutofillSidebar(
  * Hide the autofill sidebar
  */
 export function hideAutofillSidebar(): void {
-  if (sidebarElement) {
-    sidebarElement.classList.remove('jp-sidebar-visible');
+  const el = sidebarElement;
+  sidebarElement = null; // Clear reference immediately to prevent stale access
+  if (el) {
+    el.classList.remove('jp-sidebar-visible');
     setTimeout(() => {
-      sidebarElement?.remove();
-      sidebarElement = null;
+      el.remove();
     }, 300);
   }
   currentForm = null;
@@ -998,9 +999,9 @@ async function handleAIGenerate(e: Event): Promise<void> {
         const contentEl = fieldItem.querySelector('.jp-field-content');
         if (contentEl) {
           const nameEl = contentEl.querySelector('.jp-field-name');
-          const nameHTML = nameEl?.innerHTML || '';
+          const nameText = nameEl?.textContent || '';
           contentEl.innerHTML = `
-            <div class="jp-field-name">${nameHTML} <span class="jp-source-tag jp-tag-ai">AI</span></div>
+            <div class="jp-field-name">${escapeHtml(nameText)} <span class="jp-source-tag jp-tag-ai">AI</span></div>
             <div class="jp-field-value jp-will-fill">Will fill: ${escapeHtml(answer.substring(0, 50))}${answer.length > 50 ? '...' : ''}</div>
           `;
         }

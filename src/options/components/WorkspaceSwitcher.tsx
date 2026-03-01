@@ -39,10 +39,14 @@ export default function WorkspaceSwitcher() {
     );
   };
 
-  // Get color for workspace
-  const getWorkspaceColor = (index: number) => {
+  // Get color for workspace (stable by ID hash, not index)
+  const getWorkspaceColor = (id: string) => {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-    return colors[index % colors.length];
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+    }
+    return colors[Math.abs(hash) % colors.length];
   };
 
   if (allProfiles.length === 0) {
@@ -76,7 +80,7 @@ export default function WorkspaceSwitcher() {
         <div
           className="workspace-avatar"
           style={{
-            backgroundColor: getWorkspaceColor(allProfiles.findIndex((p) => p.id === profile?.id)),
+            backgroundColor: getWorkspaceColor(profile?.id || ''),
           }}
         >
           {getInitials(profile?.personal?.fullName)}
@@ -108,7 +112,7 @@ export default function WorkspaceSwitcher() {
             <span>Workspaces ({allProfiles.length})</span>
           </div>
           <div className="workspace-list">
-            {allProfiles.map((p, index) => (
+            {allProfiles.map((p) => (
               <button
                 key={p.id}
                 className={`workspace-item ${p.id === profile?.id ? 'active' : ''}`}
@@ -116,7 +120,7 @@ export default function WorkspaceSwitcher() {
               >
                 <div
                   className="workspace-item-avatar"
-                  style={{ backgroundColor: getWorkspaceColor(index) }}
+                  style={{ backgroundColor: getWorkspaceColor(p.id) }}
                 >
                   {getInitials(p.personal?.fullName)}
                 </div>

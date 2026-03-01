@@ -181,7 +181,25 @@ export async function importData(exportData: ExportData): Promise<ImportResult> 
       const merged = {
         ...data.settings,
         // Preserve existing AI credentials if they exist
-        ai: existing.ai?.provider ? { ...data.settings.ai, ...existing.ai } : data.settings.ai,
+        ai: existing.ai?.provider
+          ? {
+              ...data.settings.ai,
+              ...existing.ai,
+              // Deep merge provider-specific configs so imported settings don't lose nested keys
+              ...(data.settings.ai?.ollama && existing.ai?.ollama
+                ? { ollama: { ...data.settings.ai.ollama, ...existing.ai.ollama } }
+                : {}),
+              ...(data.settings.ai?.openai && existing.ai?.openai
+                ? { openai: { ...data.settings.ai.openai, ...existing.ai.openai } }
+                : {}),
+              ...(data.settings.ai?.groq && existing.ai?.groq
+                ? { groq: { ...data.settings.ai.groq, ...existing.ai.groq } }
+                : {}),
+              ...(data.settings.ai?.anthropic && existing.ai?.anthropic
+                ? { anthropic: { ...data.settings.ai.anthropic, ...existing.ai.anthropic } }
+                : {}),
+            }
+          : data.settings.ai,
       };
       await settingsRepo.save(merged);
       result.imported.settings = true;

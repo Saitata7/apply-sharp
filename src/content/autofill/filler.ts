@@ -188,7 +188,8 @@ export async function fillForm(
       }
 
       // Save previous value for undo
-      const prevValue = (field.element as HTMLInputElement).value || '';
+      const prevValue =
+        'value' in field.element ? (field.element as HTMLInputElement).value || '' : '';
 
       // Fill the field with retry for dynamically loaded elements
       let success = false;
@@ -259,8 +260,10 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
     case 'firstName':
       return personal.fullName?.split(' ')[0] || null;
 
-    case 'lastName':
-      return personal.fullName?.split(' ').slice(1).join(' ') || null;
+    case 'lastName': {
+      const parts = personal.fullName?.split(' ');
+      return parts && parts.length > 1 ? parts.slice(1).join(' ') : null;
+    }
 
     case 'fullName':
       return personal.fullName || null;
@@ -287,8 +290,11 @@ function getValueForField(fieldType: FieldType, profile: ResumeProfile): string 
     case 'city':
       // Check autofillData first
       if (autofillData?.city) return autofillData.city;
-      // Try to extract from location string
-      return personal.location?.split(',')[0]?.trim() || null;
+      // Try to extract from location string (only if it contains a comma delimiter)
+      if (personal.location?.includes(',')) {
+        return personal.location.split(',')[0]?.trim() || null;
+      }
+      return personal.location?.trim() || null;
 
     case 'state': {
       // Check autofillData first
@@ -811,7 +817,8 @@ function fillCheckboxOrRadio(element: HTMLInputElement, value: string): boolean 
 
   if (element.type === 'radio') {
     // Find the radio with matching value
-    const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
+    const form = element.closest('form');
+    const radioGroup = (form || document).querySelectorAll(`input[name="${element.name}"]`);
     for (const radio of radioGroup) {
       const r = radio as HTMLInputElement;
       if (
