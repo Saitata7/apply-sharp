@@ -2869,9 +2869,17 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
         temperature: 0.3,
         maxTokens: 800,
       });
-      const parsed = extractJSONFromResponse(jdResponse.content);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed = extractJSONFromResponse<Record<string, any>>(jdResponse.content);
       if (parsed) {
-        jdAnalysis = parsed as typeof jdAnalysis;
+        jdAnalysis = {
+          coreNeed: typeof parsed.coreNeed === 'string' ? parsed.coreNeed : '',
+          mustHaves: Array.isArray(parsed.mustHaves) ? parsed.mustHaves : [],
+          niceToHaves: Array.isArray(parsed.niceToHaves) ? parsed.niceToHaves : [],
+          hiddenPriorities: Array.isArray(parsed.hiddenPriorities) ? parsed.hiddenPriorities : [],
+          teamContext: typeof parsed.teamContext === 'string' ? parsed.teamContext : '',
+          impactExpected: typeof parsed.impactExpected === 'string' ? parsed.impactExpected : '',
+        };
       }
     } catch (parseError) {
       console.warn('[OptimizeResume] JD analysis parse failed, continuing with basic approach');

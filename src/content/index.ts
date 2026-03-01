@@ -325,7 +325,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'UPDATE_PROFILE':
       currentProfile = message.payload;
-      autoAnalyzeIfReady();
+      autoAnalyzeIfReady().catch((err) =>
+        console.error('[ApplySharp] Auto-analyze failed after profile update:', err)
+      );
       sendResponse({ success: true });
       return false;
 
@@ -443,6 +445,12 @@ if (document.readyState === 'loading') {
 // Re-check on URL changes (for SPAs like LinkedIn)
 let lastUrl = window.location.href;
 const urlObserver = new MutationObserver(() => {
+  // Disconnect if extension context invalidated (after extension reload)
+  if (!chrome.runtime?.id) {
+    urlObserver.disconnect();
+    return;
+  }
+
   if (window.location.href !== lastUrl) {
     lastUrl = window.location.href;
     isInitialized = false;

@@ -93,7 +93,9 @@ export const jobRepo = {
     return true;
   },
 
-  async upsertByUrl(job: Omit<Job, 'id' | 'createdAt' | 'firstSeenAt' | 'lastSeenAt'>): Promise<Job> {
+  async upsertByUrl(
+    job: Omit<Job, 'id' | 'createdAt' | 'firstSeenAt' | 'lastSeenAt'>
+  ): Promise<Job> {
     const existing = await this.getByUrl(job.url);
 
     if (existing) {
@@ -101,7 +103,8 @@ export const jobRepo = {
         ...job,
         lastSeenAt: new Date(),
       });
-      return updated!;
+      if (updated) return updated;
+      // If update failed (job deleted between check and update), fall through to create
     }
 
     return this.create(job);

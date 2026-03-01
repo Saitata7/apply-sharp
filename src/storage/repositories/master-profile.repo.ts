@@ -201,7 +201,13 @@ export const masterProfileRepo = {
         profile.generatedProfiles = [...(profile.generatedProfiles || []), generatedProfile];
       }
 
-      return this.update(masterProfileId, { generatedProfiles: profile.generatedProfiles });
+      const updated = await this.update(masterProfileId, {
+        generatedProfiles: profile.generatedProfiles,
+      });
+      if (!updated) {
+        console.error('[MasterProfileRepo] addGeneratedProfile: update returned undefined');
+      }
+      return updated;
     } catch (error) {
       console.error('[MasterProfileRepo] addGeneratedProfile failed:', error);
       return undefined;

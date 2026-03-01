@@ -41,11 +41,15 @@ export default function CoverLetterGenerator({
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Track mounted state for timer cleanup
+  // Track mounted state and step timers for cleanup
   const mountedRef = useRef(true);
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepTimer2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
+      if (stepTimer2Ref.current) clearTimeout(stepTimer2Ref.current);
     };
   }, []);
 
@@ -91,10 +95,10 @@ export default function CoverLetterGenerator({
     setIsEditing(false);
 
     // Show progressive steps for user feedback
-    const stepTimer = setTimeout(() => {
+    stepTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setGeneratingStep('Crafting your cover letter...');
     }, 3000);
-    const stepTimer2 = setTimeout(() => {
+    stepTimer2Ref.current = setTimeout(() => {
       if (mountedRef.current) setGeneratingStep('Polishing and finalizing...');
     }, 8000);
 
@@ -121,8 +125,8 @@ export default function CoverLetterGenerator({
     } catch (err) {
       setError(`Generation failed: ${(err as Error).message}`);
     } finally {
-      clearTimeout(stepTimer);
-      clearTimeout(stepTimer2);
+      if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
+      if (stepTimer2Ref.current) clearTimeout(stepTimer2Ref.current);
       setIsGenerating(false);
       setGeneratingStep('');
     }

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from 'react';
 import type { MasterProfile } from '@shared/types/master-profile.types';
 import { sendMessage } from '@shared/utils/messaging';
 
@@ -25,7 +33,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [allProfiles, setAllProfiles] = useState<MasterProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const loadingRef = { current: false }; // Guard against concurrent loads
+  const loadingRef = useRef(false); // Guard against concurrent loads
 
   // Load all workspaces
   const loadAllProfiles = useCallback(async () => {
@@ -168,7 +176,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      console.log('[ProfileContext] Updating profile:', profile.id);
+      console.debug('[ProfileContext] Updating profile:', profile.id);
 
       try {
         const response = await sendMessage<
@@ -180,7 +188,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         });
 
         if (response.success && response.data) {
-          console.log('[ProfileContext] Profile updated successfully');
+          console.debug('[ProfileContext] Profile updated successfully');
           setProfile(response.data);
           // Also refresh the all profiles list
           await loadAllProfiles();

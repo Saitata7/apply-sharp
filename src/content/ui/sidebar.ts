@@ -876,13 +876,13 @@ async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
     }
 
     const [profilesRes, activeRes] = await Promise.all([
-      chrome.runtime.sendMessage({ type: 'GET_MASTER_PROFILES' }),
-      chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' }),
+      chrome.runtime.sendMessage({ type: 'GET_MASTER_PROFILES' }).catch(() => null),
+      chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' }).catch(() => null),
     ]);
 
     if (profilesRes?.success && profilesRes.data) {
       const profiles = profilesRes.data as Array<{ id: string; personal?: { fullName?: string } }>;
-      const activeId = activeRes?.data?.id;
+      const activeId = activeRes?.success ? activeRes.data?.id : undefined;
 
       select.innerHTML =
         profiles.length > 0

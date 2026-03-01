@@ -60,21 +60,24 @@ export class GenericDetector implements JobDetector {
    */
   private waitForDynamicContent(timeout = 8000): Promise<void> {
     return new Promise((resolve) => {
-      const startTime = Date.now();
+      let settled = false;
 
       // Check if content is already loaded
       if (this.hasJobContent()) {
-        console.debug('[ApplySharp] Content already loaded');
         resolve();
         return;
       }
 
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        observer.disconnect();
+        setTimeout(resolve, 200);
+      };
+
       const observer = new MutationObserver(() => {
         if (this.hasJobContent()) {
-          console.debug('[ApplySharp] Dynamic content loaded after', Date.now() - startTime, 'ms');
-          observer.disconnect();
-          // Small delay to let any final rendering complete
-          setTimeout(resolve, 200);
+          settle();
         }
       });
 
@@ -85,11 +88,7 @@ export class GenericDetector implements JobDetector {
       });
 
       // Timeout fallback
-      setTimeout(() => {
-        observer.disconnect();
-        console.debug('[ApplySharp] Dynamic content wait timed out after', timeout, 'ms');
-        setTimeout(resolve, 200); // Match mutation settle delay
-      }, timeout);
+      setTimeout(settle, timeout);
     });
   }
 

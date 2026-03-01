@@ -146,8 +146,12 @@ export default function ResumeUpload() {
       if (response.success && response.data) {
         // Update the shared profile state with new workspace
         setProfile(response.data);
-        // Refresh the list of all workspaces
-        await refreshAllProfiles();
+        // Refresh the list of all workspaces (non-blocking — don't fail the upload if this fails)
+        try {
+          await refreshAllProfiles();
+        } catch {
+          console.warn('[ResumeUpload] Failed to refresh workspace list after upload');
+        }
         setState((prev) => ({
           ...prev,
           isAnalyzing: false,

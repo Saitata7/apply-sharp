@@ -436,6 +436,15 @@ export async function waitForFormFields(timeoutMs: number = 5000): Promise<Detec
     let resolved = false;
     let retryCount = 0;
     const maxRetries = Math.floor(timeoutMs / 500);
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const settle = (result: DetectedForm) => {
+      if (resolved) return;
+      resolved = true;
+      observer.disconnect();
+      if (interval) clearInterval(interval);
+      resolve(result);
+    };
 
     const tryDetect = () => {
       if (resolved) return;
@@ -443,17 +452,12 @@ export async function waitForFormFields(timeoutMs: number = 5000): Promise<Detec
 
       const detected = detectFormFields();
       if (detected.fields.length >= 3 && detected.confidence >= 50) {
-        resolved = true;
-        observer?.disconnect();
-        resolve(detected);
+        settle(detected);
         return;
       }
 
       if (retryCount >= maxRetries) {
-        resolved = true;
-        observer?.disconnect();
-        // Return whatever we found, even if low confidence
-        resolve(detected);
+        settle(detected);
       }
     };
 
@@ -468,22 +472,13 @@ export async function waitForFormFields(timeoutMs: number = 5000): Promise<Detec
     });
 
     // Also retry on intervals for frameworks that batch updates
-    const interval = setInterval(() => {
-      if (resolved) {
-        clearInterval(interval);
-        return;
-      }
+    interval = setInterval(() => {
       tryDetect();
     }, 500);
 
     // Timeout safety
     setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        observer.disconnect();
-        clearInterval(interval);
-        resolve(detectFormFields());
-      }
+      settle(detectFormFields());
     }, timeoutMs);
   });
 }
