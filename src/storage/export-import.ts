@@ -56,6 +56,14 @@ export interface ValidationResult {
 
 // ── Export ───────────────────────────────────────────────────────────────
 
+function stripApiKeys(settings: UserSettings): UserSettings {
+  const stripped = JSON.parse(JSON.stringify(settings)) as UserSettings;
+  if (stripped.ai?.openai) stripped.ai.openai.apiKey = '';
+  if (stripped.ai?.anthropic) stripped.ai.anthropic.apiKey = '';
+  if (stripped.ai?.groq) stripped.ai.groq.apiKey = '';
+  return stripped;
+}
+
 export async function exportAllData(): Promise<ExportData> {
   const [masterProfiles, applications, jobs, resumeVersions, settings] = await Promise.all([
     masterProfileRepo.getAll(),
@@ -74,7 +82,7 @@ export async function exportAllData(): Promise<ExportData> {
       applications,
       jobs,
       resumeVersions,
-      settings,
+      settings: stripApiKeys(settings),
     },
   };
 }

@@ -156,8 +156,8 @@ CANDIDATE PROFILE:
 RECENT EXPERIENCE:
 ${ctx.recentExperience}
 
-TARGET COMPANY: ${companyName}
-TARGET ROLE: ${jobTitle}
+TARGET COMPANY: ${sanitizePromptInput(companyName, 'company_name')}
+TARGET ROLE: ${sanitizePromptInput(jobTitle, 'job_title')}
 
 JOB DESCRIPTION:
 ${sanitizePromptInput(jobDescription.substring(0, 3000), 'job_description')}
@@ -229,7 +229,7 @@ ${ctx.recentExperience}
 KEY ACCOMPLISHMENTS:
 ${ctx.accomplishments || 'Not provided — use experience details above'}
 
-TARGET ROLE: ${jobTitle} at ${companyName}
+TARGET ROLE: ${sanitizePromptInput(jobTitle, 'job_title')} at ${sanitizePromptInput(companyName, 'company_name')}
 
 QUESTIONS TO ANSWER:
 ${questionsList}

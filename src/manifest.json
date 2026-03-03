@@ -131,6 +131,10 @@
     "128": "icons/icon-128.png"
   },
 
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  },
+
   "web_accessible_resources": [
     {
       "resources": ["src/content/styles.css"],

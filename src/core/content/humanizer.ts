@@ -6,7 +6,7 @@
 
 import type { AIService } from '@/ai';
 import type { CareerContext } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
+import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
 
 /**
  * Deterministic pseudo-random number from a string input.
@@ -85,9 +85,7 @@ export async function humanizeWithAI(
 Rewrite this content to sound natural and human, not AI-generated.
 
 ## Original Content
-<original_content>
-${content}
-</original_content>
+${sanitizePromptInput(content, 'original_content')}
 
 ## Writing Style Guidelines
 - Tone: ${writingStyle.tone}
@@ -209,7 +207,7 @@ function addContractions(text: string): string {
   for (const [pattern, replacement] of contractions) {
     // Only apply contractions in about 70% of cases for natural variation
     result = result.replace(pattern, (match, offset) =>
-      deterministicRandom(match + offset) > 0.3 ? replacement : match
+      deterministicRandom(match, offset) > 0.3 ? replacement : match
     );
   }
 

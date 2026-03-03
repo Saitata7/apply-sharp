@@ -2940,10 +2940,10 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
 You are a career strategist helping a candidate position themselves for a specific role.
 
 THE EMPLOYER'S REAL NEED:
-${jdAnalysis.coreNeed || 'Based on the job description keywords'}
+${sanitizePromptInput(jdAnalysis.coreNeed || 'Based on the job description keywords', 'core_need')}
 
 WHAT THEY MUST SEE:
-${jdAnalysis.mustHaves.length > 0 ? jdAnalysis.mustHaves.join(', ') : payload.missingKeywords.slice(0, 5).join(', ')}
+${sanitizePromptInput(jdAnalysis.mustHaves.length > 0 ? jdAnalysis.mustHaves.join(', ') : payload.missingKeywords.slice(0, 5).join(', '), 'must_haves')}
 
 CANDIDATE'S PROVEN STRENGTHS (mention these prominently - they have deep experience):
 ${strengthKeywordsText}
@@ -2952,9 +2952,7 @@ HIDDEN PRIORITIES (read between the lines):
 ${jdAnalysis.hiddenPriorities.length > 0 ? jdAnalysis.hiddenPriorities.join(', ') : 'Reliability, ownership, impact'}
 
 CANDIDATE'S CURRENT SUMMARY:
-<current_summary>
-${payload.currentSummary}
-</current_summary>
+${sanitizePromptInput(payload.currentSummary, 'current_summary')}
 
 KEYWORDS TO ADD (missing from profile):
 ${payload.missingKeywords.slice(0, 4).join(', ')}
@@ -3006,7 +3004,7 @@ Return ONLY the rewritten summary, no explanation.`;
                 : duration <= 36
                   ? '~3 years'
                   : `${Math.round(duration / 12)}+ years`;
-        return `[${exp.expId}] (${durationLabel} tenure → Generate ${exp.expectedCount || 5} bullets)\nExisting bullets:\n${exp.bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}`;
+        return `[${exp.expId}] (${durationLabel} tenure → Generate ${exp.expectedCount || 5} bullets)\nExisting bullets:\n${exp.bullets.map((b, i) => `${i + 1}. ${sanitizePromptInput(b, 'bullet')}`).join('\n')}`;
       })
       .join('\n\n');
 
@@ -3015,9 +3013,9 @@ Return ONLY the rewritten summary, no explanation.`;
 You are a resume coach who transforms generic bullets into compelling stories.
 
 WHAT THIS EMPLOYER VALUES:
-- Core need: ${jdAnalysis.coreNeed || 'Technical excellence and ownership'}
-- Must-haves: ${jdAnalysis.mustHaves.join(', ') || payload.missingKeywords.slice(0, 3).join(', ')}
-- Impact expected: ${jdAnalysis.impactExpected || 'Measurable business results'}
+- Core need: ${sanitizePromptInput(jdAnalysis.coreNeed || 'Technical excellence and ownership', 'core_need')}
+- Must-haves: ${sanitizePromptInput(jdAnalysis.mustHaves.join(', ') || payload.missingKeywords.slice(0, 3).join(', '), 'must_haves')}
+- Impact expected: ${sanitizePromptInput(jdAnalysis.impactExpected || 'Measurable business results', 'impact')}
 
 CANDIDATE'S PROVEN STRENGTHS (EMPHASIZE these - high counts = deep experience):
 ${bulletStrengthKeywords || 'Based on their experience'}
@@ -3342,14 +3340,11 @@ async function handleQuickTailor(payload: {
     );
 
     const strengthKeywords = (analysis.matchedKeywords || [])
-      .sort(
-        (a: { profileCount?: number }, b: { profileCount?: number }) =>
-          (b.profileCount || 1) - (a.profileCount || 1)
-      )
+      .sort((a: { count?: number }, b: { count?: number }) => (b.count || 1) - (a.count || 1))
       .slice(0, 10)
-      .map((kw: { keyword: string; profileCount?: number }) => ({
+      .map((kw: { keyword: string; count?: number }) => ({
         keyword: kw.keyword,
-        count: kw.profileCount || 1,
+        count: kw.count || 1,
       }));
 
     const optimizeResult = await handleOptimizeResumeForJD({
@@ -3648,21 +3643,19 @@ You are helping a job applicant answer an application question.
 Generate a professional, authentic answer based on their profile.
 
 CANDIDATE PROFILE:
-- Name: ${profileContext.name}
-- Current/Recent Title: ${profileContext.title}
+- Name: ${sanitizePromptInput(profileContext.name, 'candidate_name')}
+- Current/Recent Title: ${sanitizePromptInput(profileContext.title, 'candidate_title')}
 - Years of Experience: ${profileContext.yearsExperience}
-- Key Skills: ${profileContext.skills}
-- Recent Company: ${profileContext.recentCompany}
-${profileContext.summary ? `- Summary: ${profileContext.summary}` : ''}
+- Key Skills: ${sanitizePromptInput(profileContext.skills, 'candidate_skills')}
+- Recent Company: ${sanitizePromptInput(profileContext.recentCompany, 'recent_company')}
+${profileContext.summary ? `- Summary: ${sanitizePromptInput(profileContext.summary, 'candidate_summary')}` : ''}
 
-TARGET COMPANY: ${targetCompany}
-TARGET ROLE: ${targetRole}
+TARGET COMPANY: ${sanitizePromptInput(targetCompany, 'target_company')}
+TARGET ROLE: ${sanitizePromptInput(targetRole, 'target_role')}
 ${jobDescription ? sanitizePromptInput(jobDescription.substring(0, 500), 'job_description') : ''}
 
 QUESTION TO ANSWER:
-<question>
-${questionText}
-</question>
+${sanitizePromptInput(questionText, 'question')}
 
 INSTRUCTIONS:
 1. Write a professional, first-person answer (use "I")
@@ -3808,9 +3801,9 @@ COMPANY CONTEXT: ${jdAnalysis.companyMission || jdAnalysis.teamContext || 'Not s
 IMPACT EXPECTED: ${jdAnalysis.impactExpected || 'Measurable business results'}
 
 CANDIDATE'S BACKGROUND:
-${candidateSummary || 'Experienced professional'}
-Key skills: ${topSkills || 'Not specified'}
-Recent experience: ${recentExperience || 'Not specified'}
+${sanitizePromptInput(candidateSummary || 'Experienced professional', 'candidate_summary')}
+Key skills: ${sanitizePromptInput(topSkills || 'Not specified', 'top_skills')}
+Recent experience: ${sanitizePromptInput(recentExperience || 'Not specified', 'recent_experience')}
 
 Write a cover letter using the Problem-Solution format:
 1. HOOK (1-2 sentences): Reference something specific about the company/role that excites you

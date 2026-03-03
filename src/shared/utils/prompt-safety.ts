@@ -12,6 +12,9 @@ const INJECTION_PATTERNS = [
   /<<SYS>>[\s\S]*?<<\/SYS>>/gi,
   /<\|im_start\|>system[\s\S]*?<\|im_end\|>/gi,
   /<\|system\|>[\s\S]*?<\|end\|>/gi,
+  /<system>[\s\S]*?<\/system>/gi,
+  /### System:[\s\S]*?(?=###|$)/gi,
+  /<\|start_header_id\|>system[\s\S]*?<\|end_header_id\|>/gi,
 ];
 
 /**

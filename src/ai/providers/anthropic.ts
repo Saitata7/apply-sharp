@@ -111,7 +111,7 @@ export class AnthropicProvider implements AIProviderInterface {
             total: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
           },
           model: this.model,
-          finishReason: data.stop_reason === 'end_turn' ? 'stop' : 'length',
+          finishReason: data.stop_reason === 'max_tokens' ? 'length' : 'stop',
         };
       } catch (error) {
         lastError = error as Error;
@@ -148,19 +148,36 @@ export class AnthropicProvider implements AIProviderInterface {
       body.system = systemMessage.content;
     }
 
-    const response = await fetch(`${this.baseUrl}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': ANTHROPIC_API_VERSION,
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify(body),
-    });
+    // Retry logic for transient errors (429/503)
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      response = await fetch(`${this.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': ANTHROPIC_API_VERSION,
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify(body),
+      });
 
-    if (!response.ok) {
+      if (response.ok) break;
+
+      if ((response.status === 429 || response.status === 503) && attempt < MAX_RETRIES - 1) {
+        const delay = this.getRetryDelay(response, attempt);
+        console.log(
+          `[Anthropic] Stream rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+        );
+        await this.sleep(delay);
+        continue;
+      }
+
       throw new Error(`Anthropic request failed: ${response.statusText}`);
+    }
+
+    if (!response?.ok) {
+      throw new Error('Anthropic stream request failed after retries');
     }
 
     const reader = response.body?.getReader();
@@ -183,9 +200,10 @@ export class AnthropicProvider implements AIProviderInterface {
 
           try {
             const parsed = JSON.parse(data);
-            // Anthropic streaming: content_block_delta events contain text
             if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
               yield parsed.delta.text;
+            } else if (parsed.type === 'error') {
+              console.warn('[Anthropic] SSE error event:', parsed.error?.message || parsed);
             }
           } catch {
             // Expected: SSE stream chunks may contain partial JSON
@@ -211,7 +229,8 @@ export class AnthropicProvider implements AIProviderInterface {
     if (!this.apiKey) return false;
 
     try {
-      // Anthropic doesn't have a /models endpoint; send a minimal request to verify the key
+      // Send an intentionally invalid request (empty messages) to check auth
+      // without incurring API charges. 400 = valid key, 401/403 = invalid key.
       const response = await fetch(`${this.baseUrl}/messages`, {
         method: 'POST',
         headers: {
@@ -222,11 +241,11 @@ export class AnthropicProvider implements AIProviderInterface {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: [{ role: 'user', content: 'Hi' }],
+          messages: [],
           max_tokens: 1,
         }),
       });
-      return response.ok;
+      return response.status !== 401 && response.status !== 403;
     } catch (error) {
       console.debug('[Anthropic] Availability check failed:', (error as Error).message);
       return false;
