@@ -82,7 +82,8 @@ export type MessageType =
   | 'IMPORT_DATA'
   | 'EXPORT_APPLICATIONS_CSV'
   // Deadline management
-  | 'SET_JOB_DEADLINE';
+  | 'SET_JOB_DEADLINE'
+  | 'QUICK_TAILOR';
 
 export interface Message<T = unknown> {
   type: MessageType;

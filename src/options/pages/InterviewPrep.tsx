@@ -13,7 +13,7 @@ import { getCategoryLabel, getDifficultyColor } from '@core/interview/question-g
 
 const CATEGORY_COLORS: Record<QuestionCategory, string> = {
   behavioral: '#8b5cf6',
-  technical: '#3b82f6',
+  technical: '#38bdf8',
   role_specific: '#06b6d4',
   company_culture: '#10b981',
   weakness_gap: '#f59e0b',
@@ -112,7 +112,7 @@ export default function InterviewPrep() {
 
   return (
     <div className="page-container" style={{ maxWidth: 900, padding: '32px 24px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 600, color: '#e2e8f0', margin: '0 0 4px' }}>
+      <h1 style={{ fontSize: 22, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
         Interview Preparation
       </h1>
       <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 24px' }}>
@@ -177,7 +177,7 @@ export default function InterviewPrep() {
               rows={8}
               style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
             />
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
               {jobDescription.length > 0 && `${jobDescription.length} characters`}
               {jobDescription.length > 0 && jobDescription.length < 50 && ' (minimum 50)'}
             </div>
@@ -244,14 +244,14 @@ export default function InterviewPrep() {
             }}
           >
             <div style={{ fontSize: 13, color: '#94a3b8' }}>
-              <strong style={{ color: '#e2e8f0' }}>{result.questions.length}</strong> questions
+              <strong style={{ color: '#e8ecf4' }}>{result.questions.length}</strong> questions
             </div>
             <div style={{ fontSize: 13, color: '#94a3b8' }}>
-              <strong style={{ color: '#e2e8f0' }}>~{result.estimatedPrepTime} min</strong> prep
+              <strong style={{ color: '#e8ecf4' }}>~{result.estimatedPrepTime} min</strong> prep
               time
             </div>
             <div style={{ fontSize: 13, color: '#94a3b8' }}>
-              <strong style={{ color: '#e2e8f0' }}>{groupedQuestions.size}</strong> categories
+              <strong style={{ color: '#e8ecf4' }}>{groupedQuestions.size}</strong> categories
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               <button
@@ -300,7 +300,7 @@ export default function InterviewPrep() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   cursor: 'pointer',
-                  color: '#e2e8f0',
+                  color: '#e8ecf4',
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 500 }}>Company Research Tips</span>
@@ -361,7 +361,7 @@ export default function InterviewPrep() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#cbd5e1' }}>
                   {getCategoryLabel(category)}
                 </span>
-                <span style={{ fontSize: 11, color: '#475569' }}>({questions.length})</span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>({questions.length})</span>
               </div>
 
               {questions.map((q) => {
@@ -408,7 +408,7 @@ export default function InterviewPrep() {
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 13, color: '#e8ecf4', lineHeight: 1.5 }}>
                           {q.question}
                         </div>
                         <div
@@ -443,7 +443,7 @@ export default function InterviewPrep() {
                       <div
                         style={{
                           padding: '0 16px 16px 42px',
-                          borderTop: '1px solid #1e293b',
+                          borderTop: '1px solid #1a1f2b',
                         }}
                       >
                         {/* Prepared answer */}
@@ -465,10 +465,10 @@ export default function InterviewPrep() {
                               fontSize: 13,
                               color: '#cbd5e1',
                               lineHeight: 1.6,
-                              background: '#0f172a',
+                              background: '#0a0d13',
                               padding: 14,
                               borderRadius: 8,
-                              border: '1px solid #1e293b',
+                              border: '1px solid #1a1f2b',
                             }}
                           >
                             {answer.answer}
@@ -529,7 +529,7 @@ export default function InterviewPrep() {
                                     fontSize: 11,
                                     padding: '3px 10px',
                                     borderRadius: 12,
-                                    background: '#1e293b',
+                                    background: '#1a1f2b',
                                     color: '#94a3b8',
                                   }}
                                 >
@@ -562,7 +562,7 @@ export default function InterviewPrep() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   cursor: 'pointer',
-                  color: '#e2e8f0',
+                  color: '#e8ecf4',
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 500 }}>General Interview Tips</span>

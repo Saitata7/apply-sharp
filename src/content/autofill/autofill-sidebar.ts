@@ -96,31 +96,35 @@ function generateSidebarHTML(
 
   return `
     <style>
+      /* ApplySharp Autofill Sidebar — Midnight Forge */
+
       #jp-autofill-sidebar {
         position: fixed;
         top: 0;
         right: 0;
         width: 380px;
         height: 100vh;
-        background: white;
-        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        background: #0e1219;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5), -1px 0 0 rgba(232, 168, 50, 0.1);
         z-index: 2147483646;
         display: flex;
         flex-direction: column;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #e8ecf4;
         transform: translateX(100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       #jp-autofill-sidebar.jp-sidebar-visible {
         transform: translateX(0);
       }
 
+      /* Header */
       .jp-sidebar-header {
         padding: 16px 20px;
-        border-bottom: 1px solid #e2e8f0;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        color: white;
+        border-bottom: 1px solid rgba(232, 168, 50, 0.2);
+        background: linear-gradient(135deg, #1a1f2b 0%, #141820 100%);
+        color: #e8a832;
       }
 
       .jp-sidebar-title {
@@ -137,12 +141,14 @@ function generateSidebarHTML(
         display: flex;
         align-items: center;
         gap: 8px;
+        color: #e8a832;
+        font-family: 'Bricolage Grotesque', Georgia, serif;
       }
 
       .jp-sidebar-close {
-        background: rgba(255,255,255,0.2);
+        background: rgba(232, 168, 50, 0.15);
         border: none;
-        color: white;
+        color: #e8a832;
         width: 28px;
         height: 28px;
         border-radius: 6px;
@@ -151,12 +157,14 @@ function generateSidebarHTML(
         align-items: center;
         justify-content: center;
         font-size: 18px;
+        transition: background 0.15s;
       }
 
       .jp-sidebar-close:hover {
-        background: rgba(255,255,255,0.3);
+        background: rgba(232, 168, 50, 0.25);
       }
 
+      /* Completion Ring */
       .jp-completion-stats {
         display: flex;
         align-items: center;
@@ -179,13 +187,14 @@ function generateSidebarHTML(
       }
 
       .jp-completion-ring .bg {
-        stroke: rgba(255,255,255,0.2);
+        stroke: rgba(232, 168, 50, 0.15);
       }
 
       .jp-completion-ring .progress {
-        stroke: white;
+        stroke: #e8a832;
         stroke-linecap: round;
         transition: stroke-dashoffset 0.5s ease;
+        filter: drop-shadow(0 0 4px rgba(232, 168, 50, 0.4));
       }
 
       .jp-completion-percent {
@@ -195,6 +204,7 @@ function generateSidebarHTML(
         transform: translate(-50%, -50%);
         font-size: 14px;
         font-weight: 700;
+        color: #e8a832;
       }
 
       .jp-completion-text {
@@ -204,28 +214,37 @@ function generateSidebarHTML(
       .jp-completion-text .main {
         font-size: 14px;
         font-weight: 600;
+        color: #e8ecf4;
       }
 
       .jp-completion-text .sub {
         font-size: 12px;
-        opacity: 0.8;
+        color: #94a3b8;
       }
 
+      /* Body */
       .jp-sidebar-body {
         flex: 1;
         overflow-y: auto;
         padding: 0;
+        background: #0e1219;
       }
 
+      .jp-sidebar-body::-webkit-scrollbar { width: 4px; }
+      .jp-sidebar-body::-webkit-scrollbar-track { background: transparent; }
+      .jp-sidebar-body::-webkit-scrollbar-thumb { background: rgba(232, 168, 50, 0.2); border-radius: 99px; }
+
+      /* Field Sections */
       .jp-field-section {
         padding: 12px 16px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       }
 
       .jp-section-header {
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
         color: #64748b;
         margin-bottom: 10px;
         display: flex;
@@ -234,12 +253,14 @@ function generateSidebarHTML(
       }
 
       .jp-section-header .count {
-        background: #e2e8f0;
+        background: rgba(232, 168, 50, 0.15);
+        color: #e8a832;
         padding: 2px 6px;
         border-radius: 10px;
         font-size: 10px;
       }
 
+      /* Field Items */
       .jp-field-item {
         display: flex;
         align-items: flex-start;
@@ -247,29 +268,35 @@ function generateSidebarHTML(
         padding: 10px 12px;
         margin-bottom: 6px;
         border-radius: 8px;
-        background: #f8fafc;
+        background: #141820;
+        border: 1px solid rgba(255, 255, 255, 0.04);
         transition: all 0.15s;
       }
 
       .jp-field-item:hover {
-        background: #f1f5f9;
+        background: #1a1f2b;
+        border-color: rgba(255, 255, 255, 0.08);
       }
 
       .jp-field-item.jp-filled {
-        background: #ecfdf5;
+        background: rgba(34, 197, 94, 0.08);
         border-left: 3px solid #22c55e;
+        border-color: rgba(34, 197, 94, 0.15);
       }
 
       .jp-field-item.jp-has-current {
-        background: #f0f9ff;
-        border-left: 3px solid #3b82f6;
+        background: rgba(56, 189, 248, 0.08);
+        border-left: 3px solid #38bdf8;
+        border-color: rgba(56, 189, 248, 0.15);
       }
 
       .jp-field-item.jp-missing {
-        background: #fef2f2;
+        background: rgba(239, 68, 68, 0.06);
         border-left: 3px solid #ef4444;
+        border-color: rgba(239, 68, 68, 0.12);
       }
 
+      /* Status Icons */
       .jp-field-status {
         width: 20px;
         height: 20px;
@@ -284,18 +311,21 @@ function generateSidebarHTML(
       .jp-status-filled {
         background: #22c55e;
         color: white;
+        box-shadow: 0 0 6px rgba(34, 197, 94, 0.3);
       }
 
       .jp-status-current {
-        background: #3b82f6;
+        background: #38bdf8;
         color: white;
+        box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
       }
 
       .jp-status-missing {
-        background: #fecaca;
-        color: #ef4444;
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
       }
 
+      /* Field Content */
       .jp-field-content {
         flex: 1;
         min-width: 0;
@@ -304,7 +334,7 @@ function generateSidebarHTML(
       .jp-field-name {
         font-size: 13px;
         font-weight: 500;
-        color: #1e293b;
+        color: #e8ecf4;
         margin-bottom: 2px;
       }
 
@@ -315,9 +345,10 @@ function generateSidebarHTML(
       }
 
       .jp-field-value.jp-will-fill {
-        color: #059669;
+        color: #34d399;
       }
 
+      /* Source Tags */
       .jp-source-tag {
         display: inline-flex;
         align-items: center;
@@ -329,12 +360,13 @@ function generateSidebarHTML(
         text-transform: uppercase;
       }
 
-      .jp-tag-profile { background: #dbeafe; color: #1e40af; }
-      .jp-tag-bank { background: #fef3c7; color: #92400e; }
-      .jp-tag-ai { background: #f3e8ff; color: #7c3aed; }
+      .jp-tag-profile { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+      .jp-tag-bank { background: rgba(232, 168, 50, 0.15); color: #e8a832; }
+      .jp-tag-ai { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
 
+      /* AI Button */
       .jp-ai-btn {
-        background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
         color: white;
         border: none;
         padding: 6px 10px;
@@ -350,38 +382,41 @@ function generateSidebarHTML(
       }
 
       .jp-ai-btn:hover {
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+        box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+        transform: translateY(-1px);
       }
 
       .jp-ai-btn:disabled {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
+        transform: none;
       }
 
       .jp-ai-btn .spinner {
         width: 10px;
         height: 10px;
-        border: 2px solid rgba(255,255,255,0.3);
+        border: 2px solid rgba(255,255,255,0.2);
         border-top-color: white;
         border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        animation: jp-af-spin 0.8s linear infinite;
       }
 
-      @keyframes spin {
+      @keyframes jp-af-spin {
         to { transform: rotate(360deg); }
       }
 
+      /* Footer */
       .jp-sidebar-footer {
         padding: 16px;
-        border-top: 1px solid #e2e8f0;
-        background: #f8fafc;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        background: #0a0d13;
       }
 
       .jp-fill-btn {
         width: 100%;
         padding: 14px;
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-        color: white;
+        background: linear-gradient(135deg, #e8a832 0%, #c48a1a 100%);
+        color: #0a0d13;
         border: none;
         border-radius: 10px;
         font-size: 15px;
@@ -392,21 +427,22 @@ function generateSidebarHTML(
         justify-content: center;
         gap: 8px;
         transition: all 0.15s;
+        font-family: 'Outfit', sans-serif;
       }
 
       .jp-fill-btn:hover {
-        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        box-shadow: 0 4px 18px rgba(232, 168, 50, 0.35);
         transform: translateY(-1px);
       }
 
       .jp-fill-btn:disabled {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
         transform: none;
       }
 
       .jp-fill-count {
-        background: rgba(255,255,255,0.25);
+        background: rgba(10, 13, 19, 0.2);
         padding: 3px 8px;
         border-radius: 12px;
         font-size: 12px;
@@ -415,25 +451,29 @@ function generateSidebarHTML(
       .jp-powered-by {
         text-align: center;
         font-size: 10px;
-        color: #94a3b8;
+        color: #475569;
         margin-top: 10px;
       }
 
+      /* Field Toggle Checkbox */
       .jp-field-toggle {
         appearance: none;
         width: 16px;
         height: 16px;
-        border: 2px solid #cbd5e1;
+        border: 2px solid #475569;
         border-radius: 4px;
         cursor: pointer;
         flex-shrink: 0;
         margin-top: 3px;
         position: relative;
+        background: transparent;
+        transition: all 0.15s;
       }
 
       .jp-field-toggle:checked {
         background: #22c55e;
         border-color: #22c55e;
+        box-shadow: 0 0 6px rgba(34, 197, 94, 0.3);
       }
 
       .jp-field-toggle:checked::after {
@@ -448,8 +488,8 @@ function generateSidebarHTML(
       /* Job Context Section */
       .jp-job-context {
         padding: 10px 16px;
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border-bottom: 1px solid #bae6fd;
+        background: linear-gradient(135deg, rgba(232, 168, 50, 0.08) 0%, rgba(232, 168, 50, 0.04) 100%);
+        border-bottom: 1px solid rgba(232, 168, 50, 0.12);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -464,7 +504,7 @@ function generateSidebarHTML(
       .jp-job-title {
         font-size: 13px;
         font-weight: 600;
-        color: #0369a1;
+        color: #e8a832;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -472,7 +512,7 @@ function generateSidebarHTML(
 
       .jp-job-company {
         font-size: 11px;
-        color: #0284c7;
+        color: #94a3b8;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -485,9 +525,9 @@ function generateSidebarHTML(
       }
 
       .jp-edit-btn {
-        background: white;
-        border: 1px solid #0ea5e9;
-        color: #0284c7;
+        background: rgba(232, 168, 50, 0.1);
+        border: 1px solid rgba(232, 168, 50, 0.25);
+        color: #e8a832;
         width: 32px;
         height: 32px;
         border-radius: 6px;
@@ -500,8 +540,8 @@ function generateSidebarHTML(
       }
 
       .jp-edit-btn:hover {
-        background: #0ea5e9;
-        color: white;
+        background: rgba(232, 168, 50, 0.2);
+        border-color: #e8a832;
       }
 
       /* Edit Modal */
@@ -511,36 +551,38 @@ function generateSidebarHTML(
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(6, 7, 10, 0.75);
         z-index: 2147483647;
         display: flex;
         align-items: center;
         justify-content: center;
-        animation: fadeIn 0.2s ease;
+        animation: jp-af-fadeIn 0.2s ease;
+        backdrop-filter: blur(4px);
       }
 
-      @keyframes fadeIn {
+      @keyframes jp-af-fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
       }
 
       .jp-edit-content {
-        background: white;
+        background: #141820;
+        border: 1px solid rgba(232, 168, 50, 0.15);
         border-radius: 12px;
         width: 350px;
         max-width: 90%;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-        animation: slideUp 0.2s ease;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04);
+        animation: jp-af-slideUp 0.2s ease;
       }
 
-      @keyframes slideUp {
+      @keyframes jp-af-slideUp {
         from { transform: translateY(20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
 
       .jp-edit-header {
         padding: 16px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -549,7 +591,7 @@ function generateSidebarHTML(
       .jp-edit-header h4 {
         margin: 0;
         font-size: 16px;
-        color: #1e293b;
+        color: #e8ecf4;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -562,6 +604,11 @@ function generateSidebarHTML(
         color: #64748b;
         cursor: pointer;
         line-height: 1;
+        transition: color 0.15s;
+      }
+
+      .jp-edit-close:hover {
+        color: #e8ecf4;
       }
 
       .jp-edit-body {
@@ -580,39 +627,43 @@ function generateSidebarHTML(
         display: block;
         font-size: 12px;
         font-weight: 600;
-        color: #475569;
+        color: #64748b;
         margin-bottom: 6px;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
 
       .jp-edit-input {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
         font-size: 14px;
-        color: #1e293b;
+        color: #e8ecf4;
+        background: #0e1219;
         transition: all 0.15s;
+        font-family: 'Outfit', sans-serif;
       }
 
       .jp-edit-input:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: #e8a832;
+        box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
       }
 
       .jp-edit-input::placeholder {
-        color: #94a3b8;
+        color: #475569;
       }
 
       .jp-edit-textarea {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
         font-size: 14px;
-        font-family: inherit;
-        color: #1e293b;
+        font-family: 'Outfit', sans-serif;
+        color: #e8ecf4;
+        background: #0e1219;
         resize: vertical;
         min-height: 120px;
         transition: all 0.15s;
@@ -620,17 +671,17 @@ function generateSidebarHTML(
 
       .jp-edit-textarea:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: #e8a832;
+        box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
       }
 
       .jp-edit-textarea::placeholder {
-        color: #94a3b8;
+        color: #475569;
       }
 
       .jp-edit-footer {
         padding: 12px 16px;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
         display: flex;
         justify-content: flex-end;
         gap: 10px;
@@ -638,27 +689,36 @@ function generateSidebarHTML(
 
       .jp-edit-cancel {
         padding: 8px 16px;
-        background: white;
-        border: 1px solid #e2e8f0;
+        background: #1a1f2b;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
         font-size: 13px;
-        color: #64748b;
+        color: #94a3b8;
         cursor: pointer;
+        font-family: 'Outfit', sans-serif;
+        transition: all 0.15s;
+      }
+
+      .jp-edit-cancel:hover {
+        background: #212838;
+        color: #e8ecf4;
       }
 
       .jp-edit-save {
         padding: 8px 16px;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        background: linear-gradient(135deg, #e8a832 0%, #c48a1a 100%);
         border: none;
         border-radius: 6px;
         font-size: 13px;
         font-weight: 500;
-        color: white;
+        color: #0a0d13;
         cursor: pointer;
+        font-family: 'Outfit', sans-serif;
+        transition: all 0.15s;
       }
 
       .jp-edit-save:hover {
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        box-shadow: 0 2px 10px rgba(232, 168, 50, 0.35);
       }
 
       .jp-edit-hint {
@@ -666,7 +726,8 @@ function generateSidebarHTML(
         color: #64748b;
         margin-top: 12px;
         padding: 8px;
-        background: #f8fafc;
+        background: rgba(232, 168, 50, 0.06);
+        border: 1px solid rgba(232, 168, 50, 0.1);
         border-radius: 6px;
       }
     </style>
@@ -910,7 +971,7 @@ function attachSidebarListeners(): void {
         // Highlight filled fields
         result.filledFields.forEach((field) => {
           const el = field.element as HTMLElement;
-          el.style.boxShadow = '0 0 0 2px #22c55e';
+          el.style.boxShadow = '0 0 0 2px #34d399';
           setTimeout(() => {
             el.style.boxShadow = '';
           }, 3000);
@@ -1182,15 +1243,15 @@ function showUndoState(filledCount: number, previousValues: PreviousValue[]): vo
   if (!footer) return;
 
   footer.innerHTML = `
-    <div style="text-align:center;color:#166534;font-size:14px;font-weight:600;margin-bottom:10px">
+    <div style="text-align:center;color:#34d399;font-size:14px;font-weight:600;margin-bottom:10px">
       Filled ${filledCount} fields
     </div>
     <div style="display:flex;gap:8px">
-      <button id="jp-undo-btn" style="flex:1;padding:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+      <button id="jp-undo-btn" style="flex:1;padding:12px;background:rgba(232,168,50,0.1);border:1px solid rgba(232,168,50,0.3);border-radius:10px;color:#e8a832;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:'Outfit',sans-serif">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H9"/><polyline points="7 14 3 10 7 6"/></svg>
         Undo
       </button>
-      <button id="jp-done-btn" style="flex:1;padding:12px;background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);border:none;border-radius:10px;color:white;font-size:14px;font-weight:600;cursor:pointer">
+      <button id="jp-done-btn" style="flex:1;padding:12px;background:linear-gradient(135deg,#e8a832 0%,#c48a1a 100%);border:none;border-radius:10px;color:#0a0d13;font-size:14px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif">
         Done
       </button>
     </div>
@@ -1220,9 +1281,9 @@ function showToast(type: 'success' | 'error' | 'warning', message: string): void
   if (existing) existing.remove();
 
   const colors = {
-    success: { bg: '#dcfce7', border: '#22c55e', text: '#166534' },
-    error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-    warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+    success: { bg: '#141820', border: '#22c55e', text: '#34d399' },
+    error: { bg: '#141820', border: '#ef4444', text: '#f87171' },
+    warning: { bg: '#141820', border: '#e8a832', text: '#e8a832' },
   };
   const color = colors[type];
 
@@ -1238,9 +1299,9 @@ function showToast(type: 'success' | 'error' | 'warning', message: string): void
     border: 1px solid ${color.border};
     border-radius: 8px;
     color: ${color.text};
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 13px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     animation: slideIn 0.3s ease;
   `;
   toast.textContent = message;

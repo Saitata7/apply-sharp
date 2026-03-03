@@ -693,6 +693,8 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     hiddenSections: new Set(),
   });
   const [showContentControls, setShowContentControls] = useState(false);
+  const [isQuickTailoring, setIsQuickTailoring] = useState(false);
+  const [quickTailorStep, setQuickTailorStep] = useState('');
   const analyzeJobDescriptionRef = useRef<() => Promise<void>>();
 
   // Close modal on Escape key
@@ -1536,6 +1538,77 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
     } finally {
       setIsTailoring(false);
       setTailoringProgress('');
+    }
+  };
+
+  // Quick Tailor + Download: one-click orchestration
+  const quickTailorAndDownload = async (format: 'docx' | 'pdf') => {
+    if (!activeRole || !jobDescription.trim()) {
+      setError('Please select a role and paste a job description');
+      return;
+    }
+
+    setIsQuickTailoring(true);
+    setError(null);
+
+    try {
+      // Step 1: Analyze
+      setQuickTailorStep('Analyzing job description...');
+      const response = await sendMessage<
+        {
+          masterProfileId: string;
+          roleId: string;
+          jobDescription: string;
+          includeCoverLetter?: boolean;
+        },
+        {
+          analysis: Record<string, unknown>;
+          tailoredContent: TailoredContent;
+          coverLetter?: unknown;
+          newScore?: number;
+        }
+      >({
+        type: 'QUICK_TAILOR',
+        payload: {
+          masterProfileId: profile.id,
+          roleId: activeRole.id,
+          jobDescription: jobDescription.trim(),
+          includeCoverLetter: false,
+        },
+      });
+
+      if (!response.success || !response.data) {
+        setError(response.error || 'Quick tailor failed');
+        return;
+      }
+
+      // Step 2: Apply results
+      setQuickTailorStep('Tailoring resume...');
+      const { tailoredContent: tailored, newScore } = response.data;
+      setTailoredContent(tailored);
+      if (newScore) {
+        setOriginalScore(currentScore);
+        setCurrentScore(newScore);
+      }
+
+      // Step 3: Generate file
+      setQuickTailorStep('Generating ' + format.toUpperCase() + '...');
+
+      const fileName = `${(profile.personal?.fullName || 'Resume').replace(/\s+/g, '_')}_Resume`;
+      if (format === 'docx') {
+        await generateDocx(fileName, tailored);
+      } else {
+        generatePdf(fileName, tailored);
+      }
+
+      setLastGeneratedFormat(format);
+      setShowSaveVersion(true);
+    } catch (err) {
+      console.error('[QuickTailor] Failed:', err);
+      setError(`Quick tailor failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsQuickTailoring(false);
+      setQuickTailorStep('');
     }
   };
 
@@ -3815,9 +3888,9 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                       style={{
                         marginTop: '8px',
                         padding: '12px',
-                        background: '#f8fafc',
+                        background: '#141820',
                         borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid rgba(255,255,255,0.06)',
                         fontSize: '0.8rem',
                       }}
                     >
@@ -3827,7 +3900,7 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                           style={{
                             fontWeight: 600,
                             fontSize: '0.75rem',
-                            color: '#475569',
+                            color: '#64748b',
                             marginBottom: '6px',
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px',
@@ -3891,7 +3964,7 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                             style={{
                               fontWeight: 600,
                               fontSize: '0.75rem',
-                              color: '#475569',
+                              color: '#64748b',
                               marginBottom: '6px',
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px',
@@ -3941,7 +4014,7 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                             style={{
                               fontWeight: 600,
                               fontSize: '0.75rem',
-                              color: '#475569',
+                              color: '#64748b',
                               marginBottom: '6px',
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px',
@@ -4019,22 +4092,22 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                     marginTop: '16px',
                     maxHeight: '70vh',
                     overflowY: 'auto',
-                    border: '1px solid #ddd',
+                    border: '1px solid rgba(255,255,255,0.06)',
                     borderRadius: '8px',
-                    background: '#f5f5f5',
+                    background: '#0e1219',
                     padding: '16px',
                   }}
                 >
                   {analysis && !tailoredContent && (
                     <div
                       style={{
-                        background: '#fef3c7',
+                        background: 'rgba(232,168,50,0.1)',
                         border: '1px solid #f59e0b',
                         borderRadius: '6px',
                         padding: '10px 14px',
                         marginBottom: '12px',
                         fontSize: '13px',
-                        color: '#92400e',
+                        color: '#e8a832',
                       }}
                     >
                       Preview shows base content. Download will include AI-tailored summary and
@@ -4044,13 +4117,13 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                   {tailoredContent && (
                     <div
                       style={{
-                        background: '#d1fae5',
+                        background: 'rgba(52,211,153,0.1)',
                         border: '1px solid #10b981',
                         borderRadius: '6px',
                         padding: '10px 14px',
                         marginBottom: '12px',
                         fontSize: '13px',
-                        color: '#065f46',
+                        color: '#34d399',
                       }}
                     >
                       Showing AI-tailored content (score: {tailoredContent.newScore}%)
@@ -4177,7 +4250,7 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                           fontSize: '0.75rem',
                           fontWeight: 600,
                           color: '#22c55e',
-                          background: '#dcfce7',
+                          background: 'rgba(52,211,153,0.12)',
                           padding: '2px 6px',
                           borderRadius: '4px',
                         }}
@@ -4392,6 +4465,54 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                 </div>
               )}
 
+              {/* Quick Tailor + Download */}
+              {!isGenerating && !isTailoring && !isQuickTailoring && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '12px',
+                    padding: '12px',
+                    background: 'rgba(232,168,50,0.06)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(232,168,50,0.15)',
+                  }}
+                >
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => quickTailorAndDownload('docx')}
+                    disabled={isQuickTailoring}
+                    style={{ flex: 1 }}
+                  >
+                    Quick Tailor + DOCX
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => quickTailorAndDownload('pdf')}
+                    disabled={isQuickTailoring}
+                    style={{ flex: 1 }}
+                  >
+                    Quick Tailor + PDF
+                  </button>
+                </div>
+              )}
+              {isQuickTailoring && (
+                <div
+                  style={{
+                    padding: '12px',
+                    marginBottom: '12px',
+                    background: 'rgba(232,168,50,0.06)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(232,168,50,0.15)',
+                    textAlign: 'center',
+                    color: '#e8a832',
+                    fontSize: '13px',
+                  }}
+                >
+                  {quickTailorStep || 'Processing...'}
+                </div>
+              )}
+
               {/* Generate Resume Section */}
               <div className="generate-section">
                 <div
@@ -4465,22 +4586,22 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                     marginTop: '16px',
                     maxHeight: '70vh',
                     overflowY: 'auto',
-                    border: '1px solid #ddd',
+                    border: '1px solid rgba(255,255,255,0.06)',
                     borderRadius: '8px',
-                    background: '#f5f5f5',
+                    background: '#0e1219',
                     padding: '16px',
                   }}
                 >
                   {analysis && !tailoredContent && (
                     <div
                       style={{
-                        background: '#fef3c7',
+                        background: 'rgba(232,168,50,0.1)',
                         border: '1px solid #f59e0b',
                         borderRadius: '6px',
                         padding: '10px 14px',
                         marginBottom: '12px',
                         fontSize: '13px',
-                        color: '#92400e',
+                        color: '#e8a832',
                       }}
                     >
                       Preview shows base content. Download will include AI-tailored summary and
@@ -4490,13 +4611,13 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                   {tailoredContent && (
                     <div
                       style={{
-                        background: '#d1fae5',
+                        background: 'rgba(52,211,153,0.1)',
                         border: '1px solid #10b981',
                         borderRadius: '6px',
                         padding: '10px 14px',
                         marginBottom: '12px',
                         fontSize: '13px',
-                        color: '#065f46',
+                        color: '#34d399',
                       }}
                     >
                       Showing AI-tailored content (score: {tailoredContent.newScore}%)

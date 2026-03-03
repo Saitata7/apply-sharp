@@ -6,13 +6,14 @@ import type {
   RoadmapItem,
   AreaGapGroup,
 } from '@core/ats/gap-analyzer';
+import { semantic, text, surface, border } from '@shared/constants/theme';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 const SEVERITY_COLORS: Record<GapSeverity, string> = {
-  critical: '#ef4444',
-  addressable: '#f59e0b',
-  minor: '#3b82f6',
+  critical: semantic.error,
+  addressable: semantic.warning,
+  minor: semantic.blue,
 };
 
 const SEVERITY_LABELS: Record<GapSeverity, string> = {
@@ -57,8 +58,8 @@ function GapSummary({ analysis }: { analysis: GapAnalysisResult }) {
         )}
       </div>
       {summary.topAreaToFocus && (
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8' }}>
-          Focus area: <strong style={{ color: '#cbd5e1' }}>{summary.topAreaToFocus}</strong>
+        <p style={{ margin: '6px 0 0', fontSize: 12, color: text.secondary }}>
+          Focus area: <strong style={{ color: text.muted }}>{summary.topAreaToFocus}</strong>
         </p>
       )}
     </div>
@@ -70,24 +71,24 @@ function RoadmapSection({ roadmap }: { roadmap: RoadmapItem[] }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#e2e8f0' }}>Learning Roadmap</h4>
+      <h4 style={{ margin: '0 0 10px', fontSize: 14, color: text.primary }}>Learning Roadmap</h4>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {roadmap.map((item, i) => (
           <div
             key={item.keyword}
             style={{
               padding: '10px 12px',
-              background: '#1e293b',
+              background: surface.elevated,
               borderRadius: 6,
               borderLeft: `3px solid ${SEVERITY_COLORS[item.severity]}`,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600, width: 18 }}>
+              <span style={{ fontSize: 12, color: text.faint, fontWeight: 600, width: 18 }}>
                 {i + 1}.
               </span>
               <SeverityDot severity={item.severity} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: text.primary }}>
                 {item.keyword}
               </span>
               <span
@@ -100,14 +101,14 @@ function RoadmapSection({ roadmap }: { roadmap: RoadmapItem[] }) {
                 {SEVERITY_LABELS[item.severity]}
               </span>
               {item.estimatedHours && (
-                <span style={{ fontSize: 11, color: '#64748b', marginLeft: 'auto' }}>
+                <span style={{ fontSize: 11, color: text.faint, marginLeft: 'auto' }}>
                   ~{item.estimatedHours} hrs
                 </span>
               )}
             </div>
             <div style={{ paddingLeft: 26, fontSize: 12 }}>
-              <div style={{ color: '#94a3b8', marginBottom: 2 }}>{item.reason}</div>
-              <div style={{ color: '#cbd5e1' }}>{item.actionText}</div>
+              <div style={{ color: text.secondary, marginBottom: 2 }}>{item.reason}</div>
+              <div style={{ color: text.muted }}>{item.actionText}</div>
             </div>
           </div>
         ))}
@@ -153,12 +154,12 @@ function AreaGroupSection({ groups }: { groups: AreaGapGroup[] }) {
 
   return (
     <div>
-      <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#e2e8f0' }}>Gaps by Area</h4>
+      <h4 style={{ margin: '0 0 10px', fontSize: 14, color: text.primary }}>Gaps by Area</h4>
       {groups.map((group) => (
         <div
           key={group.area}
           style={{
-            border: '1px solid #334155',
+            border: `1px solid ${border.strong}`,
             borderRadius: 6,
             marginBottom: 6,
             overflow: 'hidden',
@@ -169,24 +170,24 @@ function AreaGroupSection({ groups }: { groups: AreaGapGroup[] }) {
             style={{
               width: '100%',
               padding: '8px 12px',
-              background: '#1e293b',
+              background: surface.elevated,
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              color: '#e2e8f0',
+              color: text.primary,
               fontSize: 13,
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <SeverityDot severity={group.topPriority} />
               <strong>{group.area}</strong>
-              <span style={{ color: '#64748b', fontSize: 12, fontWeight: 400 }}>
+              <span style={{ color: text.faint, fontSize: 12, fontWeight: 400 }}>
                 {group.gaps.length} gap{group.gaps.length !== 1 ? 's' : ''}
               </span>
             </span>
-            <span style={{ color: '#64748b', fontSize: 12 }}>
+            <span style={{ color: text.faint, fontSize: 12 }}>
               {expanded.has(group.area) ? '\u25B2' : '\u25BC'}
             </span>
           </button>
@@ -216,7 +217,7 @@ export default function SkillsGapAnalysis({ analysis }: SkillsGapAnalysisProps) 
     <div className="settings-section" style={{ marginBottom: 16 }}>
       <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>
         Skills Gap Analysis
-        <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>
+        <span style={{ fontWeight: 400, fontSize: 12, color: text.secondary, marginLeft: 8 }}>
           {analysis.summary.total} gaps found
         </span>
       </h3>

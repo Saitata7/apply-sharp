@@ -1,4 +1,4 @@
-/* ApplySharp Content Script Styles */
+/* ApplySharp Content Script — Midnight Forge */
 
 .applysharp-overlay {
   position: fixed;
@@ -6,14 +6,23 @@
   right: 20px;
   width: 320px;
   max-height: 400px;
-  background: white;
+  background: #0e1219;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 999999;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Outfit',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   font-size: 14px;
+  color: #e8ecf4;
   overflow: hidden;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .applysharp-overlay.minimized {
@@ -26,8 +35,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
+  background: linear-gradient(135deg, #1a1f2b 0%, #141820 100%);
+  border-bottom: 1px solid rgba(232, 168, 50, 0.2);
+  color: #e8a832;
 }
 
 .applysharp-header-title {
@@ -36,6 +46,7 @@
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
+  color: #e8a832;
 }
 
 .applysharp-header-actions {
@@ -54,53 +65,60 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  font-family: 'Outfit', sans-serif;
 }
 
 .applysharp-btn-icon {
   padding: 6px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(232, 168, 50, 0.15);
   border-radius: 4px;
+  color: #e8a832;
 }
 
 .applysharp-btn-icon:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(232, 168, 50, 0.25);
 }
 
 .applysharp-btn-primary {
-  background: #3b82f6;
-  color: white;
+  background: #e8a832;
+  color: #0a0d13;
 }
 
 .applysharp-btn-primary:hover {
-  background: #2563eb;
+  background: #c48a1a;
+  box-shadow: 0 0 12px rgba(232, 168, 50, 0.3);
 }
 
 .applysharp-btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
+  background: #1a1f2b;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .applysharp-btn-secondary:hover {
-  background: #e2e8f0;
+  background: #212838;
+  color: #e8ecf4;
 }
 
 .applysharp-btn-success {
-  background: #22c55e;
+  background: #10b981;
   color: white;
 }
 
 .applysharp-btn-success:hover {
-  background: #16a34a;
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
 }
 
 .applysharp-content {
   padding: 16px;
+  background: #0e1219;
 }
 
 .applysharp-job-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1e293b;
+  color: #e8ecf4;
   margin-bottom: 4px;
   line-height: 1.3;
 }
@@ -116,7 +134,8 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: #141820;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
   margin-bottom: 12px;
 }
@@ -134,15 +153,18 @@
 }
 
 .applysharp-score-high {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
 }
 
 .applysharp-score-medium {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
 }
 
 .applysharp-score-low {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.3);
 }
 
 .applysharp-score-info {
@@ -159,15 +181,15 @@
 .applysharp-score-profile {
   font-size: 14px;
   font-weight: 500;
-  color: #1e293b;
+  color: #e8ecf4;
 }
 
 .applysharp-actions {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0a0d13;
 }
 
 .applysharp-actions .applysharp-btn {
@@ -185,21 +207,21 @@
   display: inline-flex;
   align-items: center;
   padding: 4px 8px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
 }
 
 .applysharp-tag-match {
-  background: #dcfce7;
-  color: #166534;
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
 }
 
 .applysharp-tag-missing {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
 }
 
 /* Minimized state */
@@ -212,7 +234,7 @@
 }
 
 .applysharp-minimized:hover {
-  background: #f8fafc;
+  background: #141820;
 }
 
 /* Loading state */
@@ -227,8 +249,8 @@
 .applysharp-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #3b82f6;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #e8a832;
   border-radius: 50%;
   animation: applysharp-spin 0.8s linear infinite;
 }
@@ -236,43 +258,5 @@
 @keyframes applysharp-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .applysharp-overlay {
-    background: #1e293b;
-    color: #f1f5f9;
-  }
-
-  .applysharp-job-title {
-    color: #f1f5f9;
-  }
-
-  .applysharp-company {
-    color: #94a3b8;
-  }
-
-  .applysharp-score {
-    background: #334155;
-  }
-
-  .applysharp-score-profile {
-    color: #f1f5f9;
-  }
-
-  .applysharp-actions {
-    background: #0f172a;
-    border-top-color: #334155;
-  }
-
-  .applysharp-btn-secondary {
-    background: #334155;
-    color: #f1f5f9;
-  }
-
-  .applysharp-btn-secondary:hover {
-    background: #475569;
   }
 }

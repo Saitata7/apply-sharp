@@ -1,17 +1,12 @@
 import type { RedFlagReport, RedFlagSeverity } from '@core/resume/red-flag-scanner';
+import { semantic, text, border, getScoreColor } from '@shared/constants/theme';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#10b981';
-  if (score >= 60) return '#f59e0b';
-  return '#ef4444';
-}
-
 const SEVERITY_COLORS: Record<RedFlagSeverity, string> = {
-  error: '#ef4444',
-  warning: '#f59e0b',
-  info: '#3b82f6',
+  error: semantic.error,
+  warning: semantic.warning,
+  info: semantic.info,
 };
 
 const SEVERITY_ICONS: Record<RedFlagSeverity, string> = {
@@ -31,9 +26,9 @@ export default function RedFlagSection({ report }: RedFlagSectionProps) {
     return (
       <div className="settings-section" style={{ marginBottom: 16 }}>
         <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>
-          Red Flags: <span style={{ color: '#10b981' }}>None Found</span>
+          Red Flags: <span style={{ color: semantic.success }}>None Found</span>
         </h3>
-        <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
+        <p style={{ margin: 0, fontSize: 12, color: text.secondary }}>
           No career-level red flags detected — your profile looks clean.
         </p>
       </div>
@@ -47,7 +42,7 @@ export default function RedFlagSection({ report }: RedFlagSectionProps) {
       <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>
         Red Flags: <span style={{ color: getScoreColor(score) }}>{score}/100</span>
       </h3>
-      <p style={{ margin: '0 0 12px', fontSize: 12, color: '#94a3b8' }}>
+      <p style={{ margin: '0 0 12px', fontSize: 12, color: text.secondary }}>
         {summary.errors > 0 && (
           <span style={{ color: SEVERITY_COLORS.error }}>{summary.errors} errors</span>
         )}
@@ -66,20 +61,20 @@ export default function RedFlagSection({ report }: RedFlagSectionProps) {
           key={i}
           style={{
             padding: '8px 0',
-            borderTop: i > 0 ? '1px solid #1e293b' : 'none',
+            borderTop: i > 0 ? `1px solid ${border.default}` : 'none',
             fontSize: 13,
           }}
         >
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <span style={{ flexShrink: 0 }}>{SEVERITY_ICONS[flag.severity]}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ color: '#e2e8f0', marginBottom: 2 }}>{flag.message}</div>
+              <div style={{ color: text.primary, marginBottom: 2 }}>{flag.message}</div>
               {flag.details && (
-                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>
+                <div style={{ fontSize: 11, color: text.faint, marginBottom: 2 }}>
                   {flag.details}
                 </div>
               )}
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>{flag.suggestion}</div>
+              <div style={{ fontSize: 12, color: text.secondary }}>{flag.suggestion}</div>
             </div>
           </div>
         </div>

@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ApplySharp Popup — Midnight Forge */
 
 * {
   margin: 0;
@@ -9,11 +7,16 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Outfit',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: #1e293b;
-  background: #ffffff;
+  color: #e8ecf4;
+  background: #0a0d13;
+  -webkit-font-smoothing: antialiased;
 }
 
 .popup-container {
@@ -21,6 +24,7 @@ body {
   min-height: 200px;
   max-height: 500px;
   overflow-y: auto;
+  background: #0a0d13;
 }
 
 /* Header */
@@ -29,8 +33,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
+  background: linear-gradient(135deg, #141820 0%, #0e1219 100%);
+  border-bottom: 1px solid rgba(232, 168, 50, 0.2);
+  color: #e8a832;
 }
 
 .header-title {
@@ -39,6 +44,8 @@ body {
   gap: 8px;
   font-weight: 600;
   font-size: 16px;
+  color: #e8a832;
+  font-family: 'Bricolage Grotesque', Georgia, serif;
 }
 
 .icon-btn {
@@ -48,21 +55,21 @@ body {
   width: 32px;
   height: 32px;
   border: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(232, 168, 50, 0.15);
   border-radius: 6px;
-  color: white;
+  color: #e8a832;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(232, 168, 50, 0.25);
 }
 
 /* Sections */
 section {
   padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 section:last-of-type {
@@ -81,30 +88,31 @@ section:last-of-type {
 /* Current Job */
 .current-job .job-card {
   padding: 12px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  background: rgba(232, 168, 50, 0.08);
+  border: 1px solid rgba(232, 168, 50, 0.2);
   border-radius: 8px;
 }
 
 .current-job .job-card.highlighted {
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #e8a832;
 }
 
 /* Profile Select */
 .profile-section {
-  background: #f8fafc;
+  background: #0e1219;
 }
 
 .profile-select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  background: white;
+  background: #141820;
   font-size: 14px;
-  color: #1e293b;
+  color: #e8ecf4;
   cursor: pointer;
   appearance: none;
+  font-family: 'Outfit', sans-serif;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
@@ -112,8 +120,8 @@ section:last-of-type {
 
 .profile-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #e8a832;
+  box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.15);
 }
 
 /* Job List */
@@ -126,22 +134,24 @@ section:last-of-type {
 .job-card {
   display: block;
   padding: 10px 12px;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: #0e1219;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .job-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #e8a832;
+  box-shadow: 0 0 12px rgba(232, 168, 50, 0.15);
 }
 
 .job-title {
   font-weight: 500;
-  color: #1e293b;
+  color: #e8ecf4;
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -150,12 +160,12 @@ section:last-of-type {
 
 .job-company {
   font-size: 13px;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .job-location {
   font-size: 12px;
-  color: #94a3b8;
+  color: #64748b;
   margin-top: 2px;
 }
 
@@ -171,24 +181,28 @@ section:last-of-type {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: 'Outfit', sans-serif;
 }
 
 .btn-primary {
-  background: #3b82f6;
-  color: white;
+  background: #e8a832;
+  color: #0a0d13;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: #c48a1a;
+  box-shadow: 0 0 12px rgba(232, 168, 50, 0.3);
 }
 
 .btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
+  background: #1a1f2b;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn-secondary:hover {
-  background: #e2e8f0;
+  background: #212838;
+  color: #e8ecf4;
 }
 
 .full-width {
@@ -198,8 +212,8 @@ section:last-of-type {
 /* Footer */
 .popup-footer {
   padding: 12px 16px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  background: #06070a;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Loading */
@@ -211,60 +225,14 @@ section:last-of-type {
   color: #64748b;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #0f172a;
-    color: #f1f5f9;
-  }
-
-  .popup-container {
-    background: #0f172a;
-  }
-
-  section {
-    border-bottom-color: #334155;
-  }
-
-  .job-card {
-    background: #1e293b;
-    border-color: #334155;
-  }
-
-  .job-card:hover {
-    border-color: #3b82f6;
-  }
-
-  .job-title {
-    color: #f1f5f9;
-  }
-
-  .current-job .job-card {
-    background: #1e3a5f;
-    border-color: #1e40af;
-  }
-
-  .profile-section {
-    background: #1e293b;
-  }
-
-  .profile-select {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
-  }
-
-  .btn-secondary {
-    background: #334155;
-    color: #f1f5f9;
-  }
-
-  .btn-secondary:hover {
-    background: #475569;
-  }
-
-  .popup-footer {
-    background: #1e293b;
-    border-top-color: #334155;
-  }
+/* Scrollbar */
+.popup-container::-webkit-scrollbar {
+  width: 4px;
+}
+.popup-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.popup-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
 }

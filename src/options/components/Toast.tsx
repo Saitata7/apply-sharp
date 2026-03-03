@@ -48,9 +48,9 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
   }, [toast.id, onDismiss]);
 
   const colors = {
-    success: { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
-    error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-    info: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
+    success: { bg: '#141820', border: '#22c55e', text: '#34d399' },
+    error: { bg: '#141820', border: '#ef4444', text: '#f87171' },
+    info: { bg: '#141820', border: '#e8a832', text: '#e8a832' },
   };
   const c = colors[toast.type];
 

@@ -496,7 +496,7 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-modal {
-      background: white;
+      background: #141820;
       border-radius: 12px;
       width: 100%;
       max-width: 900px;
@@ -511,14 +511,14 @@ function getCoverLetterStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 16px 20px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
 
     .cl-header-left {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #1e293b;
+      color: #e8ecf4;
     }
 
     .cl-header-left h2 {
@@ -537,8 +537,8 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-close-btn:hover {
-      background: #f1f5f9;
-      color: #475569;
+      background: #1a1f2b;
+      color: #64748b;
     }
 
     .cl-body {
@@ -552,7 +552,7 @@ function getCoverLetterStyles(): string {
       width: 320px;
       min-width: 320px;
       padding: 16px;
-      border-right: 1px solid #e2e8f0;
+      border-right: 1px solid rgba(255,255,255,0.06);
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -573,27 +573,27 @@ function getCoverLetterStyles(): string {
     .cl-field label {
       font-size: 12px;
       font-weight: 600;
-      color: #475569;
+      color: #64748b;
     }
 
     .cl-field input,
     .cl-field textarea {
       padding: 8px 10px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px;
       font-size: 13px;
       font-family: inherit;
-      color: #1e293b;
-      background: #f8fafc;
+      color: #e8ecf4;
+      background: #0e1219;
       transition: border-color 0.15s;
     }
 
     .cl-field input:focus,
     .cl-field textarea:focus {
       outline: none;
-      border-color: #3b82f6;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-color: #e8a832;
+      background: #141820;
+      box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
     }
 
     .cl-field textarea {
@@ -610,9 +610,9 @@ function getCoverLetterStyles(): string {
     .cl-tone-btn {
       flex: 1;
       padding: 6px 8px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px;
-      background: #f8fafc;
+      background: #0e1219;
       font-size: 11px;
       font-weight: 500;
       color: #64748b;
@@ -621,14 +621,14 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-tone-btn:hover {
-      border-color: #cbd5e1;
-      background: white;
+      border-color: rgba(255,255,255,0.15);
+      background: #141820;
     }
 
     .cl-tone-btn.active {
-      border-color: #3b82f6;
-      background: #eff6ff;
-      color: #2563eb;
+      border-color: #e8a832;
+      background: rgba(232,168,50,0.1);
+      color: #e8a832;
     }
 
     .cl-generate-btn {
@@ -637,8 +637,8 @@ function getCoverLetterStyles(): string {
       justify-content: center;
       gap: 8px;
       padding: 10px 16px;
-      background: #2563eb;
-      color: white;
+      background: #e8a832;
+      color: #0a0d13;
       border: none;
       border-radius: 8px;
       font-size: 13px;
@@ -648,7 +648,7 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-generate-btn:hover:not(:disabled) {
-      background: #1d4ed8;
+      background: #c48a1a;
     }
 
     .cl-generate-btn:disabled {
@@ -671,10 +671,10 @@ function getCoverLetterStyles(): string {
 
     .cl-error {
       padding: 8px 12px;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
       border-radius: 6px;
-      color: #dc2626;
+      color: #f87171;
       font-size: 12px;
     }
 
@@ -713,8 +713,8 @@ function getCoverLetterStyles(): string {
     .cl-loading-spinner {
       width: 32px;
       height: 32px;
-      border: 3px solid #e2e8f0;
-      border-top-color: #3b82f6;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #e8a832;
       border-radius: 50%;
       animation: cl-spin 0.8s linear infinite;
       margin-bottom: 8px;
@@ -725,8 +725,8 @@ function getCoverLetterStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 8px 16px;
-      border-bottom: 1px solid #f1f5f9;
-      background: #f8fafc;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: #0e1219;
     }
 
     .cl-word-count {
@@ -744,28 +744,28 @@ function getCoverLetterStyles(): string {
       align-items: center;
       gap: 4px;
       padding: 5px 10px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px;
-      background: white;
+      background: #141820;
       font-size: 12px;
-      color: #475569;
+      color: #64748b;
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .cl-tool-btn:hover {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+      background: #1a1f2b;
+      border-color: rgba(255,255,255,0.15);
     }
 
     .cl-tool-btn-primary {
-      background: #2563eb;
-      border-color: #2563eb;
-      color: white;
+      background: #e8a832;
+      border-color: #e8a832;
+      color: #0a0d13;
     }
 
     .cl-tool-btn-primary:hover {
-      background: #1d4ed8;
+      background: #c48a1a;
     }
 
     .cl-content {
@@ -778,7 +778,7 @@ function getCoverLetterStyles(): string {
       font-family: 'Calibri', 'Segoe UI', sans-serif;
       font-size: 14px;
       line-height: 1.7;
-      color: #1e293b;
+      color: #e8ecf4;
     }
 
     .cl-letter-text p {
@@ -789,20 +789,20 @@ function getCoverLetterStyles(): string {
       width: 100%;
       height: 100%;
       min-height: 300px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px;
       padding: 16px;
       font-family: 'Calibri', 'Segoe UI', sans-serif;
       font-size: 14px;
       line-height: 1.7;
-      color: #1e293b;
+      color: #e8ecf4;
       resize: none;
     }
 
     .cl-edit-textarea:focus {
       outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-color: #e8a832;
+      box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
     }
   `;
 }

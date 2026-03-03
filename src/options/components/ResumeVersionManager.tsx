@@ -167,7 +167,7 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
           </div>
           <pre
             style={{
-              background: '#f8fafc',
+              background: '#141820',
               padding: '12px',
               borderRadius: '8px',
               fontSize: '0.75rem',
@@ -175,7 +175,7 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
               wordBreak: 'break-word',
               maxHeight: '400px',
               overflowY: 'auto',
-              border: '1px solid #e2e8f0',
+              border: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             {linesA.map((line, i) => {
@@ -184,7 +184,11 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
                 <div
                   key={i}
                   style={{
-                    background: !line.trim() ? 'transparent' : inB ? 'transparent' : '#fef2f2',
+                    background: !line.trim()
+                      ? 'transparent'
+                      : inB
+                        ? 'transparent'
+                        : 'rgba(239,68,68,0.08)',
                     padding: '1px 4px',
                     borderRadius: '2px',
                   }}
@@ -209,7 +213,7 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
           </div>
           <pre
             style={{
-              background: '#f8fafc',
+              background: '#141820',
               padding: '12px',
               borderRadius: '8px',
               fontSize: '0.75rem',
@@ -217,7 +221,7 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
               wordBreak: 'break-word',
               maxHeight: '400px',
               overflowY: 'auto',
-              border: '1px solid #e2e8f0',
+              border: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             {linesB.map((line, i) => {
@@ -226,7 +230,11 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
                 <div
                   key={i}
                   style={{
-                    background: !line.trim() ? 'transparent' : inA ? 'transparent' : '#dcfce7',
+                    background: !line.trim()
+                      ? 'transparent'
+                      : inA
+                        ? 'transparent'
+                        : 'rgba(52,211,153,0.08)',
                     padding: '1px 4px',
                     borderRadius: '2px',
                   }}

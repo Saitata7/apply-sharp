@@ -8,6 +8,18 @@ import type { AIService } from '@/ai';
 import type { CareerContext } from '@shared/types/master-profile.types';
 import { PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
 
+/**
+ * Deterministic pseudo-random number from a string input.
+ * Replaces Math.random() so the same input always produces the same output.
+ */
+function deterministicRandom(input: string, seed = 0): number {
+  let hash = seed;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+  }
+  return ((hash >>> 0) % 10000) / 10000;
+}
+
 // Common AI phrases to avoid
 const AI_PHRASES = [
   'I am excited to',
@@ -131,7 +143,8 @@ export function humanizeWithRules(content: string): string {
   for (const [phrase, alternatives] of Object.entries(PHRASE_ALTERNATIVES)) {
     const regex = new RegExp(phrase, 'gi');
     if (regex.test(result)) {
-      const replacement = alternatives[Math.floor(Math.random() * alternatives.length)];
+      const replacement =
+        alternatives[Math.floor(deterministicRandom(phrase) * alternatives.length)];
       result = result.replace(regex, replacement);
     }
   }
@@ -195,7 +208,9 @@ function addContractions(text: string): string {
   let result = text;
   for (const [pattern, replacement] of contractions) {
     // Only apply contractions in about 70% of cases for natural variation
-    result = result.replace(pattern, (match) => (Math.random() > 0.3 ? replacement : match));
+    result = result.replace(pattern, (match, offset) =>
+      deterministicRandom(match + offset) > 0.3 ? replacement : match
+    );
   }
 
   return result;

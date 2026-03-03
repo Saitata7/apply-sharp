@@ -1371,7 +1371,7 @@ function ProfileOverview({
                       style={{
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid rgba(255,255,255,0.1)',
                         fontSize: '0.9rem',
                         fontWeight: 600,
                       }}
@@ -1384,7 +1384,7 @@ function ProfileOverview({
                       style={{
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid rgba(255,255,255,0.1)',
                         fontSize: '0.85rem',
                       }}
                     />
@@ -1398,7 +1398,7 @@ function ProfileOverview({
                           flex: 1,
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid rgba(255,255,255,0.1)',
                           fontSize: '0.8rem',
                         }}
                       />
@@ -1411,7 +1411,7 @@ function ProfileOverview({
                           width: '100px',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid rgba(255,255,255,0.1)',
                           fontSize: '0.8rem',
                         }}
                       />
@@ -1427,7 +1427,7 @@ function ProfileOverview({
                           width: '100px',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid rgba(255,255,255,0.1)',
                           fontSize: '0.8rem',
                         }}
                       />

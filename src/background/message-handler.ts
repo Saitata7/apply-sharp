@@ -377,6 +377,18 @@ export async function handleMessage(
     case 'SET_JOB_DEADLINE':
       return handleSetJobDeadline(message.payload as { jobId: string; deadline: string | null });
 
+    case 'QUICK_TAILOR':
+      return handleQuickTailor(
+        message.payload as {
+          masterProfileId: string;
+          roleId: string;
+          jobDescription: string;
+          companyName?: string;
+          jobTitle?: string;
+          includeCoverLetter?: boolean;
+        }
+      );
+
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
@@ -3264,6 +3276,123 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
     };
   } catch (error) {
     console.error('[OptimizeResume] Error:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ============================================================================
+// Quick Tailor Orchestrator
+// ============================================================================
+
+async function handleQuickTailor(payload: {
+  masterProfileId: string;
+  roleId: string;
+  jobDescription: string;
+  companyName?: string;
+  jobTitle?: string;
+  includeCoverLetter?: boolean;
+}): Promise<MessageResponse> {
+  try {
+    // Step 1: Analyze JD
+    const analysisResult = await handleAnalyzeJDForResume({
+      masterProfileId: payload.masterProfileId,
+      jobDescription: payload.jobDescription,
+    });
+
+    if (!analysisResult.success) {
+      return {
+        success: false,
+        error: `JD analysis failed: ${analysisResult.error}`,
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const analysis = analysisResult.data as Record<string, any>;
+
+    // Step 2: Optimize resume for JD
+    const masterProfile = await masterProfileRepo.getById(payload.masterProfileId);
+    if (!masterProfile) {
+      return { success: false, error: 'Master profile not found' };
+    }
+
+    // Find the target role profile
+    const roleProfile = masterProfile.generatedProfiles?.find((p) => p.id === payload.roleId);
+    const currentSummary =
+      roleProfile?.tailoredSummary || masterProfile.careerContext?.summary || '';
+
+    // Build bullet points for optimization
+    const keyBulletPoints = (masterProfile.experience || []).map((exp) => {
+      const expId = exp.id || `${exp.company}-${exp.title}`.replace(/\s+/g, '-').toLowerCase();
+      const allBullets = [
+        ...(exp.achievements || []).map((a: string | { statement: string }) =>
+          typeof a === 'string' ? a : a.statement
+        ),
+        ...(exp.responsibilities || []),
+      ];
+      return {
+        expId,
+        bullets: allBullets.slice(0, 10),
+        expectedCount: Math.min(allBullets.length, 8),
+        durationMonths: exp.durationMonths || 12,
+      };
+    });
+
+    const missingKeywords = (analysis.missingKeywords || []).map(
+      (kw: { keyword: string } | string) => (typeof kw === 'string' ? kw : kw.keyword)
+    );
+
+    const strengthKeywords = (analysis.matchedKeywords || [])
+      .sort(
+        (a: { profileCount?: number }, b: { profileCount?: number }) =>
+          (b.profileCount || 1) - (a.profileCount || 1)
+      )
+      .slice(0, 10)
+      .map((kw: { keyword: string; profileCount?: number }) => ({
+        keyword: kw.keyword,
+        count: kw.profileCount || 1,
+      }));
+
+    const optimizeResult = await handleOptimizeResumeForJD({
+      masterProfileId: payload.masterProfileId,
+      roleId: payload.roleId,
+      jobDescription: payload.jobDescription,
+      missingKeywords,
+      strengthKeywords,
+      currentSummary,
+      keyBulletPoints,
+    });
+
+    if (!optimizeResult.success) {
+      return {
+        success: false,
+        error: `Resume optimization failed: ${optimizeResult.error}`,
+      };
+    }
+
+    // Step 3: Optionally generate cover letter
+    let coverLetterData = null;
+    if (payload.includeCoverLetter && payload.companyName && payload.jobTitle) {
+      const coverLetterResult = await handleGenerateCoverLetter({
+        jobDescription: payload.jobDescription,
+        companyName: payload.companyName,
+        jobTitle: payload.jobTitle,
+      });
+      if (coverLetterResult.success) {
+        coverLetterData = coverLetterResult.data;
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        analysis,
+        tailoredContent: optimizeResult.data,
+        coverLetter: coverLetterData,
+        newScore: (optimizeResult.data as { newScore?: number })?.newScore,
+      },
+    };
+  } catch (error) {
+    console.error('[QuickTailor] Error:', error);
     return { success: false, error: (error as Error).message };
   }
 }

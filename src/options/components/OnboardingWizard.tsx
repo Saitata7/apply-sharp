@@ -262,7 +262,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
     <div
       style={{
         minHeight: '100vh',
-        background: '#0f172a',
+        background: '#0a0d13',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -279,7 +279,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               width: 10,
               height: 10,
               borderRadius: '50%',
-              background: i <= step ? '#3b82f6' : '#334155',
+              background: i <= step ? '#e8a832' : '#334155',
               transition: 'background 0.3s ease',
             }}
           />
@@ -303,13 +303,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               height="48"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#3b82f6"
+              stroke="#e8a832"
               strokeWidth="2"
               style={{ margin: '0 auto 16px', display: 'block' }}
             >
               <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
             </svg>
-            <h1 style={{ fontSize: 24, margin: '0 0 8px', color: '#e2e8f0' }}>
+            <h1 style={{ fontSize: 24, margin: '0 0 8px', color: '#e8ecf4' }}>
               Welcome to ApplySharp
             </h1>
             <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 24px', lineHeight: 1.6 }}>
@@ -334,7 +334,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                 ['Auto-detect jobs', 'on LinkedIn, Indeed, Greenhouse, and 20+ platforms'],
               ].map(([title, desc], i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#3b82f6', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
+                  <span style={{ color: '#e8a832', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
                     {i + 1}.
                   </span>
                   <span style={{ fontSize: 13, color: '#cbd5e1' }}>
@@ -371,7 +371,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
         {/* Step 1: Upload Resume */}
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e2e8f0' }}>
+            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e8ecf4' }}>
               Upload Your Resume
             </h2>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px' }}>
@@ -381,7 +381,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
             {isAnalyzing ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }}></div>
-                <p style={{ fontSize: 14, color: '#e2e8f0', margin: '0 0 4px' }}>
+                <p style={{ fontSize: 14, color: '#e8ecf4', margin: '0 0 4px' }}>
                   {uploadProgress}
                 </p>
                 <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
@@ -414,12 +414,12 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   onDrop={handleDrop}
                   onClick={() => document.getElementById('onboarding-file-input')?.click()}
                   style={{
-                    border: `2px dashed ${isDragging ? '#3b82f6' : file ? '#10b981' : '#334155'}`,
+                    border: `2px dashed ${isDragging ? '#e8a832' : file ? '#10b981' : '#334155'}`,
                     borderRadius: 8,
                     padding: file ? '16px' : '40px 16px',
                     textAlign: 'center',
                     cursor: 'pointer',
-                    background: isDragging ? 'rgba(59,130,246,0.05)' : 'transparent',
+                    background: isDragging ? 'rgba(232,168,50,0.05)' : 'transparent',
                     transition: 'all 0.2s ease',
                     marginBottom: 16,
                   }}
@@ -444,7 +444,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
-                      <span style={{ fontSize: 14, color: '#e2e8f0' }}>{file.name}</span>
+                      <span style={{ fontSize: 14, color: '#e8ecf4' }}>{file.name}</span>
                       <span style={{ fontSize: 12, color: '#64748b' }}>
                         ({(file.size / 1024).toFixed(1)} KB)
                       </span>
@@ -466,7 +466,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                       </svg>
                       <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 4px' }}>
                         Drag and drop your resume, or{' '}
-                        <span style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                        <span style={{ color: '#e8a832', textDecoration: 'underline' }}>
                           browse
                         </span>
                       </p>
@@ -500,7 +500,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   <button
                     className="btn"
                     onClick={() => setStep(2)}
-                    style={{ padding: '10px 20px', background: '#1e293b', borderColor: '#334155' }}
+                    style={{ padding: '10px 20px', background: '#1a1f2b', borderColor: '#334155' }}
                   >
                     Skip for now
                   </button>
@@ -513,7 +513,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
         {/* Step 2: AI Setup */}
         {step === 2 && (
           <div>
-            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e2e8f0' }}>
+            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e8ecf4' }}>
               Configure AI Provider
             </h2>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px' }}>
@@ -535,13 +535,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   style={{
                     padding: '12px',
                     borderRadius: 8,
-                    border: `2px solid ${selectedProvider === p.id ? '#3b82f6' : '#334155'}`,
-                    background: selectedProvider === p.id ? 'rgba(59,130,246,0.1)' : '#1e293b',
+                    border: `2px solid ${selectedProvider === p.id ? '#e8a832' : '#334155'}`,
+                    background: selectedProvider === p.id ? 'rgba(232,168,50,0.1)' : '#1a1f2b',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', marginBottom: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ecf4', marginBottom: 2 }}>
                     {p.name}
                   </div>
                   <div style={{ fontSize: 11, color: '#94a3b8' }}>{p.description}</div>
@@ -581,7 +581,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                       ? 'rgba(16,185,129,0.1)'
                       : testStatus === 'error'
                         ? 'rgba(239,68,68,0.1)'
-                        : 'rgba(59,130,246,0.1)',
+                        : 'rgba(232,168,50,0.1)',
                   color:
                     testStatus === 'success'
                       ? '#10b981'
@@ -606,7 +606,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               <button
                 className="btn"
                 onClick={() => setStep(3)}
-                style={{ padding: '10px 20px', background: '#1e293b', borderColor: '#334155' }}
+                style={{ padding: '10px 20px', background: '#1a1f2b', borderColor: '#334155' }}
               >
                 {aiConfigured ? 'Next' : 'Skip for now'}
               </button>
@@ -629,7 +629,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <h2 style={{ fontSize: 22, margin: '0 0 8px', color: '#e2e8f0' }}>
+            <h2 style={{ fontSize: 22, margin: '0 0 8px', color: '#e8ecf4' }}>
               You&apos;re all set!
             </h2>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 24px' }}>
@@ -662,12 +662,12 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               style={{
                 textAlign: 'left',
                 padding: '16px',
-                background: '#1e293b',
+                background: '#1a1f2b',
                 borderRadius: 8,
                 marginBottom: 24,
               }}
             >
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', margin: '0 0 8px' }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#e8ecf4', margin: '0 0 8px' }}>
                 What to do next:
               </p>
               <ul

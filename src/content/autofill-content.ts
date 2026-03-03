@@ -383,9 +383,9 @@ function showNotification(type: 'success' | 'error' | 'warning', message: string
   notification.className = 'jp-notification';
 
   const colors = {
-    success: { bg: '#dcfce7', border: '#22c55e', text: '#166534' },
-    error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-    warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+    success: { bg: '#141820', border: '#22c55e', text: '#34d399' },
+    error: { bg: '#141820', border: '#ef4444', text: '#f87171' },
+    warning: { bg: '#141820', border: '#e8a832', text: '#e8a832' },
   };
 
   const color = colors[type];
@@ -402,9 +402,9 @@ function showNotification(type: 'success' | 'error' | 'warning', message: string
         border: 1px solid ${color.border};
         border-radius: 8px;
         color: ${color.text};
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
         font-size: 14px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         display: flex;
         align-items: center;
         gap: 10px;

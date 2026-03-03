@@ -10,6 +10,7 @@ import type { ResumeProfile } from '@shared/types/profile.types';
 import type { AISettings } from '@shared/types/settings.types';
 import { OllamaProvider } from './providers/ollama';
 import { OpenAIProvider } from './providers/openai';
+import { AnthropicProvider } from './providers/anthropic';
 import { GroqProvider } from './providers/groq';
 import { JOB_SCORING_PROMPT, COVER_LETTER_PROMPT } from './prompts/templates';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
@@ -31,12 +32,7 @@ export class AIService {
       case 'openai':
         return new OpenAIProvider(this.settings.openai!);
       case 'anthropic':
-        // Anthropic requires a different API format (Messages API with x-api-key header).
-        // For now, guide users to use OpenAI or Groq providers.
-        throw new Error(
-          'Anthropic is not yet supported. Please use OpenAI (supports Claude via API proxy) or Groq instead. ' +
-            'Go to AI Settings to switch your provider.'
-        );
+        return new AnthropicProvider(this.settings.anthropic!);
       case 'groq':
         return new GroqProvider(this.settings.groq!);
       default:
@@ -177,4 +173,5 @@ Key Skills: ${profile.skills?.technical?.slice(0, 10).join(', ') || 'N/A'}
 
 export { OllamaProvider } from './providers/ollama';
 export { OpenAIProvider } from './providers/openai';
+export { AnthropicProvider } from './providers/anthropic';
 export { GroqProvider } from './providers/groq';

@@ -30,7 +30,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
           <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>Something went wrong</h2>
-          <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+          <p style={{ color: '#64748b', marginBottom: '1rem' }}>
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           {canRetry ? (
@@ -44,8 +44,8 @@ export default class ErrorBoundary extends Component<Props, State> {
               }
               style={{
                 padding: '0.5rem 1rem',
-                background: '#3b82f6',
-                color: '#fff',
+                background: '#e8a832',
+                color: '#0a0d13',
                 border: 'none',
                 borderRadius: '0.375rem',
                 cursor: 'pointer',

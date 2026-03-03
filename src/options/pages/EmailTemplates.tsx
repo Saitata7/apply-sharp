@@ -126,9 +126,9 @@ export default function EmailTemplates() {
           style={{
             marginBottom: '1.5rem',
             padding: '1rem',
-            background: '#fef3c7',
+            background: 'rgba(232,168,50,0.1)',
             borderRadius: '8px',
-            color: '#92400e',
+            color: '#e8a832',
           }}
         >
           Upload a resume first to personalize your email templates.
@@ -155,9 +155,10 @@ export default function EmailTemplates() {
               style={{
                 padding: '0.5rem 1rem',
                 borderRadius: '6px',
-                border: emailType === t.value ? '2px solid #2563eb' : '1px solid #d1d5db',
-                background: emailType === t.value ? '#eff6ff' : '#fff',
-                color: emailType === t.value ? '#1d4ed8' : '#374151',
+                border:
+                  emailType === t.value ? '2px solid #e8a832' : '1px solid rgba(255,255,255,0.1)',
+                background: emailType === t.value ? 'rgba(232,168,50,0.1)' : '#1a1f2b',
+                color: emailType === t.value ? '#e8a832' : '#94a3b8',
                 fontWeight: emailType === t.value ? 600 : 400,
                 cursor: 'pointer',
                 fontSize: '0.8125rem',
@@ -198,7 +199,7 @@ export default function EmailTemplates() {
             style={{
               width: '100%',
               padding: '0.5rem 0.75rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '6px',
               fontSize: '0.875rem',
               boxSizing: 'border-box',
@@ -224,7 +225,7 @@ export default function EmailTemplates() {
             style={{
               width: '100%',
               padding: '0.5rem 0.75rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '6px',
               fontSize: '0.875rem',
               boxSizing: 'border-box',
@@ -260,7 +261,7 @@ export default function EmailTemplates() {
             style={{
               width: '100%',
               padding: '0.5rem 0.75rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '6px',
               fontSize: '0.875rem',
               boxSizing: 'border-box',
@@ -290,7 +291,7 @@ export default function EmailTemplates() {
               style={{
                 width: '100%',
                 padding: '0.5rem 0.75rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: '6px',
                 fontSize: '0.875rem',
                 boxSizing: 'border-box',
@@ -319,7 +320,7 @@ export default function EmailTemplates() {
               style={{
                 width: '100%',
                 padding: '0.5rem 0.75rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: '6px',
                 fontSize: '0.875rem',
                 boxSizing: 'border-box',
@@ -349,7 +350,7 @@ export default function EmailTemplates() {
             style={{
               width: '100%',
               padding: '0.5rem 0.75rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '6px',
               fontSize: '0.875rem',
               resize: 'vertical',
@@ -378,7 +379,7 @@ export default function EmailTemplates() {
           style={{
             width: '100%',
             padding: '0.5rem 0.75rem',
-            border: '1px solid #d1d5db',
+            border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '6px',
             fontSize: '0.875rem',
             resize: 'vertical',
@@ -393,8 +394,8 @@ export default function EmailTemplates() {
         disabled={!canGenerate}
         style={{
           padding: '0.75rem 2rem',
-          background: canGenerate ? '#2563eb' : '#9ca3af',
-          color: '#fff',
+          background: canGenerate ? '#e8a832' : '#475569',
+          color: '#0a0d13',
           border: 'none',
           borderRadius: '8px',
           fontSize: '0.9375rem',
@@ -412,10 +413,10 @@ export default function EmailTemplates() {
           role="alert"
           style={{
             padding: '1rem',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
+            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.2)',
             borderRadius: '8px',
-            color: '#991b1b',
+            color: '#f87171',
             marginBottom: '1.5rem',
           }}
         >
@@ -425,20 +426,26 @@ export default function EmailTemplates() {
 
       {/* Result */}
       {result && (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+        <div
+          style={{
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+          }}
+        >
           {/* Header */}
           <div
             style={{
               padding: '1rem 1.5rem',
-              background: '#f9fafb',
-              borderBottom: '1px solid #e5e7eb',
+              background: '#0e1219',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
             }}
           >
             <div>
-              <span style={{ fontSize: '0.8125rem', color: '#6b7280' }}>
+              <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
                 {result.wordCount} words
               </span>
             </div>
@@ -448,8 +455,8 @@ export default function EmailTemplates() {
                 aria-label={isEditing ? 'Switch to preview mode' : 'Switch to edit mode'}
                 style={{
                   padding: '0.375rem 0.75rem',
-                  background: isEditing ? '#dbeafe' : '#fff',
-                  border: '1px solid #d1d5db',
+                  background: isEditing ? 'rgba(232,168,50,0.15)' : '#1a1f2b',
+                  border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: '6px',
                   fontSize: '0.8125rem',
                   cursor: 'pointer',
@@ -462,12 +469,12 @@ export default function EmailTemplates() {
                 aria-label="Copy email to clipboard"
                 style={{
                   padding: '0.375rem 0.75rem',
-                  background: copied ? '#dcfce7' : '#fff',
-                  border: '1px solid #d1d5db',
+                  background: copied ? 'rgba(52,211,153,0.12)' : '#1a1f2b',
+                  border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: '6px',
                   fontSize: '0.8125rem',
                   cursor: 'pointer',
-                  color: copied ? '#166534' : '#374151',
+                  color: copied ? '#34d399' : '#94a3b8',
                 }}
               >
                 {copied ? 'Copied!' : 'Copy'}
@@ -477,8 +484,8 @@ export default function EmailTemplates() {
                 aria-label="Open email in email client"
                 style={{
                   padding: '0.375rem 0.75rem',
-                  background: '#2563eb',
-                  color: '#fff',
+                  background: '#e8a832',
+                  color: '#0a0d13',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '0.8125rem',
@@ -501,7 +508,7 @@ export default function EmailTemplates() {
                       fontWeight: 600,
                       marginBottom: '0.25rem',
                       fontSize: '0.8125rem',
-                      color: '#6b7280',
+                      color: '#64748b',
                     }}
                   >
                     Subject
@@ -513,7 +520,7 @@ export default function EmailTemplates() {
                     style={{
                       width: '100%',
                       padding: '0.5rem 0.75rem',
-                      border: '1px solid #d1d5db',
+                      border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: '6px',
                       fontSize: '0.875rem',
                       boxSizing: 'border-box',
@@ -527,7 +534,7 @@ export default function EmailTemplates() {
                       fontWeight: 600,
                       marginBottom: '0.25rem',
                       fontSize: '0.8125rem',
-                      color: '#6b7280',
+                      color: '#64748b',
                     }}
                   >
                     Body
@@ -539,7 +546,7 @@ export default function EmailTemplates() {
                     style={{
                       width: '100%',
                       padding: '0.75rem',
-                      border: '1px solid #d1d5db',
+                      border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: '6px',
                       fontSize: '0.875rem',
                       lineHeight: 1.6,
@@ -555,14 +562,14 @@ export default function EmailTemplates() {
                   style={{
                     marginBottom: '1rem',
                     paddingBottom: '0.75rem',
-                    borderBottom: '1px solid #f3f4f6',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
                   <span
                     style={{
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      color: '#6b7280',
+                      color: '#64748b',
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}
@@ -578,7 +585,7 @@ export default function EmailTemplates() {
                     whiteSpace: 'pre-wrap',
                     lineHeight: 1.7,
                     fontSize: '0.9375rem',
-                    color: '#1f2937',
+                    color: '#e8ecf4',
                   }}
                 >
                   {result.body}

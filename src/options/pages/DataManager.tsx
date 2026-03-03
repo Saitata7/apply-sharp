@@ -150,7 +150,7 @@ export default function DataManager() {
 
   return (
     <div className="page-container" style={{ maxWidth: 900, padding: '32px 24px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 600, color: '#e2e8f0', margin: '0 0 4px' }}>
+      <h1 style={{ fontSize: 22, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
         Data Manager
       </h1>
       <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 24px' }}>
@@ -177,7 +177,7 @@ export default function DataManager() {
 
       {/* ── Export Section ─────────────────────────────────────────────── */}
       <div className="settings-section" style={{ padding: 20, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e2e8f0', margin: '0 0 4px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
           Export
         </h2>
         <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px' }}>
@@ -222,9 +222,9 @@ export default function DataManager() {
             disabled={isExportingCSV}
             style={{
               flex: '1 1 200px',
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#e2e8f0',
+              background: '#1a1f2b',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#e8ecf4',
             }}
           >
             {isExportingCSV ? (
@@ -257,7 +257,7 @@ export default function DataManager() {
 
       {/* ── Import Section ─────────────────────────────────────────────── */}
       <div className="settings-section" style={{ padding: 20, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e2e8f0', margin: '0 0 4px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
           Import
         </h2>
         <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px' }}>
@@ -306,10 +306,10 @@ export default function DataManager() {
             {/* Preview */}
             <div
               style={{
-                background: '#0f172a',
+                background: '#0a0d13',
                 borderRadius: 8,
                 padding: 16,
-                border: '1px solid #1e293b',
+                border: '1px solid rgba(255,255,255,0.06)',
                 marginBottom: 16,
               }}
             >
@@ -317,7 +317,7 @@ export default function DataManager() {
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: '#e2e8f0',
+                  color: '#e8ecf4',
                   marginBottom: 10,
                 }}
               >
@@ -364,7 +364,7 @@ export default function DataManager() {
               <button
                 className="btn"
                 onClick={cancelImport}
-                style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}
+                style={{ background: '#1a1f2b', border: '1px solid #334155', color: '#94a3b8' }}
               >
                 Cancel
               </button>
@@ -433,7 +433,7 @@ function CountBadge({
     <div
       style={{
         padding: '8px 12px',
-        background: '#1e293b',
+        background: '#1a1f2b',
         borderRadius: 6,
         textAlign: 'center',
       }}

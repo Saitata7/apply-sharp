@@ -312,9 +312,13 @@ export function updateRequirementGaps(gaps: RequirementGap[]): void {
   gapsList.innerHTML = gapsHTML;
 }
 
-function updateSponsorshipBadge(status: SponsorshipStatus): void {
+function updateSponsorshipBadge(
+  status: SponsorshipStatus,
+  userRequiresSponsorship?: boolean
+): void {
   if (!overlayElement) return;
   const badge = overlayElement.querySelector('#jp-sponsorship-badge') as HTMLElement;
+  const warning = overlayElement.querySelector('#jp-visa-warning') as HTMLElement;
   if (!badge) return;
 
   if (status === 'not_available') {
@@ -327,6 +331,40 @@ function updateSponsorshipBadge(status: SponsorshipStatus): void {
     badge.style.display = '';
   } else {
     badge.style.display = 'none';
+  }
+
+  // Show prominent visa warning banner if user needs sponsorship
+  if (!warning) return;
+
+  if (userRequiresSponsorship && status === 'not_available') {
+    warning.className = 'jp-visa-alert';
+    warning.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      <span><strong>Visa Sponsorship Not Available</strong> — This employer does not sponsor work visas</span>
+    `;
+    warning.style.display = 'flex';
+  } else if (userRequiresSponsorship && status === 'unknown') {
+    warning.className = 'jp-visa-unknown';
+    warning.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span><strong>Sponsorship Status Unknown</strong> — Check the application</span>
+    `;
+    warning.style.display = 'flex';
+  } else if (userRequiresSponsorship && status === 'available') {
+    warning.className = 'jp-visa-available';
+    warning.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20,6 9,17 4,12"/>
+      </svg>
+      <span><strong>Sponsors Visa</strong></span>
+    `;
+    warning.style.display = 'flex';
+  } else {
+    warning.style.display = 'none';
   }
 }
 
@@ -440,9 +478,9 @@ export async function scanAndShowRequirementGaps(): Promise<void> {
     // Update the UI
     updateRequirementGaps(gaps);
 
-    // Detect and show sponsorship status
+    // Detect and show sponsorship status with user context
     const sponsorStatus = parseSponsorshipStatus(currentJob.description);
-    updateSponsorshipBadge(sponsorStatus);
+    updateSponsorshipBadge(sponsorStatus, userProfile.requiresSponsorship);
 
     console.log('[ApplySharp] Requirement gaps found:', gaps.length);
   } catch (error) {
@@ -507,6 +545,7 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             ${job.location ? `<span class="jp-badge">${escapeHtml(job.location)}</span>` : ''}
             <span id="jp-sponsorship-badge" style="display:none;"></span>
           </div>
+          <div id="jp-visa-warning" style="display:none;"></div>
           <div class="jp-deadline-row" id="jp-deadline-row" style="display:none;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -1125,10 +1164,11 @@ function getOverlayStyles(): string {
       top: 100px;
       right: 0;
       z-index: 2147483647;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 12px;
       line-height: 1.4;
       transition: transform 0.25s ease;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Minimized State - Vertical Tab */
@@ -1137,10 +1177,10 @@ function getOverlayStyles(): string {
       flex-direction: column;
       align-items: center;
       padding: 10px 6px;
-      background: #2563eb;
+      background: linear-gradient(180deg, #1a1f2b 0%, #141820 100%);
       border-radius: 8px 0 0 8px;
-      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-      color: white;
+      box-shadow: -2px 0 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(232,168,50,0.2);
+      color: #e8a832;
       cursor: pointer;
       gap: 8px;
     }
@@ -1148,7 +1188,8 @@ function getOverlayStyles(): string {
     .jp-mini-drag {
       cursor: ns-resize;
       padding: 4px 2px;
-      opacity: 0.6;
+      opacity: 0.5;
+      color: #64748b;
     }
 
     .jp-mini-drag:hover {
@@ -1158,13 +1199,15 @@ function getOverlayStyles(): string {
     .jp-mini-score {
       font-size: 14px;
       font-weight: 700;
+      color: #e8a832;
     }
 
     .jp-mini-label {
       font-size: 9px;
       font-weight: 600;
-      opacity: 0.8;
+      opacity: 0.7;
       letter-spacing: 0.5px;
+      color: #94a3b8;
     }
 
     /* Expanded State */
@@ -1172,9 +1215,9 @@ function getOverlayStyles(): string {
       display: flex;
       flex-direction: column;
       width: 260px;
-      background: white;
+      background: #0e1219;
       border-radius: 10px 0 0 10px;
-      box-shadow: -2px 0 15px rgba(0,0,0,0.1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
       overflow: hidden;
     }
 
@@ -1183,12 +1226,12 @@ function getOverlayStyles(): string {
       justify-content: center;
       padding: 6px;
       cursor: ns-resize;
-      background: #f8fafc;
-      border-bottom: 1px solid #f1f5f9;
+      background: #0a0d13;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
 
     .jp-drag-handle:hover {
-      background: #f1f5f9;
+      background: #141820;
     }
 
     .jp-header {
@@ -1196,14 +1239,14 @@ function getOverlayStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 8px 10px;
-      background: white;
-      border-bottom: 1px solid #f1f5f9;
+      background: #0e1219;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
 
     .jp-title {
       font-weight: 600;
       font-size: 12px;
-      color: #1e293b;
+      color: #e8a832;
     }
 
     .jp-header-actions {
@@ -1215,14 +1258,14 @@ function getOverlayStyles(): string {
       background: none;
       border: none;
       padding: 4px;
-      color: #94a3b8;
+      color: #64748b;
       cursor: pointer;
       border-radius: 4px;
     }
 
     .jp-icon-btn:hover {
-      color: #64748b;
-      background: #f1f5f9;
+      color: #e8ecf4;
+      background: rgba(255,255,255,0.06);
     }
 
     .jp-body {
@@ -1230,6 +1273,7 @@ function getOverlayStyles(): string {
       overflow-y: auto;
       padding: 10px;
       max-height: 400px;
+      color: #e8ecf4;
     }
 
     /* Job Info */
@@ -1240,13 +1284,13 @@ function getOverlayStyles(): string {
     .jp-job-title {
       font-size: 12px;
       font-weight: 600;
-      color: #1e293b;
+      color: #e8ecf4;
       line-height: 1.3;
     }
 
     .jp-job-company {
       font-size: 11px;
-      color: #64748b;
+      color: #94a3b8;
       margin-top: 2px;
     }
 
@@ -1263,24 +1307,70 @@ function getOverlayStyles(): string {
       border-radius: 4px;
       font-size: 10px;
       font-weight: 500;
-      background: #f1f5f9;
-      color: #475569;
+      background: rgba(255,255,255,0.06);
+      color: #94a3b8;
     }
 
     .jp-badge-platform {
-      background: #eff6ff;
-      color: #2563eb;
+      background: rgba(232,168,50,0.12);
+      color: #e8a832;
     }
 
     .jp-badge-no-sponsor {
-      background: #fee2e2;
-      color: #991b1b;
+      background: rgba(248,113,113,0.12);
+      color: #f87171;
     }
 
     .jp-badge-sponsor {
-      background: #dcfce7;
-      color: #166534;
+      background: rgba(52,211,153,0.12);
+      color: #34d399;
     }
+
+    /* Visa Warning Banners */
+    .jp-visa-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: 6px;
+      color: #f87171;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .jp-visa-alert svg { flex-shrink: 0; margin-top: 1px; stroke: #f87171; }
+
+    .jp-visa-unknown {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      background: rgba(251,146,60,0.1);
+      border: 1px solid rgba(251,146,60,0.25);
+      border-radius: 6px;
+      color: #fb923c;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .jp-visa-unknown svg { flex-shrink: 0; margin-top: 1px; stroke: #fb923c; }
+
+    .jp-visa-available {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 6px 10px;
+      margin-top: 6px;
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 6px;
+      color: #34d399;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .jp-visa-available svg { flex-shrink: 0; margin-top: 1px; stroke: #34d399; }
 
     /* Deadline */
     .jp-deadline-row {
@@ -1289,21 +1379,21 @@ function getOverlayStyles(): string {
       gap: 6px;
       margin-top: 6px;
       font-size: 12px;
-      color: #6b7280;
+      color: #64748b;
     }
     .jp-deadline-urgent {
-      color: #dc2626;
+      color: #f87171;
       font-weight: 600;
     }
     .jp-deadline-soon {
-      color: #d97706;
+      color: #fb923c;
       font-weight: 500;
     }
     .jp-deadline-ok {
-      color: #059669;
+      color: #34d399;
     }
     .jp-deadline-empty {
-      color: #9ca3af;
+      color: #475569;
       font-style: italic;
     }
     .jp-deadline-edit-btn {
@@ -1311,12 +1401,12 @@ function getOverlayStyles(): string {
       border: none;
       cursor: pointer;
       padding: 2px;
-      color: #9ca3af;
+      color: #475569;
       display: flex;
       align-items: center;
     }
     .jp-deadline-edit-btn:hover {
-      color: #4b5563;
+      color: #e8a832;
     }
     .jp-deadline-input-row {
       display: flex;
@@ -1327,37 +1417,39 @@ function getOverlayStyles(): string {
     .jp-deadline-input {
       font-size: 11px;
       padding: 2px 6px;
-      border: 1px solid #d1d5db;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 4px;
-      background: #fff;
-      color: #374151;
+      background: #141820;
+      color: #e8ecf4;
     }
     .jp-btn-xs {
       font-size: 11px;
       padding: 2px 8px;
-      border: 1px solid #d1d5db;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 4px;
-      background: #f3f4f6;
+      background: #1a1f2b;
       cursor: pointer;
-      color: #374151;
+      color: #e8ecf4;
     }
     .jp-btn-xs:hover {
-      background: #e5e7eb;
+      background: #212838;
     }
     .jp-btn-ghost {
       background: transparent;
       border-color: transparent;
     }
     .jp-btn-ghost:hover {
-      background: #f3f4f6;
+      background: rgba(255,255,255,0.06);
     }
 
     /* Score Section */
     .jp-score-section {
-      background: #f8fafc;
+      background: #0a0d13;
       margin: 0 -10px;
       padding: 10px;
       margin-bottom: 10px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
 
     .jp-score-row {
@@ -1375,18 +1467,18 @@ function getOverlayStyles(): string {
       justify-content: center;
       font-size: 12px;
       font-weight: 700;
-      background: #e2e8f0;
+      background: #1a1f2b;
       color: #64748b;
     }
 
-    .jp-score-circle.jp-score-high { background: #22c55e; color: white; }
-    .jp-score-circle.jp-score-medium { background: #f59e0b; color: white; }
-    .jp-score-circle.jp-score-low { background: #ef4444; color: white; }
-    .jp-score-circle.jp-score-mismatch { background: #94a3b8; color: white; }
+    .jp-score-circle.jp-score-high { background: #10b981; color: white; box-shadow: 0 0 8px rgba(52,211,153,0.3); }
+    .jp-score-circle.jp-score-medium { background: #d97706; color: white; box-shadow: 0 0 8px rgba(245,158,11,0.3); }
+    .jp-score-circle.jp-score-low { background: #ef4444; color: white; box-shadow: 0 0 8px rgba(248,113,113,0.3); }
+    .jp-score-circle.jp-score-mismatch { background: #475569; color: white; }
 
     .jp-score-title {
       font-weight: 500;
-      color: #475569;
+      color: #94a3b8;
       font-size: 11px;
     }
 
@@ -1394,7 +1486,7 @@ function getOverlayStyles(): string {
       background: none;
       border: none;
       padding: 0;
-      color: #2563eb;
+      color: #e8a832;
       font-size: 10px;
       cursor: pointer;
     }
@@ -1431,24 +1523,24 @@ function getOverlayStyles(): string {
       font-size: 9px;
       padding: 2px 5px;
       border-radius: 3px;
-      background: #f1f5f9;
-      color: #475569;
+      background: rgba(255,255,255,0.06);
+      color: #94a3b8;
     }
 
-    .jp-tag-match { background: #dcfce7; color: #166534; }
-    .jp-tag-missing { background: #fee2e2; color: #991b1b; }
-    .jp-tag-placeholder { font-style: italic; color: #94a3b8; background: none; }
+    .jp-tag-match { background: rgba(52,211,153,0.12); color: #34d399; }
+    .jp-tag-missing { background: rgba(248,113,113,0.12); color: #f87171; }
+    .jp-tag-placeholder { font-style: italic; color: #475569; background: none; }
     .jp-tag-high { font-weight: 600; }
     .jp-tag-low { opacity: 0.85; }
     .jp-priority-label { font-size: 8px; font-weight: 600; color: #64748b; margin-right: 2px; }
 
-    /* Background Mismatch Section - Always visible */
+    /* Background Mismatch Section */
     .jp-mismatch-section {
-      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      background: linear-gradient(135deg, rgba(248,113,113,0.08) 0%, rgba(248,113,113,0.12) 100%);
       margin: 0 -10px 10px -10px;
       padding: 8px 10px;
       border-top: 2px solid #ef4444;
-      border-bottom: 1px solid #fecaca;
+      border-bottom: 1px solid rgba(248,113,113,0.2);
     }
 
     .jp-mismatch-content {
@@ -1467,21 +1559,21 @@ function getOverlayStyles(): string {
       flex-direction: column;
       gap: 2px;
       font-size: 10px;
-      color: #991b1b;
+      color: #f87171;
     }
 
     .jp-mismatch-text strong {
       font-size: 11px;
-      color: #7f1d1d;
+      color: #fca5a5;
     }
 
     /* Insights Section - Collapsible */
     .jp-insights-section {
-      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      background: linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(167,139,250,0.12) 100%);
       margin: 0 -10px 10px -10px;
       padding: 8px 10px;
-      border-top: 1px solid #c7d2fe;
-      border-bottom: 1px solid #c7d2fe;
+      border-top: 1px solid rgba(167,139,250,0.2);
+      border-bottom: 1px solid rgba(167,139,250,0.2);
     }
 
     .jp-insights-header {
@@ -1490,13 +1582,13 @@ function getOverlayStyles(): string {
       gap: 5px;
       font-size: 10px;
       font-weight: 600;
-      color: #4338ca;
+      color: #a78bfa;
       cursor: pointer;
       user-select: none;
     }
 
     .jp-insights-header:hover {
-      color: #3730a3;
+      color: #c4b5fd;
     }
 
     .jp-insights-arrow {
@@ -1509,8 +1601,9 @@ function getOverlayStyles(): string {
 
     .jp-insights-count {
       font-weight: 400;
-      color: #6366f1;
+      color: #a78bfa;
       font-size: 9px;
+      opacity: 0.7;
     }
 
     .jp-insights-list {
@@ -1524,22 +1617,22 @@ function getOverlayStyles(): string {
       font-size: 10px;
       line-height: 1.3;
       padding: 4px 6px;
-      background: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.04);
       border-radius: 4px;
-      color: #3730a3;
+      color: #c4b5fd;
     }
 
     .jp-insight-info {
-      border-left: 2px solid #6366f1;
+      border-left: 2px solid #a78bfa;
     }
 
     /* Requirement Gaps Section */
     .jp-gaps-section {
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      background: linear-gradient(135deg, rgba(251,146,60,0.06) 0%, rgba(251,146,60,0.1) 100%);
       margin: 0 -10px 10px -10px;
       padding: 8px 10px;
-      border-top: 1px solid #fcd34d;
-      border-bottom: 1px solid #fcd34d;
+      border-top: 1px solid rgba(251,146,60,0.2);
+      border-bottom: 1px solid rgba(251,146,60,0.2);
     }
 
     .jp-gaps-header {
@@ -1548,7 +1641,7 @@ function getOverlayStyles(): string {
       gap: 5px;
       font-size: 10px;
       font-weight: 600;
-      color: #92400e;
+      color: #fb923c;
       margin-bottom: 6px;
     }
 
@@ -1565,7 +1658,7 @@ function getOverlayStyles(): string {
       font-size: 10px;
       line-height: 1.3;
       padding: 4px 6px;
-      background: rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.04);
       border-radius: 4px;
     }
 
@@ -1575,7 +1668,7 @@ function getOverlayStyles(): string {
     }
 
     .jp-gap-text {
-      color: #78350f;
+      color: #fdba74;
     }
 
     .jp-gap-text .jp-gap-req {
@@ -1583,19 +1676,19 @@ function getOverlayStyles(): string {
     }
 
     .jp-gap-text .jp-gap-user {
-      color: #b45309;
+      color: #fb923c;
       font-size: 9px;
     }
 
-    .jp-gap-risk .jp-gap-text { color: #991b1b; }
-    .jp-gap-unknown .jp-gap-text { color: #78350f; }
+    .jp-gap-risk .jp-gap-text { color: #f87171; }
+    .jp-gap-unknown .jp-gap-text { color: #fdba74; }
 
     .jp-gaps-empty {
       display: flex;
       align-items: center;
       gap: 5px;
       font-size: 10px;
-      color: #15803d;
+      color: #34d399;
       padding: 4px;
     }
 
@@ -1620,15 +1713,16 @@ function getOverlayStyles(): string {
     .jp-profile-select {
       flex: 1;
       padding: 5px 8px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 5px;
       font-size: 11px;
-      color: #1e293b;
+      color: #e8ecf4;
+      background: #141820;
     }
 
     .jp-profile-select:focus {
       outline: none;
-      border-color: #2563eb;
+      border-color: #e8a832;
     }
 
     .jp-profile-edit-btn {
@@ -1636,16 +1730,16 @@ function getOverlayStyles(): string {
       align-items: center;
       justify-content: center;
       width: 26px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 5px;
-      background: white;
+      background: #141820;
       color: #64748b;
       cursor: pointer;
     }
 
     .jp-profile-edit-btn:hover {
-      border-color: #2563eb;
-      color: #2563eb;
+      border-color: #e8a832;
+      color: #e8a832;
     }
 
     /* Actions */
@@ -1676,16 +1770,16 @@ function getOverlayStyles(): string {
 
     .jp-btn svg { width: 11px; height: 11px; }
 
-    .jp-btn-primary { background: #2563eb; color: white; }
-    .jp-btn-primary:hover { background: #1d4ed8; }
+    .jp-btn-primary { background: #e8a832; color: #0a0d13; }
+    .jp-btn-primary:hover { background: #c48a1a; }
 
-    .jp-btn-secondary { background: #f1f5f9; color: #475569; }
-    .jp-btn-secondary:hover { background: #e2e8f0; }
+    .jp-btn-secondary { background: #1a1f2b; color: #94a3b8; }
+    .jp-btn-secondary:hover { background: #212838; color: #e8ecf4; }
 
-    .jp-btn-outline { background: white; border: 1px solid #e2e8f0; color: #475569; }
-    .jp-btn-outline:hover { border-color: #2563eb; color: #2563eb; }
+    .jp-btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; }
+    .jp-btn-outline:hover { border-color: #e8a832; color: #e8a832; }
 
-    .jp-btn-success { background: #22c55e !important; color: white !important; }
+    .jp-btn-success { background: #10b981 !important; color: white !important; }
 
     /* Footer */
     .jp-footer {
@@ -1693,8 +1787,8 @@ function getOverlayStyles(): string {
       justify-content: center;
       gap: 6px;
       padding: 6px 10px;
-      border-top: 1px solid #f1f5f9;
-      background: #fafafa;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      background: #0a0d13;
     }
 
     .jp-footer-link {
@@ -1710,9 +1804,9 @@ function getOverlayStyles(): string {
       border-radius: 3px;
     }
 
-    .jp-footer-link:hover { color: #2563eb; background: #eff6ff; }
+    .jp-footer-link:hover { color: #e8a832; background: rgba(232,168,50,0.08); }
     .jp-footer-link svg { width: 9px; height: 9px; }
-    .jp-footer-divider { color: #e2e8f0; }
+    .jp-footer-divider { color: rgba(255,255,255,0.1); }
 
     /* Save Group with Status Selector */
     .jp-save-group {
@@ -1730,12 +1824,12 @@ function getOverlayStyles(): string {
       width: 26px;
       min-width: 26px;
       padding: 0 2px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-left: none;
       border-radius: 0 5px 5px 0;
-      background: white;
+      background: #141820;
       font-size: 9px;
-      color: #64748b;
+      color: #94a3b8;
       cursor: pointer;
       appearance: none;
       text-align: center;
@@ -1743,10 +1837,10 @@ function getOverlayStyles(): string {
 
     .jp-status-select:focus {
       outline: none;
-      border-color: #2563eb;
+      border-color: #e8a832;
     }
 
-    /* Profile Score Comparison (1b.4) */
+    /* Profile Score Comparison */
     .jp-comparison-section {
       margin-bottom: 10px;
     }
@@ -1763,33 +1857,33 @@ function getOverlayStyles(): string {
       gap: 6px;
       padding: 5px 8px;
       border-radius: 5px;
-      background: #f8fafc;
+      background: rgba(255,255,255,0.04);
       cursor: pointer;
       transition: background 0.15s;
     }
 
     .jp-comparison-item:hover {
-      background: #eff6ff;
+      background: rgba(232,168,50,0.08);
     }
 
     .jp-comparison-active {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
+      background: rgba(232,168,50,0.1);
+      border: 1px solid rgba(232,168,50,0.2);
     }
 
     .jp-comparison-best {
-      background: #f0fdf4;
+      background: rgba(52,211,153,0.08);
     }
 
     .jp-comparison-best.jp-comparison-active {
-      background: #dcfce7;
-      border-color: #86efac;
+      background: rgba(52,211,153,0.12);
+      border-color: rgba(52,211,153,0.25);
     }
 
     .jp-comparison-name {
       flex: 1;
       font-size: 10px;
-      color: #475569;
+      color: #94a3b8;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1798,6 +1892,7 @@ function getOverlayStyles(): string {
     .jp-comparison-score {
       font-size: 11px;
       font-weight: 700;
+      color: #e8ecf4;
     }
 
     .jp-comparison-badge {
@@ -1805,13 +1900,13 @@ function getOverlayStyles(): string {
       font-weight: 600;
       padding: 1px 4px;
       border-radius: 3px;
-      background: #22c55e;
+      background: #10b981;
       color: white;
       text-transform: uppercase;
     }
 
     /* Scrollbar */
     .jp-body::-webkit-scrollbar { width: 3px; }
-    .jp-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+    .jp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
   `;
 }

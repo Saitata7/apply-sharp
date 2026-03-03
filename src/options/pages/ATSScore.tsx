@@ -296,8 +296,8 @@ export default function ATSScore() {
             padding: '10px 16px',
             fontSize: 13,
             fontWeight: 600,
-            background: mode === 'profile' ? '#3b82f6' : '#1e293b',
-            color: mode === 'profile' ? '#fff' : '#94a3b8',
+            background: mode === 'profile' ? '#e8a832' : '#1a1f2b',
+            color: mode === 'profile' ? '#0a0d13' : '#94a3b8',
             border: '1px solid #334155',
             borderRight: 'none',
             borderRadius: '6px 0 0 6px',
@@ -317,8 +317,8 @@ export default function ATSScore() {
             padding: '10px 16px',
             fontSize: 13,
             fontWeight: 600,
-            background: mode === 'file' ? '#3b82f6' : '#1e293b',
-            color: mode === 'file' ? '#fff' : '#94a3b8',
+            background: mode === 'file' ? '#e8a832' : '#1a1f2b',
+            color: mode === 'file' ? '#0a0d13' : '#94a3b8',
             border: '1px solid #334155',
             borderRadius: '0 6px 6px 0',
             cursor: 'pointer',
@@ -342,12 +342,12 @@ export default function ATSScore() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               style={{
-                border: `2px dashed ${isDragging ? '#3b82f6' : uploadedFile ? '#10b981' : '#334155'}`,
+                border: `2px dashed ${isDragging ? '#e8a832' : uploadedFile ? '#10b981' : '#334155'}`,
                 borderRadius: 8,
                 padding: uploadedFile ? '12px 16px' : '24px 16px',
                 textAlign: 'center',
                 cursor: 'pointer',
-                background: isDragging ? 'rgba(59,130,246,0.05)' : 'transparent',
+                background: isDragging ? 'rgba(232,168,50,0.05)' : 'transparent',
                 transition: 'all 0.2s ease',
               }}
               onClick={() => {
@@ -372,7 +372,7 @@ export default function ATSScore() {
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: 13, color: '#e2e8f0' }}>{uploadedFile.name}</div>
+                      <div style={{ fontSize: 13, color: '#e8ecf4' }}>{uploadedFile.name}</div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>
                         {(uploadedFile.size / 1024).toFixed(1)} KB
                       </div>
@@ -386,7 +386,7 @@ export default function ATSScore() {
                       setUploadedFile(null);
                       setResult(null);
                     }}
-                    style={{ background: '#1e293b', borderColor: '#334155', fontSize: 11 }}
+                    style={{ background: '#1a1f2b', borderColor: '#334155', fontSize: 11 }}
                   >
                     Remove
                   </button>
@@ -409,7 +409,7 @@ export default function ATSScore() {
                   </svg>
                   <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
                     Drag and drop your resume here, or{' '}
-                    <span style={{ color: '#3b82f6', textDecoration: 'underline' }}>browse</span>
+                    <span style={{ color: '#38bdf8', textDecoration: 'underline' }}>browse</span>
                   </p>
                   <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
                     Score any resume — generated from ApplySharp or downloaded elsewhere
@@ -453,7 +453,7 @@ export default function ATSScore() {
                     aria-pressed={targetPages === p}
                     style={{
                       minWidth: 36,
-                      background: targetPages === p ? undefined : '#1e293b',
+                      background: targetPages === p ? undefined : '#1a1f2b',
                       borderColor: targetPages === p ? undefined : '#334155',
                     }}
                   >
@@ -598,7 +598,7 @@ function FormatBreakdown({ formatScore }: { formatScore: ATSFormatScore }) {
             <div
               style={{
                 flex: 1,
-                background: '#1e293b',
+                background: '#1a1f2b',
                 borderRadius: 4,
                 height: 8,
                 overflow: 'hidden',
@@ -669,13 +669,13 @@ function BulletQuality({
             style={{
               width: '100%',
               padding: '8px 12px',
-              background: '#1e293b',
+              background: '#1a1f2b',
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              color: '#e2e8f0',
+              color: '#e8ecf4',
               fontSize: 13,
             }}
           >
@@ -712,7 +712,7 @@ function BulletQuality({
                   key={j}
                   style={{
                     padding: '6px 0',
-                    borderTop: j > 0 ? '1px solid #1e293b' : 'none',
+                    borderTop: j > 0 ? '1px solid #1a1f2b' : 'none',
                   }}
                 >
                   <div
@@ -806,7 +806,7 @@ function IssuesList({
         {errorCount > 0 && (warnCount > 0 || infoCount > 0) && ' | '}
         {warnCount > 0 && <span style={{ color: '#f59e0b' }}>{warnCount} warnings</span>}
         {warnCount > 0 && infoCount > 0 && ' | '}
-        {infoCount > 0 && <span style={{ color: '#3b82f6' }}>{infoCount} info</span>}
+        {infoCount > 0 && <span style={{ color: '#38bdf8' }}>{infoCount} info</span>}
       </p>
 
       {allIssues.map((issue, i) => (
@@ -814,7 +814,7 @@ function IssuesList({
           key={i}
           style={{
             padding: '8px 0',
-            borderTop: i > 0 ? '1px solid #1e293b' : 'none',
+            borderTop: i > 0 ? '1px solid #1a1f2b' : 'none',
             fontSize: 13,
           }}
         >
@@ -825,7 +825,7 @@ function IssuesList({
                   ? '#ef4444'
                   : issue.severity === 'warning'
                     ? '#f59e0b'
-                    : '#3b82f6',
+                    : '#38bdf8',
             }}
           >
             {getSeverityIcon(issue.severity)} {issue.message}

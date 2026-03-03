@@ -41,7 +41,7 @@ export default function WorkspaceSwitcher() {
 
   // Get color for workspace (stable by ID hash, not index)
   const getWorkspaceColor = (id: string) => {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    const colors = ['#e8a832', '#10b981', '#38bdf8', '#ef4444', '#a78bfa', '#ec4899'];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;

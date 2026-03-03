@@ -152,13 +152,32 @@ export default function AISettings() {
           throw new Error('Invalid API key');
         }
       } else if (provider === 'anthropic') {
-        // Anthropic doesn't have a simple test endpoint
         const apiKey = settings.ai.anthropic?.apiKey;
         if (!apiKey) {
           throw new Error('API key is required');
         }
-        setTestStatus('success');
-        setTestMessage('API key saved. Will test on first use.');
+        const model = settings.ai.anthropic?.model || 'claude-3-5-haiku-20241022';
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: 'Hi' }],
+            max_tokens: 1,
+          }),
+        });
+        if (response.ok) {
+          setTestStatus('success');
+          setTestMessage('Connected to Anthropic successfully!');
+        } else {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error?.message || 'Invalid API key');
+        }
       } else if (provider === 'groq') {
         const apiKey = settings.ai.groq?.apiKey;
         if (!apiKey) {
