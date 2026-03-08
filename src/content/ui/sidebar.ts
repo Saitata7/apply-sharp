@@ -674,6 +674,37 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             </svg>
             Auto-Fill Application
           </button>
+
+          <!-- Quick Tailor (8.17) -->
+          <div class="jp-tailor-section" id="jp-tailor-section">
+            <div class="jp-tailor-row">
+              <button class="jp-btn jp-btn-accent" id="jp-tailor-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span id="jp-tailor-label">Tailor Resume</span>
+              </button>
+              <select class="jp-tailor-format" id="jp-tailor-format" title="Output format">
+                <option value="docx">DOCX</option>
+                <option value="pdf">PDF</option>
+              </select>
+            </div>
+            <div class="jp-tailor-progress" id="jp-tailor-progress" style="display:none">
+              <div class="jp-tailor-spinner"></div>
+              <span id="jp-tailor-step">Analyzing job...</span>
+            </div>
+            <div class="jp-tailor-result" id="jp-tailor-result" style="display:none">
+              <div class="jp-tailor-result-info">
+                <span class="jp-tailor-score-badge" id="jp-tailor-score"></span>
+                <span class="jp-tailor-changes" id="jp-tailor-changes"></span>
+              </div>
+              <div class="jp-tailor-result-actions">
+                <button class="jp-btn jp-btn-sm jp-btn-accent" id="jp-tailor-download">Download</button>
+                <button class="jp-btn jp-btn-sm jp-btn-outline" id="jp-tailor-review">Review in Options</button>
+              </div>
+            </div>
+          </div>
+
           <div class="jp-btn-row">
             <button class="jp-btn jp-btn-secondary" id="jp-cover-letter-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -875,6 +906,106 @@ function attachEventListeners(
         },
       })
       .catch((err) => console.warn('[ApplySharp] Cover letter request failed:', err?.message));
+  });
+
+  // Quick Tailor (8.17)
+  overlay.querySelector('#jp-tailor-btn')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#jp-tailor-btn') as HTMLButtonElement;
+    const progressEl = overlay.querySelector('#jp-tailor-progress') as HTMLElement;
+    const resultEl = overlay.querySelector('#jp-tailor-result') as HTMLElement;
+    const stepEl = overlay.querySelector('#jp-tailor-step') as HTMLElement;
+    const formatEl = overlay.querySelector('#jp-tailor-format') as HTMLSelectElement;
+
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+
+    // Show progress
+    if (progressEl) progressEl.style.display = 'flex';
+    if (resultEl) resultEl.style.display = 'none';
+
+    try {
+      // Get active profile
+      if (stepEl) stepEl.textContent = 'Loading profile...';
+      const profileRes = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
+      if (!profileRes?.success || !profileRes.data?.id) {
+        throw new Error('No active profile. Create one in Settings first.');
+      }
+
+      const profileId = profileRes.data.id;
+      const roleId = profileRes.data.generatedProfiles?.[0]?.id || '';
+      const format = formatEl?.value || 'docx';
+
+      // Run QUICK_TAILOR
+      if (stepEl) stepEl.textContent = 'Analyzing & tailoring...';
+      const tailorRes = await chrome.runtime.sendMessage({
+        type: 'QUICK_TAILOR',
+        payload: {
+          masterProfileId: profileId,
+          roleId,
+          jobDescription: job.description || '',
+          companyName: job.company || '',
+          jobTitle: job.title || '',
+          format,
+        },
+      });
+
+      if (!tailorRes?.success) {
+        throw new Error(tailorRes?.error || 'Tailoring failed');
+      }
+
+      // Show result
+      if (progressEl) progressEl.style.display = 'none';
+      if (resultEl) resultEl.style.display = 'flex';
+
+      const scoreEl = overlay.querySelector('#jp-tailor-score') as HTMLElement;
+      const changesEl = overlay.querySelector('#jp-tailor-changes') as HTMLElement;
+      const newScore = tailorRes.data?.newScore || tailorRes.data?.tailoredContent?.newScore || 0;
+      const addedKw = tailorRes.data?.tailoredContent?.addedKeywords?.length || 0;
+
+      if (scoreEl) scoreEl.textContent = `${newScore}% match`;
+      if (changesEl) changesEl.textContent = `${addedKw} keywords added`;
+
+      // Download — open Options page with tailored content ready
+      const downloadBtn = overlay.querySelector('#jp-tailor-download');
+      downloadBtn?.addEventListener(
+        'click',
+        () => {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_OPTIONS',
+            payload: {
+              tab: 'resume',
+              jobDescription: job.description,
+              autoDownload: format,
+            },
+          });
+        },
+        { once: true }
+      );
+
+      // Review in Options handler
+      const reviewBtn = overlay.querySelector('#jp-tailor-review');
+      reviewBtn?.addEventListener(
+        'click',
+        () => {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_OPTIONS',
+            payload: { tab: 'resume', jobDescription: job.description },
+          });
+        },
+        { once: true }
+      );
+    } catch (error) {
+      const msg = (error as Error)?.message || 'Tailoring failed';
+      if (stepEl) stepEl.textContent = msg;
+      if (progressEl) {
+        progressEl.style.display = 'flex';
+        const spinner = progressEl.querySelector('.jp-tailor-spinner') as HTMLElement;
+        if (spinner) spinner.style.display = 'none';
+      }
+      console.error('[ApplySharp] Quick tailor failed:', error);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // Settings
@@ -1780,6 +1911,106 @@ function getOverlayStyles(): string {
     .jp-btn-outline:hover { border-color: #e8a832; color: #e8a832; }
 
     .jp-btn-success { background: #10b981 !important; color: white !important; }
+
+    .jp-btn-accent { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; }
+    .jp-btn-accent:hover { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); }
+
+    .jp-btn-sm { padding: 3px 8px; font-size: 9px; }
+
+    /* Quick Tailor Section (8.17) */
+    .jp-tailor-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .jp-tailor-row {
+      display: flex;
+      gap: 0;
+    }
+
+    .jp-tailor-row .jp-btn {
+      border-radius: 5px 0 0 5px;
+      flex: 1;
+    }
+
+    .jp-tailor-format {
+      width: 50px;
+      min-width: 50px;
+      padding: 0 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-left: none;
+      border-radius: 0 5px 5px 0;
+      background: #141820;
+      font-size: 9px;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+
+    .jp-tailor-progress {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      background: rgba(34,197,94,0.08);
+      border-radius: 5px;
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    .jp-tailor-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(34,197,94,0.2);
+      border-top-color: #22c55e;
+      border-radius: 50%;
+      animation: jp-spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes jp-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .jp-tailor-result {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 8px;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 5px;
+    }
+
+    .jp-tailor-result-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+    }
+
+    .jp-tailor-score-badge {
+      background: rgba(34,197,94,0.2);
+      color: #22c55e;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 9px;
+    }
+
+    .jp-tailor-changes {
+      color: #94a3b8;
+      font-size: 9px;
+    }
+
+    .jp-tailor-result-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .jp-tailor-result-actions .jp-btn {
+      flex: 1;
+    }
 
     /* Footer */
     .jp-footer {
