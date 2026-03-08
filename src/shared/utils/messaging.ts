@@ -83,7 +83,22 @@ export type MessageType =
   | 'EXPORT_APPLICATIONS_CSV'
   // Deadline management
   | 'SET_JOB_DEADLINE'
-  | 'QUICK_TAILOR';
+  | 'QUICK_TAILOR'
+  // Conversational Profile Builder
+  | 'START_PROFILE_CONVERSATION'
+  | 'SEND_CONVERSATION_MESSAGE'
+  | 'GET_CONVERSATION_STATE'
+  | 'RESUME_PROFILE_CONVERSATION'
+  // Role Profile Management (Branches)
+  | 'CREATE_ROLE_PROFILE'
+  | 'UPDATE_ROLE_PROFILE'
+  | 'DELETE_ROLE_PROFILE_V2'
+  | 'GET_ROLE_PROFILES'
+  // Claims Validation
+  | 'VALIDATE_CLAIMS'
+  | 'VALIDATE_SINGLE_CLAIM'
+  // Profile Health Review
+  | 'GET_PROFILE_HEALTH';
 
 export interface Message<T = unknown> {
   type: MessageType;

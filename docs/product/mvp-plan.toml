@@ -13,8 +13,9 @@ version          = "2.0.0"
 updated          = "2026-02-27"
 architecture     = "Chrome Extension (Manifest V3), Local-first, No backend"
 stack            = "TypeScript, React 18, Vite 5, Tailwind CSS, Zustand, IndexedDB, Chrome Storage"
-ai_providers     = ["Ollama (local)", "OpenAI", "Groq", "Anthropic"]
-total_phases     = 7
+ai_providers     = ["Ollama (local)", "OpenAI", "Anthropic", "Groq"]
+ai_architecture  = "AAA (Automate → Augment → Agency) — see docs/product/modern-ai-architecture.md"
+total_phases     = 8
 mvp_target       = "Phase 1-1b-2-3 (core value delivery)"
 
 # ============================================================================
@@ -962,6 +963,448 @@ priority    = "p3-low"
 status      = "done"
 
 # ============================================================================
+# PHASE 8: Modern AI Architecture (Automate → Augment → Agency)
+# ============================================================================
+# Upgrade from linear one-shot AI pipelines to self-evaluating agent loops.
+# Uses existing provider APIs — no new libraries or frameworks needed.
+# Full spec: docs/product/modern-ai-architecture.md
+# ============================================================================
+
+[phases.phase8]
+name        = "Modern AI Architecture"
+description = "Upgrade AI layer from Automate to Augment/Agency using structured outputs, embeddings, agent loops, and cross-feature context"
+target      = "Week 17-20"
+goal        = "AI features self-evaluate, learn from outcomes, and use semantic matching"
+
+[[phases.phase8.tasks]]
+id          = "8.1"
+title       = "Add structured outputs to AI providers"
+description = """
+Eliminate all extractJSONFromResponse() hacks across 9 AI features.
+- OpenAI: Add response_format with json_schema to chat completions
+- Anthropic: Add tool use with input_schema for structured responses
+- Groq: Add tool use support (compatible with OpenAI format)
+- Ollama: Add format: 'json' parameter
+- Update AIProviderInterface with chatStructured<T>(messages, schema) method
+- Migrate all 9 features from chat() + extractJSON() to chatStructured<T>()
+"""
+files       = [
+    "src/shared/types/ai.types.ts",
+    "src/ai/providers/openai.ts",
+    "src/ai/providers/anthropic.ts",
+    "src/ai/providers/groq.ts",
+    "src/ai/providers/ollama.ts",
+    "src/ai/index.ts",
+]
+priority    = "p0-critical"
+status      = "pending"
+
+[[phases.phase8.tasks]]
+id          = "8.2"
+title       = "Refactor prompts to use system messages"
+description = """
+Split all prompts from single user message into system + user messages.
+- System message: persona, rules, learning context
+- User message: data (JD, resume, etc.)
+- Enables Anthropic prompt caching (90% cost reduction for multi-call pipelines)
+- Enables reusable system prompts across features
+"""
+files       = [
+    "src/ai/prompts/templates.ts",
+    "src/background/message-handler.ts",
+    "src/core/profile/context-engine.ts",
+]
+priority    = "p0-critical"
+status      = "pending"
+depends_on  = ["8.1"]
+
+[[phases.phase8.tasks]]
+id          = "8.3"
+title       = "Add response caching layer"
+description = """
+Cache AI responses by input checksum to avoid redundant API calls.
+- Cache in IndexedDB with TTL (24h default)
+- Context engine: resume from failure (calls 1-2 cached if call 3 fails)
+- ATS scoring: instant for same JD+profile combo
+- Invalidate on profile update
+~40 lines of new code.
+"""
+files       = [
+    "src/ai/cache.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase8.tasks]]
+id          = "8.4"
+title       = "Add embeddings service for semantic matching"
+description = """
+Replace 1500 regex keyword patterns with semantic similarity.
+- OpenAI: text-embedding-3-small ($0.02/1M tokens)
+- Ollama: local embedding models (nomic-embed-text, etc.)
+- Anthropic/Groq: fallback to OpenAI or skip
+- Store embeddings in IndexedDB for reuse
+- Hybrid scoring: 0.6 * keyword + 0.4 * semantic
+- Use cases: ATS matching, similar job search, answer bank retrieval
+~50 lines of new code.
+"""
+files       = [
+    "src/ai/embeddings.ts",
+    "src/core/ats/hybrid-scorer.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.1"]
+
+[[phases.phase8.tasks]]
+id          = "8.5"
+title       = "Add agent loop for self-evaluating generation"
+description = """
+Wrap resume optimization in generate → evaluate → iterate loop.
+- Use existing validators as exit conditions:
+  - calculateQuickATSScore() for keyword matching
+  - validateAllBullets() for bullet quality
+  - scanRedFlags() for red flag detection
+  - validateATSFormat() for format compliance
+- Threshold: 80 combined score
+- Max iterations: 3 (cost-conscious)
+- Feedback from evaluation injected into next generation
+~30 lines of agent loop utility + ~50 lines wiring in handler.
+"""
+files       = [
+    "src/ai/agent-loop.ts",
+    "src/background/message-handler.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.1", "8.2"]
+
+[[phases.phase8.tasks]]
+id          = "8.6"
+title       = "Connect learning system to AI prompts"
+description = """
+Feed outcome data into AI system messages so AI knows what works.
+- Build learningContext string from outcome-tracker + adaptive-keywords
+- Include: top performing keywords, failing keywords, response rate, platform tips
+- Inject into system message for all generation/optimization prompts
+- AI now knows: "keywords X,Y got interviews — prioritize them"
+~30 lines of new code in message-handler.ts.
+"""
+files       = [
+    "src/background/message-handler.ts",
+    "src/core/learning/index.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.2"]
+
+[[phases.phase8.tasks]]
+id          = "8.7"
+title       = "Add cross-feature application context"
+description = """
+Shared context object so features aren't isolated:
+- Interview prep knows ATS score gaps → targets weak areas
+- Email templates know application history → contextual follow-ups
+- Cover letter knows what worked before → uses successful patterns
+- Autofill tracks which answers led to callbacks
+~60 lines of new code.
+"""
+files       = [
+    "src/core/context/application-context.ts",
+    "src/background/message-handler.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+depends_on  = ["8.6"]
+
+[[phases.phase8.tasks]]
+id          = "8.8"
+title       = "Add AI fallback for job detection"
+description = """
+Self-healing when platform-specific detectors break:
+1. Try platform-specific detector (fast, free)
+2. If fails → try generic detector (DOM heuristics)
+3. If fails → AI extraction from page text (costs tokens but works)
+Uses chatStructured<ExtractedJob>() for reliable extraction.
+~30 lines added to generic.ts.
+"""
+files       = [
+    "src/content/detectors/generic.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+depends_on  = ["8.1"]
+
+[[phases.phase8.tasks]]
+id          = "8.9"
+title       = "Decompose ResumeGenerator.tsx"
+description = """
+Split the monolithic ResumeGenerator into focused modules:
+- src/core/resume/generator/layout-engine.ts (computeResumeLayout, priorities, page satisfaction)
+- src/core/resume/generator/pdf-generator.ts (jsPDF generation)
+- src/core/resume/generator/docx-generator.ts (docx library generation)
+- src/core/resume/generator/content-builder.ts (skills categorization, bullet formatting)
+- src/options/components/resume/ (UI components: JDAnalysis, ContentControls, FormatSettings)
+Refactor only — no new features, same behavior.
+"""
+files       = [
+    "src/options/components/ResumeGenerator.tsx",
+    "src/core/resume/generator/",
+    "src/options/components/resume/",
+]
+priority    = "p2-medium"
+status      = "pending"
+
+[[phases.phase8.tasks]]
+id          = "8.10"
+title       = "Add provider-specific feature utilization"
+description = """
+Use features we're paying for but ignoring:
+- Anthropic: prompt caching (cache_control on system messages)
+- OpenAI: batch API for non-urgent bulk scoring
+- Groq: use rate limit headers instead of hardcoded 5s sleep
+- Ollama: embeddings endpoint for local semantic matching
+"""
+files       = [
+    "src/ai/providers/anthropic.ts",
+    "src/ai/providers/openai.ts",
+    "src/ai/providers/groq.ts",
+    "src/ai/providers/ollama.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+depends_on  = ["8.1"]
+
+# --- Phase 8B: Conversational UX Layer ---
+# These tasks upgrade the USER EXPERIENCE from "process my resume" to
+# "interview me like a career advisor". The infrastructure tasks (8.1-8.10)
+# provide the plumbing; these tasks build the product differentiator.
+
+[[phases.phase8.tasks]]
+id          = "8.11"
+title       = "Conversational profile builder"
+description = """
+Replace the "upload resume → auto-parse → done" flow with a multi-turn
+AI conversation that interviews the user like a career advisor.
+
+The conversation should:
+- Ask targeted questions about each role (What was the team size? What broke
+  before you fixed it? What was the business impact?)
+- Push back on vague claims ("Built microservices" → "How many services?
+  What traffic? What was the alternative?")
+- Extract STORIES, not bullet points (stories become bullets later)
+- Build the MasterProfile incrementally as the conversation progresses
+- Allow resume upload as a STARTING POINT, not the final answer
+- Save conversation state so user can resume later
+
+UI: Chat interface in the Options page, with a sidebar showing the profile
+being built in real-time as the conversation extracts information.
+
+This is the #1 product differentiator — no competitor does this.
+"""
+files       = [
+    "src/options/components/profile/ConversationalBuilder.tsx",
+    "src/ai/prompts/profile-interview.ts",
+    "src/background/message-handler.ts",
+    "src/storage/repositories/conversation.repo.ts",
+]
+priority    = "p0-critical"
+status      = "pending"
+depends_on  = ["8.1", "8.2"]
+
+[[phases.phase8.tasks]]
+id          = "8.12"
+title       = "Claims validator and defensibility scoring"
+description = """
+Every bullet and claim in the profile must pass a defensibility test:
+"Can you defend this in a 2-minute interview?"
+
+- Score each bullet: STRONG (specific, measurable, defensible),
+  MODERATE (real but vague), WEAK (inflated or unverifiable)
+- Flag bullets that use inflated language without evidence
+- Suggest how to strengthen weak bullets (add context, scale, specifics)
+- During conversational profile building, AI pushes back on weak claims
+  in real-time rather than accepting everything
+- Integrate with agent loop: generated bullets must pass defensibility
+  before being accepted
+
+This prevents the #1 problem with AI resume tools: fabricated credentials.
+"""
+files       = [
+    "src/core/profile/claims-validator.ts",
+    "src/ai/prompts/defensibility.ts",
+]
+priority    = "p0-critical"
+status      = "pending"
+depends_on  = ["8.5"]
+
+[[phases.phase8.tasks]]
+id          = "8.13"
+title       = "Internal rules engine (system-rules.ts)"
+description = """
+Centralize all agent rules into a single source of truth that gets enforced
+at 4 layers:
+
+Layer 1 — PROMPT LEVEL (src/ai/prompts/system-rules.ts):
+  Injected into every AI system message. Contains: never fabricate,
+  never keyword stuff, preserve truth, respect seniority, ATS formatting
+  rules, bullet standards, keyword density rules.
+
+Layer 2 — VALIDATOR LEVEL:
+  Existing validators (ATS scorer, bullet validator, red flag scanner,
+  authenticity guard) enforce rules programmatically after generation.
+
+Layer 3 — AGENT LOOP LEVEL:
+  If validators catch a violation, the agent loop auto-regenerates with
+  the violation as feedback. No human intervention needed.
+
+Layer 4 — CONVERSATION LEVEL:
+  During conversational profile building, AI pushes back on claims that
+  violate rules (inflated titles, fake metrics, keyword stuffing).
+
+The rules in system-rules.ts are the SAME rules from CLAUDE.md and
+chrome-agent.md, but formatted for AI consumption.
+"""
+files       = [
+    "src/ai/prompts/system-rules.ts",
+    "src/ai/prompts/templates.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.2"]
+
+[[phases.phase8.tasks]]
+id          = "8.14"
+title       = "Role profiles as branches of truth"
+description = """
+Upgrade GeneratedProfile from "a copy with different summary" to a true
+branch model where the MasterProfile is the trunk (verified truth) and
+each role profile is a branch (same facts, different emphasis).
+
+A RoleProfile controls:
+- bulletOverrides: { [expId]: { visible: boolean, customText?: string } }
+  Which bullets to show/hide per role, with optional rewording
+- projectVisibility: { [projectId]: boolean }
+  Which projects are relevant for this role
+- sectionPriority: { [section]: number }
+  Different section ordering per role (e.g., Projects first for junior)
+- skillEmphasis: string[]
+  Which skills to highlight/reorder for this role
+- roleStrength: number (0-100)
+  How strong is the candidate for this specific role type
+- tailoredSummary: string
+  Role-specific professional summary
+
+Example: Same person, two branches:
+- "Java Backend Engineer" → Spring bullets visible, React hidden,
+  summary emphasizes distributed systems
+- "Full-Stack Developer" → Both Spring and React visible,
+  summary emphasizes end-to-end delivery
+
+The master profile is NEVER modified. Branches reference trunk data.
+"""
+files       = [
+    "src/shared/types/profile.types.ts",
+    "src/storage/repositories/master-profile.repo.ts",
+    "src/options/components/profile/RoleProfileEditor.tsx",
+]
+priority    = "p1-high"
+status      = "pending"
+
+[[phases.phase8.tasks]]
+id          = "8.15"
+title       = "Conversational bullet builder for resume generation"
+description = """
+When generating a resume, instead of AI silently rewriting bullets,
+provide an interactive refinement flow:
+
+- Show each bullet with its defensibility score
+- For weak bullets: AI asks "What was the actual impact?" and refines
+- For missing context: AI asks "What was the team size? Scale?"
+- Side-by-side diff: original bullet vs AI-enhanced version
+- User approves/edits each enhancement before it goes into the resume
+- Conversation state persisted so user can come back and refine
+
+This replaces the current "click optimize → get result" with a
+collaborative refinement that produces better, more defensible content.
+"""
+files       = [
+    "src/options/components/resume/BulletRefiner.tsx",
+    "src/background/message-handler.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.11", "8.12"]
+
+[[phases.phase8.tasks]]
+id          = "8.16"
+title       = "Resume diff view (before vs after)"
+description = """
+Show a visual diff when AI tailors a resume:
+- Side-by-side: original profile vs JD-tailored version
+- Highlight added keywords (green), removed content (red), reworded (yellow)
+- Per-bullet approval: accept/reject each change individually
+- Score comparison: ATS score before vs after
+
+Current flow: optimize → download (no visibility into what changed).
+New flow: optimize → see every change → approve/reject → download.
+"""
+files       = [
+    "src/options/components/resume/DiffView.tsx",
+    "src/options/components/ResumeGenerator.tsx",
+]
+priority    = "p2-medium"
+status      = "pending"
+depends_on  = ["8.9"]
+
+[[phases.phase8.tasks]]
+id          = "8.17"
+title       = "One-click tailor from sidebar"
+description = """
+When viewing a job posting, the sidebar overlay should offer:
+1. One-click "Tailor Resume" that uses QUICK_TAILOR pipeline
+2. Shows match score + top 3 changes it would make
+3. "Download DOCX" right from the sidebar (no navigating to Options)
+4. Quick role profile selector if multiple role profiles exist
+
+This removes the friction of: detect job → copy JD → go to Options →
+paste JD → analyze → download. Should be: see job → click → download.
+"""
+files       = [
+    "src/content/overlay/",
+    "src/background/message-handler.ts",
+]
+priority    = "p2-medium"
+status      = "pending"
+depends_on  = ["8.14"]
+
+[[phases.phase8.tasks]]
+id          = "8.18"
+title       = "Proactive brutal review on profile creation"
+description = """
+After a profile is created (via upload or conversation), automatically
+run a brutal honest review:
+
+- Gap analysis: what's missing vs common job requirements in their field
+- Weak spots: bullets that won't survive ATS or interviewer scrutiny
+- Comparative positioning: "For Senior Backend roles, you're missing X, Y"
+- Specific improvement suggestions with priority ordering
+- Red flags: employment gaps, title inconsistencies, skill mismatches
+
+This runs automatically — user doesn't ask for it. The product TELLS them
+what's wrong, like a career advisor who's on their side but won't sugarcoat.
+
+Display as a "Profile Health" dashboard with actionable items.
+"""
+files       = [
+    "src/options/components/profile/ProfileHealth.tsx",
+    "src/core/profile/profile-reviewer.ts",
+]
+priority    = "p1-high"
+status      = "pending"
+depends_on  = ["8.12"]
+
+# ============================================================================
 # QUALITY STANDARDS — Applied to all phases
 # ============================================================================
 
@@ -984,5 +1427,9 @@ module_prefix       = "All console.log/error must use [ModuleName] prefix"
 [quality.ai_prompts]
 temperature_ladder  = "Analysis(0.3) → Enhancement(0.5) → Creative(0.65)"
 always_fallback     = "Every AI call must have a non-AI fallback path"
-json_safety         = "Always use extractJSONFromResponse() for AI output parsing"
-rate_limit_aware    = "15s delay between calls for Groq; respect provider limits"
+structured_first    = "Prefer chatStructured<T>() over chat() + extractJSON() for all JSON responses"
+system_messages     = "Use system messages for persona/rules, user messages for data"
+learning_context    = "Inject learning insights into system messages for generation features"
+agent_loop          = "Wrap generation features in agentLoop() with validators as exit conditions"
+caching             = "Use cachedAICall() for repeatable operations"
+rate_limit_aware    = "Use provider rate limit headers; avoid hardcoded delays"
