@@ -1,6 +1,16 @@
-import type { AIProviderInterface, ChatMessage, ChatOptions, ChatResponse } from '@shared/types/ai.types';
+import type {
+  AIProviderInterface,
+  ChatMessage,
+  ChatOptions,
+  ChatResponse,
+  JSONSchema,
+} from '@shared/types/ai.types';
 import type { GroqConfig } from '@shared/types/settings.types';
-import { DEFAULT_MODELS, GROQ_CONTEXT_LENGTHS, GROQ_DEFAULT_CONTEXT_LENGTH } from '@shared/constants/models';
+import {
+  DEFAULT_MODELS,
+  GROQ_CONTEXT_LENGTHS,
+  GROQ_DEFAULT_CONTEXT_LENGTH,
+} from '@shared/constants/models';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -22,7 +32,7 @@ export class GroqProvider implements AIProviderInterface {
    * Sleep helper for rate limit delays
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -52,7 +62,7 @@ export class GroqProvider implements AIProviderInterface {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
             model: this.model,
@@ -71,12 +81,14 @@ export class GroqProvider implements AIProviderInterface {
           const errorMessage = error.error?.message || response.statusText;
 
           // Check if rate limited (429) or contains rate limit message
-          const isRateLimited = response.status === 429 ||
-            errorMessage.toLowerCase().includes('rate limit');
+          const isRateLimited =
+            response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
 
           if (isRateLimited && attempt < MAX_RETRIES - 1) {
             const retryDelay = this.parseRetryDelay(errorMessage);
-            console.log(`[Groq] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+            console.log(
+              `[Groq] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
             await this.sleep(retryDelay);
             continue;
           }
@@ -106,7 +118,9 @@ export class GroqProvider implements AIProviderInterface {
 
         if (isRateLimited && attempt < MAX_RETRIES - 1) {
           const retryDelay = this.parseRetryDelay(errorMessage);
-          console.log(`[Groq] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+          console.log(
+            `[Groq] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+          );
           await this.sleep(retryDelay);
           continue;
         }
@@ -116,6 +130,96 @@ export class GroqProvider implements AIProviderInterface {
     }
 
     throw lastError || new Error('Groq request failed after retries');
+  }
+
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    schemaName: string,
+    options?: ChatOptions
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Groq uses OpenAI-compatible tool use for structured outputs
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            temperature: options?.temperature ?? 0.3,
+            max_tokens: options?.maxTokens ?? 2048,
+            tools: [
+              {
+                type: 'function',
+                function: {
+                  name: schemaName,
+                  description: `Return the structured ${schemaName} result`,
+                  parameters: schema,
+                },
+              },
+            ],
+            tool_choice: { type: 'function', function: { name: schemaName } },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          const errorMessage = error.error?.message || response.statusText;
+
+          const isRateLimited =
+            response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
+
+          if (isRateLimited && attempt < MAX_RETRIES - 1) {
+            const retryDelay = this.parseRetryDelay(errorMessage);
+            console.log(
+              `[Groq] Structured: rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
+            await this.sleep(retryDelay);
+            continue;
+          }
+
+          throw new Error(`Groq structured request failed: ${errorMessage}`);
+        }
+
+        const data = await response.json();
+        const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+
+        if (toolCall?.function?.arguments) {
+          return JSON.parse(toolCall.function.arguments) as T;
+        }
+
+        // Fallback: try parsing message content as JSON
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          return JSON.parse(content) as T;
+        }
+
+        throw new Error('Groq structured: no tool call or parseable content in response');
+      } catch (error) {
+        lastError = error as Error;
+        const errorMessage = lastError.message || '';
+        const isRateLimited = errorMessage.toLowerCase().includes('rate limit');
+
+        if (isRateLimited && attempt < MAX_RETRIES - 1) {
+          const retryDelay = this.parseRetryDelay(errorMessage);
+          await this.sleep(retryDelay);
+          continue;
+        }
+
+        throw lastError;
+      }
+    }
+
+    throw lastError || new Error('Groq structured request failed after retries');
   }
 
   async *chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string> {
@@ -128,7 +232,7 @@ export class GroqProvider implements AIProviderInterface {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
             model: this.model,
@@ -146,12 +250,14 @@ export class GroqProvider implements AIProviderInterface {
           const error = await response.json().catch(() => ({}));
           const errorMessage = error.error?.message || response.statusText;
 
-          const isRateLimited = response.status === 429 ||
-            errorMessage.toLowerCase().includes('rate limit');
+          const isRateLimited =
+            response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
 
           if (isRateLimited && attempt < MAX_RETRIES - 1) {
             const retryDelay = this.parseRetryDelay(errorMessage);
-            console.log(`[Groq Stream] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+            console.log(
+              `[Groq Stream] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
             await this.sleep(retryDelay);
             continue;
           }
@@ -167,7 +273,9 @@ export class GroqProvider implements AIProviderInterface {
 
         if (isRateLimited && attempt < MAX_RETRIES - 1) {
           const retryDelay = this.parseRetryDelay(errorMessage);
-          console.log(`[Groq Stream] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+          console.log(
+            `[Groq Stream] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+          );
           await this.sleep(retryDelay);
           continue;
         }
@@ -227,7 +335,7 @@ export class GroqProvider implements AIProviderInterface {
 
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       return response.ok;
     } catch (error) {

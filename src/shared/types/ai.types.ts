@@ -22,12 +22,40 @@ export interface TokenUsage {
   total: number;
 }
 
+/**
+ * JSON Schema definition for structured outputs.
+ * Used by chatStructured<T>() to guarantee valid typed responses.
+ */
+export interface JSONSchema {
+  type: 'object';
+  properties: Record<string, unknown>;
+  required?: string[];
+  additionalProperties?: boolean;
+}
+
 export interface AIProviderInterface {
   name: string;
   isLocal: boolean;
 
   chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse>;
   chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>;
+
+  /**
+   * Structured output: returns guaranteed valid JSON matching the schema.
+   * - OpenAI: response_format with json_schema
+   * - Anthropic: tool use with input_schema + tool_choice
+   * - Groq: response_format (OpenAI-compatible)
+   * - Ollama: format: 'json'
+   *
+   * Eliminates all extractJSONFromResponse() hacks.
+   */
+  chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    schemaName: string,
+    options?: ChatOptions
+  ): Promise<T>;
+
   countTokens(text: string): number;
   getMaxContextLength(): number;
   isAvailable(): Promise<boolean>;

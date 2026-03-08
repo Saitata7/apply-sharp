@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  JSONSchema,
 } from '@shared/types/ai.types';
 import type { OpenAIConfig } from '@shared/types/settings.types';
 import {
@@ -104,6 +105,81 @@ export class OpenAIProvider implements AIProviderInterface {
     }
 
     throw lastError || new Error('OpenAI request failed after retries');
+  }
+
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    schemaName: string,
+    options?: ChatOptions
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            temperature: options?.temperature ?? 0.3,
+            max_tokens: options?.maxTokens ?? 2048,
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: schemaName,
+                strict: true,
+                schema: {
+                  ...schema,
+                  additionalProperties: false,
+                },
+              },
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          const errorMessage = error.error?.message || response.statusText;
+
+          if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+            const delay = this.getRetryDelay(response, attempt);
+            console.log(
+              `[OpenAI] Structured: rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
+            await this.sleep(delay);
+            continue;
+          }
+
+          throw new Error(`OpenAI structured request failed: ${errorMessage}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+
+        if (!content) {
+          throw new Error('OpenAI structured: empty response content');
+        }
+
+        return JSON.parse(content) as T;
+      } catch (error) {
+        lastError = error as Error;
+        if (lastError.message.includes('429') && attempt < MAX_RETRIES - 1) {
+          await this.sleep(BASE_DELAY_MS * Math.pow(2, attempt));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+
+    throw lastError || new Error('OpenAI structured request failed after retries');
   }
 
   async *chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string> {

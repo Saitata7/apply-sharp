@@ -30,7 +30,17 @@ import { exportAllData, importData, exportApplicationsCSV } from '@storage/expor
 import { scheduleDeadlineAlarm, clearDeadlineAlarm } from './deadline-alarms';
 import type { ExportData } from '@storage/export-import';
 import { learningService } from '@core/learning';
-import { sanitizePromptInput, PROMPT_SAFETY_PREAMBLE } from '@shared/utils/prompt-safety';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
+import {
+  buildSystemPrompt,
+  PERSONAS,
+  CORE_RULES,
+  ATS_FORMATTING_RULES,
+  BULLET_RULES,
+  RESUME_GENERATION_RULES,
+  COVER_LETTER_RULES,
+} from '@/ai/prompts/system-rules';
+import { buildLearningContext } from '@/ai/learning-context';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
 import { DEPRECATED_GROQ_MODELS } from '@shared/constants/models';
 import { conversationRepo } from '@storage/repositories/conversation.repo';
@@ -798,8 +808,11 @@ async function handleOptimizeResume(payload: { job: ExtractedJob }): Promise<Mes
         const aiService = new AIService(settings.ai);
         const isAvailable = await aiService.isAvailable();
         if (isAvailable) {
-          const prompt = `${PROMPT_SAFETY_PREAMBLE}
-You are an expert resume strategist. Analyze this job posting and the candidate's resume, then provide specific, actionable optimization suggestions.
+          const systemPrompt = buildSystemPrompt(PERSONAS.RESUME_OPTIMIZER, [
+            CORE_RULES,
+            ATS_FORMATTING_RULES,
+          ]);
+          const userPrompt = `Analyze this job posting and the candidate's resume, then provide specific, actionable optimization suggestions.
 
 Job Title: ${sanitizePromptInput(payload.job.title || '', 'job_title')}
 Company: ${sanitizePromptInput(payload.job.company || '', 'company')}
@@ -816,10 +829,16 @@ Return JSON:
   "fitScore": 0-100
 }`;
 
-          const response = await aiService.chat([{ role: 'user', content: prompt }], {
-            temperature: 0.4,
-            maxTokens: 800,
-          });
+          const response = await aiService.chat(
+            [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            {
+              temperature: 0.4,
+              maxTokens: 800,
+            }
+          );
 
           const parsed = extractJSONFromResponse<{
             suggestions?: string[];
@@ -1288,9 +1307,8 @@ async function extractKeywordsWithAI(
   jobDescription: string,
   jobTitle?: string
 ): Promise<{ highPriority: string[]; lowPriority: string[] }> {
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
-
-Analyze this job description and extract technical keywords/skills.
+  const systemPrompt = buildSystemPrompt(PERSONAS.ATS_ANALYST, [CORE_RULES]);
+  const userPrompt = `Analyze this job description and extract technical keywords/skills.
 
 Job Title: ${jobTitle || 'Not specified'}
 
@@ -1314,10 +1332,16 @@ Return ONLY valid JSON:
   "lowPriority": ["Docker", "Kubernetes", "Jenkins"]
 }`;
 
-  const response = await aiService.chat([{ role: 'user', content: prompt }], {
-    temperature: 0.2,
-    maxTokens: 500,
-  });
+  const response = await aiService.chat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    {
+      temperature: 0.2,
+      maxTokens: 500,
+    }
+  );
 
   try {
     const result = extractJSONFromResponse<{ highPriority?: string[]; lowPriority?: string[] }>(
@@ -1598,7 +1622,8 @@ async function handleProcessProfileUpdate(payload: {
         hasAchievements: (e.achievements?.length || 0) > 0,
       })) || [];
 
-    const prompt = `You are a profile update assistant. Analyze the user's request for a "${updateType}" update.
+    const profileUpdateSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+    const prompt = `Analyze this user's request for a "${updateType}" profile update.
 
 EXISTING WORK EXPERIENCE (IMPORTANT - check if user is updating an existing entry):
 ${
@@ -1650,10 +1675,16 @@ If ALL required information is present:
 
 Return ONLY valid JSON.`;
 
-    const response = await aiService.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.3,
-      maxTokens: 600,
-    });
+    const response = await aiService.chat(
+      [
+        { role: 'system', content: profileUpdateSystemPrompt },
+        { role: 'user', content: prompt },
+      ],
+      {
+        temperature: 0.3,
+        maxTokens: 600,
+      }
+    );
 
     // Parse the AI response
     try {
@@ -2331,9 +2362,8 @@ async function handleAnalyzeJDForResume(payload: {
     // STEP 1: Deep JD Analysis - Parse INTENT, not just words
     // Following chrome-agent.md Layer 1: "Parse the Intent, Not Just the Words"
     // =========================================================================
-    const analysisPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are a senior hiring manager who has reviewed 10,000 resumes. Analyze this job description DEEPLY.
+    const deepJdSystemPrompt = buildSystemPrompt(PERSONAS.HIRING_MANAGER, [CORE_RULES]);
+    const deepJdUserPrompt = `Analyze this job description DEEPLY.
 
 ${sanitizePromptInput(cleanedJD, 'job_description')}
 
@@ -2412,10 +2442,16 @@ Return ONLY valid JSON.`;
     };
 
     try {
-      const response = await aiService.chat([{ role: 'user', content: analysisPrompt }], {
-        temperature: 0.2,
-        maxTokens: 1500,
-      });
+      const response = await aiService.chat(
+        [
+          { role: 'system', content: deepJdSystemPrompt },
+          { role: 'user', content: deepJdUserPrompt },
+        ],
+        {
+          temperature: 0.2,
+          maxTokens: 1500,
+        }
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parsed = extractJSONFromResponse<Record<string, any>>(response.content);
       if (parsed) {
@@ -2924,9 +2960,8 @@ async function handleOptimizeResumeForJD(payload: {
     // =========================================================================
     // STEP 1: Deep JD Analysis - Understand what they REALLY need
     // =========================================================================
-    const jdAnalysisPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are a senior hiring manager reviewing this job description. Analyze it deeply.
+    const jdSystemPrompt = buildSystemPrompt(PERSONAS.HIRING_MANAGER, [CORE_RULES]);
+    const jdUserPrompt = `Analyze this job description deeply.
 
 ${sanitizePromptInput(payload.jobDescription, 'job_description')}
 
@@ -2952,10 +2987,16 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
     };
 
     try {
-      const jdResponse = await aiService.chat([{ role: 'user', content: jdAnalysisPrompt }], {
-        temperature: 0.3,
-        maxTokens: 800,
-      });
+      const jdResponse = await aiService.chat(
+        [
+          { role: 'system', content: jdSystemPrompt },
+          { role: 'user', content: jdUserPrompt },
+        ],
+        {
+          temperature: 0.3,
+          maxTokens: 800,
+        }
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parsed = extractJSONFromResponse<Record<string, any>>(jdResponse.content);
       if (parsed) {
@@ -2992,11 +3033,13 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
             .join(', ')
         : '';
 
-    const summaryPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are a career strategist helping a candidate position themselves for a specific role.
-
-THE EMPLOYER'S REAL NEED:
+    const learningCtx = await buildLearningContext().catch(() => '');
+    const summarySystemPrompt = buildSystemPrompt(
+      PERSONAS.RESUME_OPTIMIZER,
+      [CORE_RULES, RESUME_GENERATION_RULES],
+      learningCtx || undefined
+    );
+    const summaryUserPrompt = `THE EMPLOYER'S REAL NEED:
 ${sanitizePromptInput(jdAnalysis.coreNeed || 'Based on the job description keywords', 'core_need')}
 
 WHAT THEY MUST SEE:
@@ -3030,7 +3073,10 @@ Rules:
 Return ONLY the rewritten summary, no explanation.`;
 
     const optimizedSummaryResponse = await aiService.chat(
-      [{ role: 'user', content: summaryPrompt }],
+      [
+        { role: 'system', content: summarySystemPrompt },
+        { role: 'user', content: summaryUserPrompt },
+      ],
       { temperature: 0.6, maxTokens: 500 }
     );
     const optimizedSummary = optimizedSummaryResponse.content.trim();
@@ -3065,11 +3111,12 @@ Return ONLY the rewritten summary, no explanation.`;
       })
       .join('\n\n');
 
-    const bulletsPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are a resume coach who transforms generic bullets into compelling stories.
-
-WHAT THIS EMPLOYER VALUES:
+    const bulletsSystemPrompt = buildSystemPrompt(PERSONAS.RESUME_OPTIMIZER, [
+      CORE_RULES,
+      BULLET_RULES,
+      RESUME_GENERATION_RULES,
+    ]);
+    const bulletsUserPrompt = `WHAT THIS EMPLOYER VALUES:
 - Core need: ${sanitizePromptInput(jdAnalysis.coreNeed || 'Technical excellence and ownership', 'core_need')}
 - Must-haves: ${sanitizePromptInput(jdAnalysis.mustHaves.join(', ') || payload.missingKeywords.slice(0, 3).join(', '), 'must_haves')}
 - Impact expected: ${sanitizePromptInput(jdAnalysis.impactExpected || 'Measurable business results', 'impact')}
@@ -3115,8 +3162,11 @@ Return in this exact JSON format (IMPORTANT: generate the exact bullet count spe
 
     try {
       const bulletsResponse = await aiService.chat(
-        [{ role: 'user', content: bulletsPrompt }],
-        { temperature: 0.5, maxTokens: 4000 } // Increased for more bullets per role
+        [
+          { role: 'system', content: bulletsSystemPrompt },
+          { role: 'user', content: bulletsUserPrompt },
+        ],
+        { temperature: 0.5, maxTokens: 4000 }
       );
       // Parse JSON response
       const parsed = extractJSONFromResponse<Array<{ expId: string; bullets: string[] }>>(
@@ -3694,10 +3744,8 @@ async function handleGenerateAIAnswer(payload: {
     const targetRole = jobTitle || 'this role';
     const targetCompany = companyName || 'the company';
 
-    const prompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are helping a job applicant answer an application question.
-Generate a professional, authentic answer based on their profile.
+    const answerSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+    const answerUserPrompt = `Generate a professional, authentic answer based on this candidate's profile.
 
 CANDIDATE PROFILE:
 - Name: ${sanitizePromptInput(profileContext.name, 'candidate_name')}
@@ -3723,10 +3771,16 @@ INSTRUCTIONS:
 
 Write ONLY the answer, no explanations or formatting:`;
 
-    const response = await aiService.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.6,
-      maxTokens: 500,
-    });
+    const response = await aiService.chat(
+      [
+        { role: 'system', content: answerSystemPrompt },
+        { role: 'user', content: answerUserPrompt },
+      ],
+      {
+        temperature: 0.6,
+        maxTokens: 500,
+      }
+    );
 
     if (!response?.content) {
       return { success: false, error: 'Failed to generate answer' };
@@ -3795,9 +3849,8 @@ async function handleGenerateCoverLetter(payload: {
     // =========================================================================
     // STEP 1: Deep JD Analysis - Understand what they REALLY need
     // =========================================================================
-    const jdAnalysisPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are a senior hiring manager reviewing this job description. Analyze it deeply.
+    const clJdSystemPrompt = buildSystemPrompt(PERSONAS.HIRING_MANAGER, [CORE_RULES]);
+    const clJdUserPrompt = `Analyze this job description deeply.
 
 ${sanitizePromptInput(payload.jobDescription, 'job_description')}
 
@@ -3819,10 +3872,16 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
     };
 
     try {
-      const jdResponse = await aiService.chat([{ role: 'user', content: jdAnalysisPrompt }], {
-        temperature: 0.3,
-        maxTokens: 600,
-      });
+      const jdResponse = await aiService.chat(
+        [
+          { role: 'system', content: clJdSystemPrompt },
+          { role: 'user', content: clJdUserPrompt },
+        ],
+        {
+          temperature: 0.3,
+          maxTokens: 600,
+        }
+      );
       const parsed = extractJSONFromResponse<typeof jdAnalysis>(jdResponse.content);
       if (parsed) {
         jdAnalysis = parsed;
@@ -3845,11 +3904,13 @@ Think like a hiring manager, not a keyword matcher. Return ONLY valid JSON.`;
       ? `${masterProfile.experience[0].title} at ${masterProfile.experience[0].company}`
       : '';
 
-    const coverLetterPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are an expert career coach writing a cover letter.
-
-COMPANY: ${sanitizePromptInput(payload.companyName, 'company_name')}
+    const clLearningCtx = await buildLearningContext().catch(() => '');
+    const clSystemPrompt = buildSystemPrompt(
+      PERSONAS.CAREER_ADVISOR,
+      [CORE_RULES, COVER_LETTER_RULES],
+      clLearningCtx || undefined
+    );
+    const clUserPrompt = `COMPANY: ${sanitizePromptInput(payload.companyName, 'company_name')}
 ROLE: ${sanitizePromptInput(payload.jobTitle, 'job_title')}
 TONE: ${tone}
 
@@ -3881,7 +3942,10 @@ Rules:
 Return ONLY the cover letter text, no explanation.`;
 
     const coverLetterResponse = await aiService.chat(
-      [{ role: 'user', content: coverLetterPrompt }],
+      [
+        { role: 'system', content: clSystemPrompt },
+        { role: 'user', content: clUserPrompt },
+      ],
       { temperature: 0.65, maxTokens: 1000 }
     );
 

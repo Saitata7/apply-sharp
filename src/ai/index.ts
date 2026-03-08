@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  JSONSchema,
   JobScoringResult,
 } from '@shared/types/ai.types';
 import type { Job } from '@shared/types/job.types';
@@ -12,9 +13,8 @@ import { OllamaProvider } from './providers/ollama';
 import { OpenAIProvider } from './providers/openai';
 import { AnthropicProvider } from './providers/anthropic';
 import { GroqProvider } from './providers/groq';
-import { JOB_SCORING_PROMPT, COVER_LETTER_PROMPT } from './prompts/templates';
-import { extractJSONFromResponse } from '@shared/utils/json-utils';
-import { sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { buildJobScoringMessages, buildCoverLetterMessages } from './prompts/templates';
+import { buildLearningContext } from './learning-context';
 
 export class AIService {
   private provider: AIProviderInterface;
@@ -45,37 +45,26 @@ export class AIService {
   }
 
   async scoreJobFit(job: Job, profile: ResumeProfile): Promise<JobScoringResult> {
-    const prompt = JOB_SCORING_PROMPT.replace(
-      '{jobDescription}',
-      sanitizePromptInput(job.description, 'job_description')
-    )
-      .replace('{candidateName}', sanitizePromptInput(profile.personal.fullName, 'candidate_name'))
-      .replace('{candidateSummary}', sanitizePromptInput(profile.summary, 'candidate_summary'))
-      .replace(
-        '{skills}',
-        sanitizePromptInput(
-          [...profile.skills.technical, ...profile.skills.tools].join(', '),
-          'skills'
-        )
-      )
-      .replace(
-        '{experience}',
-        sanitizePromptInput(
-          profile.experience
-            .map((exp) => `${exp.title} at ${exp.company}: ${exp.description}`)
-            .join('\n'),
-          'experience'
-        )
-      );
+    const learningCtx = await buildLearningContext().catch(() => '');
 
-    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
-
-    const response = await this.provider.chat(messages, {
-      temperature: 0.3,
-      maxTokens: 1500,
-    });
+    const { messages } = buildJobScoringMessages(
+      job.description,
+      profile.personal.fullName,
+      profile.summary,
+      [...profile.skills.technical, ...profile.skills.tools].join(', '),
+      profile.experience
+        .map((exp) => `${exp.title} at ${exp.company}: ${exp.description}`)
+        .join('\n'),
+      learningCtx || undefined
+    );
 
     try {
+      const response = await this.provider.chat(messages, {
+        temperature: 0.3,
+        maxTokens: 1500,
+      });
+
+      const { extractJSONFromResponse } = await import('@shared/utils/json-utils');
       const result = extractJSONFromResponse<JobScoringResult>(response.content);
       if (!result) {
         throw new Error('No JSON found in response');
@@ -83,7 +72,6 @@ export class AIService {
       return result;
     } catch (error) {
       console.error('Failed to parse scoring result:', error);
-      // Return default scores on parse failure (flagged as fallback)
       return {
         overallScore: 50,
         skillMatch: 50,
@@ -116,18 +104,15 @@ ${
 }
     `.trim();
 
-    const prompt = COVER_LETTER_PROMPT.replace(
-      '{company}',
-      sanitizePromptInput(job.company, 'company')
-    )
-      .replace('{title}', sanitizePromptInput(job.title, 'job_title'))
-      .replace(
-        '{jobDescription}',
-        sanitizePromptInput(job.description.slice(0, 3000), 'job_description')
-      )
-      .replace('{candidateProfile}', sanitizePromptInput(profileSummary, 'candidate_profile'));
+    const learningCtx = await buildLearningContext().catch(() => '');
 
-    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+    const { messages } = buildCoverLetterMessages(
+      job.company,
+      job.title,
+      job.description.slice(0, 3000),
+      profileSummary,
+      learningCtx || undefined
+    );
 
     const response = await this.provider.chat(messages, {
       temperature: this.settings.generation.temperature,
@@ -145,18 +130,15 @@ Summary: ${profile.summary}
 Key Skills: ${profile.skills?.technical?.slice(0, 10).join(', ') || 'N/A'}
     `.trim();
 
-    const prompt = COVER_LETTER_PROMPT.replace(
-      '{company}',
-      sanitizePromptInput(job.company, 'company')
-    )
-      .replace('{title}', sanitizePromptInput(job.title, 'job_title'))
-      .replace(
-        '{jobDescription}',
-        sanitizePromptInput(job.description.slice(0, 3000), 'job_description')
-      )
-      .replace('{candidateProfile}', sanitizePromptInput(profileSummary, 'candidate_profile'));
+    const learningCtx = await buildLearningContext().catch(() => '');
 
-    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+    const { messages } = buildCoverLetterMessages(
+      job.company,
+      job.title,
+      job.description.slice(0, 3000),
+      profileSummary,
+      learningCtx || undefined
+    );
 
     for await (const chunk of this.provider.chatStream(messages, {
       temperature: this.settings.generation.temperature,
@@ -168,6 +150,19 @@ Key Skills: ${profile.skills?.technical?.slice(0, 10).join(', ') || 'N/A'}
 
   async chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse> {
     return this.provider.chat(messages, options);
+  }
+
+  /**
+   * Structured output: returns guaranteed valid JSON matching the schema.
+   * Eliminates all extractJSONFromResponse() hacks.
+   */
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    schemaName: string,
+    options?: ChatOptions
+  ): Promise<T> {
+    return this.provider.chatStructured<T>(messages, schema, schemaName, options);
   }
 }
 

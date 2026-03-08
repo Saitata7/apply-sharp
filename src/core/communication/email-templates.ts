@@ -8,8 +8,9 @@
 
 import type { AIService } from '@ai/index';
 import type { MasterProfile } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -185,9 +186,9 @@ export async function generateEmailTemplate(
   const skillsList =
     ctx.topSkills.length > 0 ? ctx.topSkills.join(', ') : 'various technical skills';
 
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
+  const emailSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
 
-You are an expert professional email writer helping a job candidate craft a personalized email.
+  const emailUserPrompt = `You are helping a job candidate craft a personalized email.
 
 CANDIDATE PROFILE:
 - Name: ${sanitizePromptInput(ctx.candidateName, 'candidateName')}
@@ -220,10 +221,16 @@ Return ONLY a JSON object with this exact structure:
   "body": "Full email body with proper greeting and sign-off"
 }`;
 
-  const response = await aiService.chat([{ role: 'user', content: prompt }], {
-    temperature,
-    maxTokens: 1000,
-  });
+  const response = await aiService.chat(
+    [
+      { role: 'system', content: emailSystemPrompt },
+      { role: 'user', content: emailUserPrompt },
+    ],
+    {
+      temperature,
+      maxTokens: 1000,
+    }
+  );
 
   const parsed = extractJSONFromResponse<{ subject: string; body: string }>(response.content);
 

@@ -5,6 +5,7 @@
  */
 
 import type { AIService } from '@/ai';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
 import type {
   MasterProfile,
   GeneratedProfile,
@@ -1013,10 +1014,13 @@ export async function calculateDeepATSScore(
   // Build profile context for AI
   const profileContext = buildProfileContext(profile);
 
-  // Strategic prompt that thinks like a hiring manager
-  const prompt = `You are a senior hiring manager at ${job.company || 'a tech company'} evaluating a candidate for the "${job.title}" role.
+  // Strategic system+user prompt that thinks like a hiring manager
+  const deepScoreSystemPrompt = buildSystemPrompt(
+    `${PERSONAS.HIRING_MANAGER} You are evaluating a candidate for the "${job.title}" role at ${job.company || 'a tech company'}.`,
+    [CORE_RULES]
+  );
 
-## YOUR MINDSET
+  const deepScoreUserPrompt = `## YOUR MINDSET
 Think about what you REALLY need for this role, not just keyword matching:
 - What business problem will this person solve?
 - What's the #1 thing that would make them successful?
@@ -1068,10 +1072,16 @@ Return a JSON object:
 Be direct and honest. Inflated scores waste everyone's time.`;
 
   try {
-    const response = await aiService.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.3,
-      maxTokens: 1500,
-    });
+    const response = await aiService.chat(
+      [
+        { role: 'system', content: deepScoreSystemPrompt },
+        { role: 'user', content: deepScoreUserPrompt },
+      ],
+      {
+        temperature: 0.3,
+        maxTokens: 1500,
+      }
+    );
 
     const jsonMatch = response.content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {

@@ -7,8 +7,9 @@
 
 import type { AIService } from '@ai/index';
 import type { MasterProfile } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
 import { extractJSONFromResponse } from '@shared/utils/json-utils';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -139,10 +140,8 @@ export async function generateInterviewPrep(
   const ctx = buildProfileContext(profile);
 
   // ── Call 1: Generate questions ──────────────────────────────────────
-  const questionsPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are an expert interview coach preparing a candidate for a specific job interview.
-Generate exactly 12 interview questions that are LIKELY to be asked for this role.
+  const qSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+  const qUserPrompt = `You are preparing a candidate for a specific job interview. Generate exactly 12 interview questions that are LIKELY to be asked for this role.
 
 CANDIDATE PROFILE:
 - Name: ${ctx.name}
@@ -188,10 +187,16 @@ Respond with a JSON object:
 
 Return ONLY valid JSON, no other text.`;
 
-  const questionsResponse = await aiService.chat([{ role: 'user', content: questionsPrompt }], {
-    temperature: 0.4,
-    maxTokens: 2500,
-  });
+  const questionsResponse = await aiService.chat(
+    [
+      { role: 'system', content: qSystemPrompt },
+      { role: 'user', content: qUserPrompt },
+    ],
+    {
+      temperature: 0.4,
+      maxTokens: 2500,
+    }
+  );
 
   if (!questionsResponse?.content) {
     throw new Error('Failed to generate interview questions');
@@ -212,9 +217,8 @@ Return ONLY valid JSON, no other text.`;
     .map((q, i) => `${i + 1}. [${q.id}] ${q.question}`)
     .join('\n');
 
-  const answersPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are an expert interview coach preparing STAR-method answers for a candidate.
+  const aSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+  const aUserPrompt = `You are preparing STAR-method answers for a candidate's interview.
 Use ONLY the candidate's real experience — NEVER fabricate achievements or metrics.
 
 CANDIDATE PROFILE:
@@ -258,10 +262,16 @@ Return ONLY valid JSON, no other text.`;
 
   let answers: PreparedAnswer[] = [];
   try {
-    const answersResponse = await aiService.chat([{ role: 'user', content: answersPrompt }], {
-      temperature: 0.5,
-      maxTokens: 3500,
-    });
+    const answersResponse = await aiService.chat(
+      [
+        { role: 'system', content: aSystemPrompt },
+        { role: 'user', content: aUserPrompt },
+      ],
+      {
+        temperature: 0.5,
+        maxTokens: 3500,
+      }
+    );
 
     if (answersResponse?.content) {
       const answersData = extractJSONFromResponse<{ answers: PreparedAnswer[] }>(

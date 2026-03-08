@@ -6,7 +6,8 @@
 
 import type { AIService } from '@/ai';
 import type { CareerContext } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { buildSystemPrompt, CORE_RULES } from '@/ai/prompts/system-rules';
 
 /**
  * Deterministic pseudo-random number from a string input.
@@ -80,9 +81,12 @@ export async function humanizeWithAI(
   writingStyle: CareerContext['writingStyle'],
   aiService: AIService
 ): Promise<string> {
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
+  const systemPrompt = buildSystemPrompt(
+    `You are a writing coach who makes AI-generated content sound natural and human. You match the candidate's natural writing style and remove AI-typical phrases.`,
+    [CORE_RULES]
+  );
 
-Rewrite this content to sound natural and human, not AI-generated.
+  const userPrompt = `Rewrite this content to sound natural and human, not AI-generated.
 
 ## Original Content
 ${sanitizePromptInput(content, 'original_content')}
@@ -118,10 +122,16 @@ ${sanitizePromptInput(content, 'original_content')}
 Return ONLY the rewritten content, nothing else.`;
 
   try {
-    const response = await aiService.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.7,
-      maxTokens: 1500,
-    });
+    const response = await aiService.chat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      {
+        temperature: 0.7,
+        maxTokens: 1500,
+      }
+    );
 
     return response.content.trim();
   } catch (error) {

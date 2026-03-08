@@ -15,14 +15,13 @@ import type {
   CommonQuestionType,
 } from '@shared/types/master-profile.types';
 import {
-  RESUME_PARSE_PROMPT,
-  CAREER_CONTEXT_PROMPT,
-  SKILLS_ENRICHMENT_PROMPT,
-  PROFILE_GENERATOR_PROMPT,
-  ANSWER_BANK_PROMPT,
-  HUMANIZE_CONTENT_PROMPT,
+  buildResumeParseMessages,
+  buildCareerContextMessages,
+  buildSkillsEnrichmentMessages,
+  buildProfileGeneratorMessages,
+  buildAnswerBankMessages,
+  buildHumanizeContentMessages,
 } from '@/ai/prompts/templates';
-import { sanitizePromptInput } from '@shared/utils/prompt-safety';
 import { generateChecksum, estimateYearsOfExperience } from '../resume/text-utils';
 import {
   detectBackgroundFromJD,
@@ -398,14 +397,11 @@ export class CareerContextEngine {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async extractStructuredData(rawText: string): Promise<any> {
-    const prompt = RESUME_PARSE_PROMPT.replace(
-      '{resumeText}',
-      sanitizePromptInput(rawText, 'resume_text')
-    );
+    const { messages } = buildResumeParseMessages(rawText);
 
     try {
       console.log('[ContextEngine] Calling AI for structured extraction...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.1,
         maxTokens: 4000,
       });
@@ -433,14 +429,11 @@ export class CareerContextEngine {
     parsedData: any,
     estimatedYears: number
   ): Promise<CareerContext> {
-    const prompt = CAREER_CONTEXT_PROMPT.replace(
-      '{parsedData}',
-      sanitizePromptInput(JSON.stringify(parsedData, null, 2), 'parsed_resume')
-    );
+    const { messages } = buildCareerContextMessages(JSON.stringify(parsedData, null, 2));
 
     try {
       console.log('[ContextEngine] Building career context...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.3,
         maxTokens: 2500,
       });
@@ -511,17 +504,13 @@ export class CareerContextEngine {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async enrichSkills(parsedData: any, basicSkills: string[]): Promise<SkillsWithContext> {
-    const prompt = SKILLS_ENRICHMENT_PROMPT.replace(
-      '{parsedData}',
-      sanitizePromptInput(
-        JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2),
-        'parsed_resume'
-      )
+    const { messages } = buildSkillsEnrichmentMessages(
+      JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2)
     );
 
     try {
       console.log('[ContextEngine] Calling AI for skills enrichment...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.2,
         maxTokens: 2000,
       });
@@ -567,14 +556,11 @@ export class CareerContextEngine {
    */
   private async generateAnswerBank(profile: MasterProfile): Promise<AnswerBank> {
     const candidateProfile = this.formatProfileForPrompt(profile);
-    const prompt = ANSWER_BANK_PROMPT.replace(
-      '{candidateProfile}',
-      sanitizePromptInput(candidateProfile, 'candidate_profile')
-    );
+    const { messages } = buildAnswerBankMessages(candidateProfile);
 
     try {
       console.log('[ContextEngine] Calling AI for answer bank...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.5,
         maxTokens: 3000,
       });
@@ -677,16 +663,13 @@ export class CareerContextEngine {
     masterProfile: MasterProfile,
     targetRole: string
   ): Promise<GeneratedProfile | null> {
-    const prompt = PROFILE_GENERATOR_PROMPT.replace(
-      '{masterProfile}',
-      sanitizePromptInput(
-        JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2),
-        'master_profile'
-      )
-    ).replace('{targetRole}', targetRole);
+    const { messages } = buildProfileGeneratorMessages(
+      JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2),
+      targetRole
+    );
 
     try {
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.4,
         maxTokens: 1500,
       });
@@ -722,16 +705,15 @@ export class CareerContextEngine {
     content: string,
     writingStyle: CareerContext['writingStyle']
   ): Promise<string> {
-    const prompt = HUMANIZE_CONTENT_PROMPT.replace(
-      '{content}',
-      sanitizePromptInput(content, 'original_content')
-    )
-      .replace('{tone}', writingStyle.tone)
-      .replace('{complexity}', writingStyle.complexity)
-      .replace('{voice}', writingStyle.preferredVoice);
+    const { messages } = buildHumanizeContentMessages(
+      content,
+      writingStyle.tone,
+      writingStyle.complexity,
+      writingStyle.preferredVoice
+    );
 
     try {
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
+      const response = await this.aiService.chat(messages, {
         temperature: 0.7,
         maxTokens: 1000,
       });

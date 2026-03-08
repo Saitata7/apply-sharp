@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  JSONSchema,
 } from '@shared/types/ai.types';
 import type { AnthropicConfig } from '@shared/types/settings.types';
 import {
@@ -124,6 +125,111 @@ export class AnthropicProvider implements AIProviderInterface {
     }
 
     throw lastError || new Error('Anthropic request failed after retries');
+  }
+
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    schemaName: string,
+    options?: ChatOptions
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Anthropic uses tool use for structured responses
+        const systemMessage = messages.find((m) => m.role === 'system');
+        const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+
+        const apiMessages = nonSystemMessages.map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }));
+
+        const body: Record<string, unknown> = {
+          model: this.model,
+          messages: apiMessages,
+          max_tokens: options?.maxTokens ?? 2048,
+          temperature: options?.temperature ?? 0.3,
+          tools: [
+            {
+              name: schemaName,
+              description: `Return the structured ${schemaName} result`,
+              input_schema: schema,
+            },
+          ],
+          tool_choice: { type: 'tool', name: schemaName },
+        };
+
+        if (systemMessage) {
+          body.system = systemMessage.content;
+        }
+
+        const response = await fetch(`${this.baseUrl}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': ANTHROPIC_API_VERSION,
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          const errorMessage = error.error?.message || error.message || response.statusText;
+
+          if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+            const delay = this.getRetryDelay(response, attempt);
+            console.log(
+              `[Anthropic] Structured: rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
+            await this.sleep(delay);
+            continue;
+          }
+
+          throw new Error(`Anthropic structured request failed: ${errorMessage}`);
+        }
+
+        const data = await response.json();
+
+        // Extract the tool use result from the response content blocks
+        const toolUseBlock = data.content?.find(
+          (block: { type: string; name?: string }) =>
+            block.type === 'tool_use' && block.name === schemaName
+        );
+
+        if (!toolUseBlock?.input) {
+          // Fallback: try parsing text content as JSON
+          const textContent = data.content
+            ?.filter((block: { type: string }) => block.type === 'text')
+            .map((block: { text: string }) => block.text)
+            .join('');
+
+          if (textContent) {
+            try {
+              return JSON.parse(textContent) as T;
+            } catch {
+              // Fall through to error
+            }
+          }
+
+          throw new Error('Anthropic structured: no tool_use block in response');
+        }
+
+        return toolUseBlock.input as T;
+      } catch (error) {
+        lastError = error as Error;
+        if (lastError.message.includes('429') && attempt < MAX_RETRIES - 1) {
+          await this.sleep(BASE_DELAY_MS * Math.pow(2, attempt));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+
+    throw lastError || new Error('Anthropic structured request failed after retries');
   }
 
   async *chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string> {
