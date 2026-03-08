@@ -15,7 +15,7 @@ import {
   formatResumeDate,
   normalizeSkillName,
   shortenUrl,
-} from '../ResumeGenerator';
+} from '@core/resume/layout-engine';
 
 // ── Factories ───────────────────────────────────────────────────────────
 

@@ -4,6 +4,7 @@ import { showSidebar, hideSidebar, updateATSScore } from './ui/sidebar';
 import { detectFormFields } from './autofill/form-detector';
 import { generateFillPreview, fillForm, highlightFilledFields } from './autofill/filler';
 import { detectJobPage } from './detectors/job-heuristics';
+import { extractJobWithAI } from './detectors/ai-fallback';
 import { escapeHtml } from '@shared/utils/dom-utils';
 import type { ExtractedJob, JobPlatform } from '@shared/types/job.types';
 import type { ResumeProfile } from '@shared/types/profile.types';
@@ -60,15 +61,30 @@ async function init() {
   try {
     currentJob = await detector.extract();
 
-    // Validate extraction - need at least a title and some description
-    if (!currentJob.title || currentJob.title === 'Unknown Title') {
-      console.log('[ApplySharp] Could not extract job title, skipping');
-      return;
-    }
+    // Validate extraction - if platform detector fails, try AI fallback
+    const needsFallback =
+      !currentJob.title ||
+      currentJob.title === 'Unknown Title' ||
+      !currentJob.description ||
+      currentJob.description.length < 100;
 
-    if (!currentJob.description || currentJob.description.length < 100) {
-      console.log('[ApplySharp] Job description too short, might not be a job page');
-      return;
+    if (needsFallback) {
+      console.log('[ApplySharp] Platform detector insufficient, trying AI fallback...');
+      const aiResult = await extractJobWithAI(url);
+      if (aiResult) {
+        currentJob = aiResult;
+        console.log('[ApplySharp] AI fallback succeeded:', currentJob.title);
+      } else {
+        // AI also failed — check original extraction
+        if (!currentJob.title || currentJob.title === 'Unknown Title') {
+          console.log('[ApplySharp] Could not extract job title, skipping');
+          return;
+        }
+        if (!currentJob.description || currentJob.description.length < 100) {
+          console.log('[ApplySharp] Job description too short, might not be a job page');
+          return;
+        }
+      }
     }
 
     console.log('[ApplySharp] Extracted job:', currentJob.title, 'at', currentJob.company);

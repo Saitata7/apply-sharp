@@ -98,7 +98,9 @@ export type MessageType =
   | 'VALIDATE_CLAIMS'
   | 'VALIDATE_SINGLE_CLAIM'
   // Profile Health Review
-  | 'GET_PROFILE_HEALTH';
+  | 'GET_PROFILE_HEALTH'
+  // AI Fallback Job Detection
+  | 'AI_EXTRACT_JOB';
 
 export interface Message<T = unknown> {
   type: MessageType;

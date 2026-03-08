@@ -100,7 +100,7 @@ export class OllamaProvider implements AIProviderInterface {
 
   async chatStructured<T>(
     messages: ChatMessage[],
-    _schema: JSONSchema,
+    schema: JSONSchema,
     _schemaName: string,
     options?: ChatOptions
   ): Promise<T> {
@@ -108,6 +108,11 @@ export class OllamaProvider implements AIProviderInterface {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        // Ollama supports passing a JSON schema to `format` for structured output.
+        // Falls back to `format: 'json'` if schema is empty/invalid.
+        const format =
+          schema && typeof schema === 'object' && Object.keys(schema).length > 0 ? schema : 'json';
+
         const response = await fetch(`${this.baseUrl}/api/chat`, {
           method: 'POST',
           headers: {
@@ -120,7 +125,7 @@ export class OllamaProvider implements AIProviderInterface {
               content: m.content,
             })),
             stream: false,
-            format: 'json',
+            format,
             options: {
               temperature: options?.temperature ?? 0.3,
               num_predict: options?.maxTokens ?? 2048,

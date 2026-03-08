@@ -36,21 +36,40 @@ export class GroqProvider implements AIProviderInterface {
   }
 
   /**
-   * Parse rate limit retry delay from error response
+   * Get retry delay from response headers (preferred) or error message (fallback).
+   * Groq sends x-ratelimit-reset-requests and x-ratelimit-reset-tokens headers
+   * with ISO timestamps or relative seconds for when limits reset.
    */
-  private parseRetryDelay(errorMessage: string): number {
-    // Parse "Please try again in 229.999999ms" or similar
+  private getRetryDelay(response: Response | null, errorMessage: string, attempt: number): number {
+    // Priority 1: Use retry-after header
+    if (response) {
+      const retryAfter = response.headers.get('retry-after');
+      if (retryAfter) {
+        const seconds = parseFloat(retryAfter);
+        if (!isNaN(seconds)) return Math.ceil(seconds * 1000) + 100;
+      }
+
+      // Priority 2: Use x-ratelimit-reset-* headers
+      const resetRequests = response.headers.get('x-ratelimit-reset-requests');
+      const resetTokens = response.headers.get('x-ratelimit-reset-tokens');
+      const resetStr = resetRequests || resetTokens;
+      if (resetStr) {
+        // Format can be "1s", "229ms", "1.5s", or ISO timestamp
+        const msMatch = resetStr.match(/([\d.]+)ms/);
+        if (msMatch) return Math.ceil(parseFloat(msMatch[1])) + 100;
+        const secMatch = resetStr.match(/([\d.]+)s/);
+        if (secMatch) return Math.ceil(parseFloat(secMatch[1]) * 1000) + 100;
+      }
+    }
+
+    // Priority 3: Parse delay from error message text
     const msMatch = errorMessage.match(/try again in ([\d.]+)ms/i);
-    if (msMatch) {
-      return Math.ceil(parseFloat(msMatch[1])) + 100; // Add 100ms buffer
-    }
-
+    if (msMatch) return Math.ceil(parseFloat(msMatch[1])) + 100;
     const secMatch = errorMessage.match(/try again in ([\d.]+)s/i);
-    if (secMatch) {
-      return Math.ceil(parseFloat(secMatch[1]) * 1000) + 100;
-    }
+    if (secMatch) return Math.ceil(parseFloat(secMatch[1]) * 1000) + 100;
 
-    return BASE_DELAY_MS; // Default fallback
+    // Priority 4: Exponential backoff
+    return BASE_DELAY_MS * Math.pow(2, attempt);
   }
 
   async chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse> {
@@ -85,7 +104,7 @@ export class GroqProvider implements AIProviderInterface {
             response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
 
           if (isRateLimited && attempt < MAX_RETRIES - 1) {
-            const retryDelay = this.parseRetryDelay(errorMessage);
+            const retryDelay = this.getRetryDelay(response, errorMessage, attempt);
             console.log(
               `[Groq] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
             );
@@ -117,7 +136,7 @@ export class GroqProvider implements AIProviderInterface {
         const isRateLimited = errorMessage.toLowerCase().includes('rate limit');
 
         if (isRateLimited && attempt < MAX_RETRIES - 1) {
-          const retryDelay = this.parseRetryDelay(errorMessage);
+          const retryDelay = this.getRetryDelay(null, errorMessage, attempt);
           console.log(
             `[Groq] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
           );
@@ -179,7 +198,7 @@ export class GroqProvider implements AIProviderInterface {
             response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
 
           if (isRateLimited && attempt < MAX_RETRIES - 1) {
-            const retryDelay = this.parseRetryDelay(errorMessage);
+            const retryDelay = this.getRetryDelay(response, errorMessage, attempt);
             console.log(
               `[Groq] Structured: rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
             );
@@ -210,7 +229,7 @@ export class GroqProvider implements AIProviderInterface {
         const isRateLimited = errorMessage.toLowerCase().includes('rate limit');
 
         if (isRateLimited && attempt < MAX_RETRIES - 1) {
-          const retryDelay = this.parseRetryDelay(errorMessage);
+          const retryDelay = this.getRetryDelay(null, errorMessage, attempt);
           await this.sleep(retryDelay);
           continue;
         }
@@ -254,7 +273,7 @@ export class GroqProvider implements AIProviderInterface {
             response.status === 429 || errorMessage.toLowerCase().includes('rate limit');
 
           if (isRateLimited && attempt < MAX_RETRIES - 1) {
-            const retryDelay = this.parseRetryDelay(errorMessage);
+            const retryDelay = this.getRetryDelay(response, errorMessage, attempt);
             console.log(
               `[Groq Stream] Rate limited, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
             );
@@ -272,7 +291,7 @@ export class GroqProvider implements AIProviderInterface {
         const isRateLimited = errorMessage.toLowerCase().includes('rate limit');
 
         if (isRateLimited && attempt < MAX_RETRIES - 1) {
-          const retryDelay = this.parseRetryDelay(errorMessage);
+          const retryDelay = this.getRetryDelay(null, errorMessage, attempt);
           console.log(
             `[Groq Stream] Rate limited (catch), retrying in ${retryDelay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
           );

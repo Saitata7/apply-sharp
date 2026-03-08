@@ -456,6 +456,19 @@ export async function handleMessage(
     case 'GET_PROFILE_HEALTH':
       return handleGetProfileHealth(message.payload as { masterProfileId: string });
 
+    // ── AI Fallback Job Detection ─────────────────────────────────────
+    case 'AI_EXTRACT_JOB':
+      return handleAIExtractJob(
+        message.payload as {
+          pageText: string;
+          url: string;
+          pageTitle: string;
+          ogTitle?: string;
+          ogDescription?: string;
+          ogCompany?: string;
+        }
+      );
+
     default:
       return { success: false, error: `Unknown message type: ${message.type}` };
   }
@@ -5006,6 +5019,101 @@ async function handleGetProfileHealth(payload: {
     return { success: true, data: report };
   } catch (error) {
     console.error('[ApplySharp] Get profile health failed:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+// ============================================================================
+// AI Fallback Job Detection
+// ============================================================================
+
+async function handleAIExtractJob(payload: {
+  pageText: string;
+  url: string;
+  pageTitle: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogCompany?: string;
+}): Promise<MessageResponse> {
+  try {
+    const settings = await getSettingsWithMigrations();
+    if (!settings?.ai?.provider) {
+      return { success: false, error: 'AI provider not configured' };
+    }
+
+    const aiService = new AIService(settings.ai);
+    const isAvailable = await aiService.isAvailable();
+    if (!isAvailable) {
+      return { success: false, error: 'AI provider not available' };
+    }
+
+    const systemPrompt = buildSystemPrompt(PERSONAS.ATS_ANALYST, [CORE_RULES]);
+
+    // Build context from metadata
+    const metaContext = [
+      payload.ogTitle ? `Page Title (OG): ${payload.ogTitle}` : '',
+      payload.ogDescription ? `Description (OG): ${payload.ogDescription}` : '',
+      payload.ogCompany ? `Site Name: ${payload.ogCompany}` : '',
+      `Page Title: ${payload.pageTitle}`,
+      `URL: ${payload.url}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const userPrompt = `Extract job posting information from this page content.
+
+## Page Metadata
+${metaContext}
+
+## Page Content
+${sanitizePromptInput(payload.pageText.slice(0, 5000), 'page_content')}
+
+## Task
+Extract the job posting details. If this is NOT a job posting page, return null values.
+
+Return ONLY valid JSON:
+{
+  "title": "Job title or null",
+  "company": "Company name or null",
+  "location": "Job location or null",
+  "description": "Full job description text (requirements, responsibilities, qualifications) or null",
+  "employmentType": "full-time|part-time|contract|internship or null",
+  "salary": "Salary range as text or null"
+}`;
+
+    const response = await aiService.chat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { temperature: 0.1, maxTokens: 2000 }
+    );
+
+    const parsed = extractJSONFromResponse<{
+      title?: string | null;
+      company?: string | null;
+      location?: string | null;
+      description?: string | null;
+      employmentType?: string | null;
+      salary?: string | null;
+    }>(response.content);
+
+    if (!parsed?.title || !parsed?.description) {
+      return { success: false, error: 'AI could not extract job data from page' };
+    }
+
+    return {
+      success: true,
+      data: {
+        title: parsed.title,
+        company: parsed.company || payload.ogCompany || 'Unknown Company',
+        location: parsed.location || '',
+        description: parsed.description,
+        employmentType: parsed.employmentType || undefined,
+      },
+    };
+  } catch (error) {
+    console.error('[AIExtractJob] Failed:', error);
     return { success: false, error: (error as Error).message };
   }
 }

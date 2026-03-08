@@ -42,6 +42,26 @@ export class AnthropicProvider implements AIProviderInterface {
     return BASE_DELAY_MS * Math.pow(2, attempt);
   }
 
+  /**
+   * Build system param with prompt caching.
+   * Uses content block format with cache_control to enable Anthropic's prompt caching,
+   * which gives 90% cost reduction on repeated system messages (persona + rules).
+   */
+  private buildSystemParam(
+    systemMessage: ChatMessage | undefined
+  ): string | Array<{ type: string; text: string; cache_control?: { type: string } }> | undefined {
+    if (!systemMessage) return undefined;
+
+    // Use content block format for prompt caching
+    return [
+      {
+        type: 'text',
+        text: systemMessage.content,
+        cache_control: { type: 'ephemeral' },
+      },
+    ];
+  }
+
   async chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse> {
     let lastError: Error | null = null;
 
@@ -64,8 +84,9 @@ export class AnthropicProvider implements AIProviderInterface {
           temperature: options?.temperature ?? 0.7,
         };
 
-        if (systemMessage) {
-          body.system = systemMessage.content;
+        const systemParam = this.buildSystemParam(systemMessage);
+        if (systemParam) {
+          body.system = systemParam;
         }
 
         const response = await fetch(`${this.baseUrl}/messages`, {
@@ -161,8 +182,9 @@ export class AnthropicProvider implements AIProviderInterface {
           tool_choice: { type: 'tool', name: schemaName },
         };
 
-        if (systemMessage) {
-          body.system = systemMessage.content;
+        const systemParam = this.buildSystemParam(systemMessage);
+        if (systemParam) {
+          body.system = systemParam;
         }
 
         const response = await fetch(`${this.baseUrl}/messages`, {
@@ -250,8 +272,9 @@ export class AnthropicProvider implements AIProviderInterface {
       stream: true,
     };
 
-    if (systemMessage) {
-      body.system = systemMessage.content;
+    const systemParam = this.buildSystemParam(systemMessage);
+    if (systemParam) {
+      body.system = systemParam;
     }
 
     // Retry logic for transient errors (429/503)
