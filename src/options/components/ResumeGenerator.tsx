@@ -32,6 +32,7 @@ import {
   normalizeSkillName,
   shortenUrl,
 } from '@core/resume/layout-engine';
+import DiffView, { type ApprovedChanges } from './resume/DiffView';
 
 interface ResumeGeneratorProps {
   profile: MasterProfile;
@@ -127,6 +128,7 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
   const [showContentControls, setShowContentControls] = useState(false);
   const [isQuickTailoring, setIsQuickTailoring] = useState(false);
   const [quickTailorStep, setQuickTailorStep] = useState('');
+  const [showDiffView, setShowDiffView] = useState(false);
   const analyzeJobDescriptionRef = useRef<() => Promise<void>>();
 
   // Close modal on Escape key
@@ -1043,6 +1045,45 @@ export default function ResumeGenerator({ profile, selectedRole, onClose }: Resu
       setQuickTailorStep('');
     }
   };
+
+  // Apply approved changes from diff view
+  const handleDiffApply = useCallback(
+    (approved: ApprovedChanges) => {
+      if (!tailoredContent) return;
+
+      const filtered: TailoredContent = {
+        optimizedSummary: approved.summary ? tailoredContent.optimizedSummary : '', // empty means use original
+        enhancedBullets: tailoredContent.enhancedBullets.map((eb) => {
+          const approvals = approved.bullets[eb.expId];
+          if (!approvals) return eb;
+
+          // Find the original experience to fall back on rejected bullets
+          const origExp = profile.experience?.find((e) => e.id === eb.expId);
+          const origBullets = origExp
+            ? [
+                ...(origExp.achievements || []).map((a) =>
+                  typeof a === 'string' ? a : a.statement
+                ),
+                ...(origExp.responsibilities || []),
+              ]
+            : [];
+
+          return {
+            expId: eb.expId,
+            bullets: eb.bullets.map((bullet, idx) =>
+              approvals[idx] ? bullet : origBullets[idx] || bullet
+            ),
+          };
+        }),
+        addedKeywords: tailoredContent.addedKeywords,
+        newScore: tailoredContent.newScore,
+      };
+
+      setTailoredContent(filtered);
+      setShowDiffView(false);
+    },
+    [tailoredContent, profile.experience]
+  );
 
   // Generate and download resume
   const generateResume = async (format: 'txt' | 'json' | 'docx' | 'pdf') => {
@@ -3556,12 +3597,34 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                         marginBottom: '12px',
                         fontSize: '13px',
                         color: '#34d399',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}
                     >
-                      Showing AI-tailored content (score: {tailoredContent.newScore}%)
+                      <span>Showing AI-tailored content (score: {tailoredContent.newScore}%)</span>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowDiffView(true)}
+                        style={{ marginLeft: '12px' }}
+                      >
+                        Review Changes
+                      </button>
                     </div>
                   )}
-                  {renderResumePreview()}
+                  {showDiffView && tailoredContent && (
+                    <DiffView
+                      originalSummary={
+                        activeRole?.tailoredSummary || profile.careerContext?.summary || ''
+                      }
+                      tailoredContent={tailoredContent}
+                      experiences={profile.experience || []}
+                      originalScore={originalScore}
+                      onApply={handleDiffApply}
+                      onClose={() => setShowDiffView(false)}
+                    />
+                  )}
+                  {!showDiffView && renderResumePreview()}
                 </div>
               )}
 
@@ -4050,12 +4113,34 @@ ${formatResumeDate(edu.startDate)} - ${formatResumeDate(edu.endDate)}${edu.gpa ?
                         marginBottom: '12px',
                         fontSize: '13px',
                         color: '#34d399',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}
                     >
-                      Showing AI-tailored content (score: {tailoredContent.newScore}%)
+                      <span>Showing AI-tailored content (score: {tailoredContent.newScore}%)</span>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowDiffView(true)}
+                        style={{ marginLeft: '12px' }}
+                      >
+                        Review Changes
+                      </button>
                     </div>
                   )}
-                  {renderResumePreview()}
+                  {showDiffView && tailoredContent && (
+                    <DiffView
+                      originalSummary={
+                        activeRole?.tailoredSummary || profile.careerContext?.summary || ''
+                      }
+                      tailoredContent={tailoredContent}
+                      experiences={profile.experience || []}
+                      originalScore={originalScore}
+                      onApply={handleDiffApply}
+                      onClose={() => setShowDiffView(false)}
+                    />
+                  )}
+                  {!showDiffView && renderResumePreview()}
                 </div>
               )}
 
