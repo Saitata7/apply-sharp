@@ -4,6 +4,7 @@ import type { AnalysisProgress } from '@/core/profile/context-engine';
 import { sendMessage } from '@shared/utils/messaging';
 import { parseResumeFile, extractBasicInfo } from '@/core/resume/file-parser';
 import { useProfile } from '../context/ProfileContext';
+import ConversationalBuilder from '../components/profile/ConversationalBuilder';
 
 interface UploadState {
   file: File | null;
@@ -13,8 +14,12 @@ interface UploadState {
   error: string | null;
 }
 
+type PageMode = 'upload' | 'conversation' | 'conversation-with-resume';
+
 export default function ResumeUpload() {
   const { profile, allProfiles, isLoading, setProfile, refreshAllProfiles } = useProfile();
+  const [mode, setMode] = useState<PageMode>('upload');
+  const [resumeTextForConversation, setResumeTextForConversation] = useState<string | undefined>();
 
   const [state, setState] = useState<UploadState>({
     file: null,
@@ -229,12 +234,35 @@ export default function ResumeUpload() {
     );
   }
 
+  // Conversational builder mode
+  if (mode === 'conversation' || mode === 'conversation-with-resume') {
+    return (
+      <ConversationalBuilder
+        resumeText={resumeTextForConversation}
+        masterProfileId={profile?.id}
+        onComplete={async () => {
+          try {
+            await refreshAllProfiles();
+          } catch {
+            // Non-critical
+          }
+          setMode('upload');
+          setResumeTextForConversation(undefined);
+        }}
+        onCancel={() => {
+          setMode('upload');
+          setResumeTextForConversation(undefined);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
         <h1>Create New Workspace</h1>
         <p className="page-description">
-          Upload a resume to create a new workspace with role-specific profiles
+          Upload a resume or build your profile through an AI conversation
         </p>
       </div>
 
@@ -354,10 +382,101 @@ export default function ResumeUpload() {
               >
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Create New Workspace
+              Quick Create (Auto-Parse)
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={async () => {
+                if (!state.file) return;
+                try {
+                  const parseResult = await parseResumeFile(state.file);
+                  if (parseResult.success) {
+                    setResumeTextForConversation(parseResult.rawText);
+                    setMode('conversation-with-resume');
+                  }
+                } catch {
+                  setResumeTextForConversation(undefined);
+                  setMode('conversation');
+                }
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Build with AI Interview
             </button>
           </div>
         )}
+      </div>
+
+      {/* Conversational Builder CTA */}
+      <div className="conv-start-section">
+        <h3>Or Build Your Profile Through Conversation</h3>
+        <p>
+          Our AI career advisor will interview you to extract your best stories, push back on vague
+          claims, and build a stronger profile than any resume parser.
+        </p>
+        <div className="conv-start-features">
+          <div className="conv-start-feature">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Extracts real stories
+          </div>
+          <div className="conv-start-feature">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Validates claims
+          </div>
+          <div className="conv-start-feature">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            No resume needed
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setMode('conversation')}>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Start AI Interview
+        </button>
       </div>
 
       <div className="info-cards">
