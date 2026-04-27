@@ -4,7 +4,11 @@
  * Using chrome.storage for simplicity - can migrate to IndexedDB later
  */
 
-import type { MasterProfile, GeneratedProfile } from '@shared/types/master-profile.types';
+import type {
+  MasterProfile,
+  GeneratedProfile,
+  RoleProfile,
+} from '@shared/types/master-profile.types';
 
 const STORAGE_KEY = 'masterProfiles';
 const ACTIVE_KEY = 'activeMasterProfile';
@@ -266,6 +270,86 @@ export const masterProfileRepo = {
     } catch (error) {
       console.error('[MasterProfileRepo] updateAnswerBank failed:', error);
       return undefined;
+    }
+  },
+
+  // ── Role Profile Management (Branches of Truth) ────────────────────────
+
+  /**
+   * Add or update a role profile on a master profile.
+   * Role profiles are branches — same facts, different emphasis per target role.
+   */
+  async addRoleProfile(
+    masterProfileId: string,
+    roleProfile: RoleProfile
+  ): Promise<MasterProfile | undefined> {
+    try {
+      const profile = await this.getById(masterProfileId);
+      if (!profile) return undefined;
+
+      const roleProfiles = profile.roleProfiles || [];
+      const existingIndex = roleProfiles.findIndex((rp) => rp.id === roleProfile.id);
+
+      if (existingIndex >= 0) {
+        roleProfiles[existingIndex] = { ...roleProfile, updatedAt: new Date() };
+      } else {
+        roleProfiles.push(roleProfile);
+      }
+
+      return this.update(masterProfileId, { roleProfiles });
+    } catch (error) {
+      console.error('[MasterProfileRepo] addRoleProfile failed:', error);
+      return undefined;
+    }
+  },
+
+  /**
+   * Remove a role profile from a master profile.
+   */
+  async removeRoleProfile(
+    masterProfileId: string,
+    roleProfileId: string
+  ): Promise<MasterProfile | undefined> {
+    try {
+      const profile = await this.getById(masterProfileId);
+      if (!profile) return undefined;
+
+      const roleProfiles = (profile.roleProfiles || []).filter((rp) => rp.id !== roleProfileId);
+
+      return this.update(masterProfileId, { roleProfiles });
+    } catch (error) {
+      console.error('[MasterProfileRepo] removeRoleProfile failed:', error);
+      return undefined;
+    }
+  },
+
+  /**
+   * Get a specific role profile by ID.
+   */
+  async getRoleProfile(
+    masterProfileId: string,
+    roleProfileId: string
+  ): Promise<RoleProfile | undefined> {
+    try {
+      const profile = await this.getById(masterProfileId);
+      if (!profile) return undefined;
+      return (profile.roleProfiles || []).find((rp) => rp.id === roleProfileId);
+    } catch (error) {
+      console.error('[MasterProfileRepo] getRoleProfile failed:', error);
+      return undefined;
+    }
+  },
+
+  /**
+   * Get all role profiles for a master profile.
+   */
+  async getAllRoleProfiles(masterProfileId: string): Promise<RoleProfile[]> {
+    try {
+      const profile = await this.getById(masterProfileId);
+      return profile?.roleProfiles || [];
+    } catch (error) {
+      console.error('[MasterProfileRepo] getAllRoleProfiles failed:', error);
+      return [];
     }
   },
 

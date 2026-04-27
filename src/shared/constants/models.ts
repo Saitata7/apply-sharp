@@ -8,7 +8,7 @@
 export const DEFAULT_MODELS = {
   ollama: 'llama3.1',
   openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-5-haiku-20241022',
+  anthropic: 'claude-haiku-4-5-20251001',
   groq: 'llama-3.3-70b-versatile',
 } as const;
 
@@ -31,11 +31,9 @@ export const OPENAI_MODELS: ModelOption[] = [
 ];
 
 export const ANTHROPIC_MODELS: ModelOption[] = [
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast, Cheap)' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Best)' },
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
-  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Fast, Cheap)' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Balanced)' },
+  { value: 'claude-opus-4-7', label: 'Claude Opus 4.7 (Best Quality)' },
 ];
 
 export const GROQ_MODELS: ModelOption[] = [
@@ -56,10 +54,9 @@ export const OPENAI_CONTEXT_LENGTHS: Record<string, number> = {
 export const OPENAI_DEFAULT_CONTEXT_LENGTH = 16385; // gpt-3.5-turbo default
 
 export const ANTHROPIC_CONTEXT_LENGTHS: Record<string, number> = {
-  'claude-3-5': 200000,
-  'claude-3-opus': 200000,
-  'claude-3-sonnet': 200000,
-  'claude-3-haiku': 200000,
+  'claude-haiku-4': 200000,
+  'claude-sonnet-4': 200000,
+  'claude-opus-4': 200000,
 };
 export const ANTHROPIC_DEFAULT_CONTEXT_LENGTH = 200000;
 
@@ -74,4 +71,12 @@ export const GROQ_DEFAULT_CONTEXT_LENGTH = 32768;
 export const DEPRECATED_GROQ_MODELS: Record<string, string> = {
   'llama-3.1-70b-versatile': 'llama-3.3-70b-versatile',
   'llama-3.1-70b-specdec': 'llama-3.3-70b-specdec',
+};
+
+export const DEPRECATED_ANTHROPIC_MODELS: Record<string, string> = {
+  'claude-3-5-haiku-20241022': 'claude-haiku-4-5-20251001',
+  'claude-3-5-sonnet-20241022': 'claude-sonnet-4-6',
+  'claude-3-haiku-20240307': 'claude-haiku-4-5-20251001',
+  'claude-3-sonnet-20240229': 'claude-sonnet-4-6',
+  'claude-3-opus-20240229': 'claude-opus-4-7',
 };

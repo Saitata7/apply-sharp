@@ -64,25 +64,25 @@ function makeQuickScore(
 
 describe('analyzeSkillGaps', () => {
   describe('severity classification', () => {
-    it('classifies critical gaps — weight >= 3 AND inRequirements', () => {
+    it('classifies critical gaps  -  weight >= 3 AND inRequirements', () => {
       const score = makeQuickScore([makeKeyword('Docker', 4, 3, true)], ['Docker']);
       const result = analyzeSkillGaps(score, []);
       expect(result.gaps[0].severity).toBe('critical');
     });
 
-    it('classifies addressable gaps — weight >= 2', () => {
+    it('classifies addressable gaps  -  weight >= 2', () => {
       const score = makeQuickScore([makeKeyword('GraphQL', 2, 2, false)], ['GraphQL']);
       const result = analyzeSkillGaps(score, []);
       expect(result.gaps[0].severity).toBe('addressable');
     });
 
-    it('classifies addressable gaps — inRequirements but low weight', () => {
+    it('classifies addressable gaps  -  inRequirements but low weight', () => {
       const score = makeQuickScore([makeKeyword('Nginx', 1, 1, true)], ['Nginx']);
       const result = analyzeSkillGaps(score, []);
       expect(result.gaps[0].severity).toBe('addressable');
     });
 
-    it('classifies minor gaps — low weight, not in requirements', () => {
+    it('classifies minor gaps  -  low weight, not in requirements', () => {
       const score = makeQuickScore([makeKeyword('Svelte', 1, 1, false)], ['Svelte']);
       const result = analyzeSkillGaps(score, []);
       expect(result.gaps[0].severity).toBe('minor');

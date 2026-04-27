@@ -1,0 +1,233 @@
+/* ═══════════════════════════════════════════════════════════════
+   APPLYSHARP — LinkedIn-Inspired Design System
+   Light-first, professional, with optional dark mode (data-theme="dark")
+   Variable names are preserved for backwards compat with existing CSS;
+   --ac-amber is now the brand primary (LinkedIn blue), not amber.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Default = LIGHT MODE (LinkedIn look) ── */
+:root {
+  /* Surface hierarchy (light) */
+  --sf-void: #ebe5df; /* LinkedIn page background */
+  --sf-base: #f3f2ef; /* App background */
+  --sf-raised: #ffffff; /* Cards / panels */
+  --sf-overlay: #f8f8f6; /* Subtle elevated */
+  --sf-elevated: #ffffff; /* Modal / floating */
+  --sf-floating: #ffffff;
+  --sf-hover: #f3f2ef; /* Hover background on white surface */
+
+  /* Text hierarchy */
+  --tx-primary: rgba(0, 0, 0, 0.9); /* LinkedIn primary text */
+  --tx-secondary: rgba(0, 0, 0, 0.6); /* Secondary, captions */
+  --tx-muted: rgba(0, 0, 0, 0.45); /* Muted */
+  --tx-faint: rgba(0, 0, 0, 0.28); /* Disabled / hint */
+  --tx-inverse: #ffffff;
+
+  /* Brand: LinkedIn blue (variable name kept as --ac-amber for compat) */
+  --ac-amber: #0a66c2; /* LinkedIn primary blue */
+  --ac-amber-dim: #004182; /* Pressed / strong */
+  --ac-amber-glow: rgba(10, 102, 194, 0.12);
+  --ac-amber-ghost: rgba(10, 102, 194, 0.06);
+
+  /* Brand aliases (semantic) */
+  --brand: #0a66c2;
+  --brand-hover: #004182;
+  --brand-soft: #e7f3ff;
+  --brand-text: #0a66c2;
+
+  /* Semantic colors (LinkedIn-aligned) */
+  --cl-blue: #0a66c2;
+  --cl-blue-dim: #004182;
+  --cl-blue-glow: rgba(10, 102, 194, 0.1);
+  --cl-sky: #378fe9;
+  --cl-sky-glow: rgba(55, 143, 233, 0.1);
+  --cl-violet: #7c3aed;
+  --cl-violet-glow: rgba(124, 58, 237, 0.08);
+  --cl-emerald: #057642; /* LinkedIn success green */
+  --cl-emerald-dim: #044d2c;
+  --cl-emerald-glow: rgba(5, 118, 66, 0.1);
+  --cl-rose: #cc1016; /* LinkedIn error red */
+  --cl-rose-dim: #9b0006;
+  --cl-rose-glow: rgba(204, 16, 22, 0.08);
+  --cl-orange: #c47d00; /* Premium gold */
+  --cl-orange-glow: rgba(196, 125, 0, 0.1);
+  --cl-yellow: #f5c75d;
+
+  /* Borders */
+  --bd-subtle: rgba(0, 0, 0, 0.06);
+  --bd-default: rgba(0, 0, 0, 0.12);
+  --bd-strong: rgba(0, 0, 0, 0.2);
+  --bd-accent: rgba(10, 102, 194, 0.35);
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-blur: blur(16px);
+
+  /* Shadows (LinkedIn uses soft, layered shadows) */
+  --sh-sm: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --sh-md: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --sh-lg: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 12px 28px rgba(0, 0, 0, 0.1);
+  --sh-glow-amber: 0 0 0 3px rgba(10, 102, 194, 0.18);
+  --sh-glow-blue: 0 0 0 3px rgba(10, 102, 194, 0.18);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  /* Typography */
+  --ff-display:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Source Sans Pro', 'Helvetica Neue', Arial,
+    sans-serif;
+  --ff-body:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Source Sans Pro', 'Helvetica Neue', Arial,
+    sans-serif;
+  --ff-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  --fs-xs: 0.7rem;
+  --fs-sm: 0.8rem;
+  --fs-base: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.15rem;
+  --fs-xl: 1.35rem;
+  --fs-2xl: 1.6rem;
+  --fs-3xl: 2rem;
+  --fw-light: 300;
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Radii (LinkedIn uses generous radii on cards, full-pill on buttons) */
+  --rd-sm: 4px;
+  --rd-md: 8px;
+  --rd-lg: 12px;
+  --rd-xl: 16px;
+  --rd-pill: 9999px;
+  --rd-full: 9999px;
+
+  /* Transitions */
+  --tr-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --tr-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --tr-slow: 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  --tr-spring: 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ══════════════════════════════════════════
+   DARK MODE — opt-in via [data-theme="dark"]
+   Keeps LinkedIn blue as accent (not amber)
+   ══════════════════════════════════════════ */
+[data-theme='dark'] {
+  --sf-void: #06070a;
+  --sf-base: #0a0d13;
+  --sf-raised: #0e1219;
+  --sf-overlay: #141820;
+  --sf-elevated: #1a1f2b;
+  --sf-floating: #212838;
+  --sf-hover: #283044;
+
+  --tx-primary: #e8ecf4;
+  --tx-secondary: #94a3b8;
+  --tx-muted: #64748b;
+  --tx-faint: #475569;
+  --tx-inverse: #0a0d13;
+
+  --ac-amber: #378fe9;
+  --ac-amber-dim: #0a66c2;
+  --ac-amber-glow: rgba(55, 143, 233, 0.18);
+  --ac-amber-ghost: rgba(55, 143, 233, 0.1);
+
+  --brand: #378fe9;
+  --brand-hover: #70b5f9;
+  --brand-soft: rgba(55, 143, 233, 0.14);
+  --brand-text: #70b5f9;
+
+  --cl-blue: #378fe9;
+  --cl-blue-dim: #0a66c2;
+  --cl-blue-glow: rgba(55, 143, 233, 0.18);
+  --cl-sky: #70b5f9;
+  --cl-sky-glow: rgba(112, 181, 249, 0.14);
+  --cl-violet: #a78bfa;
+  --cl-violet-glow: rgba(167, 139, 250, 0.12);
+  --cl-emerald: #34d399;
+  --cl-emerald-dim: #10b981;
+  --cl-emerald-glow: rgba(52, 211, 153, 0.14);
+  --cl-rose: #f87171;
+  --cl-rose-dim: #ef4444;
+  --cl-rose-glow: rgba(248, 113, 113, 0.14);
+  --cl-orange: #fb923c;
+  --cl-orange-glow: rgba(251, 146, 60, 0.14);
+  --cl-yellow: #facc15;
+
+  --bd-subtle: rgba(255, 255, 255, 0.06);
+  --bd-default: rgba(255, 255, 255, 0.1);
+  --bd-strong: rgba(255, 255, 255, 0.16);
+  --bd-accent: rgba(55, 143, 233, 0.36);
+
+  --glass-bg: rgba(14, 18, 25, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  --sh-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --sh-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --sh-glow-amber: 0 0 0 3px rgba(55, 143, 233, 0.28);
+  --sh-glow-blue: 0 0 0 3px rgba(55, 143, 233, 0.28);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Honor system preference only when user has not picked an explicit theme */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --sf-void: #06070a;
+    --sf-base: #0a0d13;
+    --sf-raised: #0e1219;
+    --sf-overlay: #141820;
+    --sf-elevated: #1a1f2b;
+    --sf-floating: #212838;
+    --sf-hover: #283044;
+
+    --tx-primary: #e8ecf4;
+    --tx-secondary: #94a3b8;
+    --tx-muted: #64748b;
+    --tx-faint: #475569;
+    --tx-inverse: #0a0d13;
+
+    --ac-amber: #378fe9;
+    --ac-amber-dim: #0a66c2;
+    --ac-amber-glow: rgba(55, 143, 233, 0.18);
+    --ac-amber-ghost: rgba(55, 143, 233, 0.1);
+
+    --brand: #378fe9;
+    --brand-hover: #70b5f9;
+    --brand-soft: rgba(55, 143, 233, 0.14);
+    --brand-text: #70b5f9;
+
+    --cl-blue: #378fe9;
+    --cl-blue-dim: #0a66c2;
+    --cl-blue-glow: rgba(55, 143, 233, 0.18);
+    --cl-sky: #70b5f9;
+    --cl-sky-glow: rgba(112, 181, 249, 0.14);
+
+    --bd-subtle: rgba(255, 255, 255, 0.06);
+    --bd-default: rgba(255, 255, 255, 0.1);
+    --bd-strong: rgba(255, 255, 255, 0.16);
+    --bd-accent: rgba(55, 143, 233, 0.36);
+
+    --glass-bg: rgba(14, 18, 25, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+
+    --sh-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --sh-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --sh-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+    --sh-glow-amber: 0 0 0 3px rgba(55, 143, 233, 0.28);
+    --sh-glow-blue: 0 0 0 3px rgba(55, 143, 233, 0.28);
+    --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+}

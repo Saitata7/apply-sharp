@@ -8,8 +8,10 @@
 
 import type { AIService } from '@ai/index';
 import type { MasterProfile } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
-import { extractJSONFromResponse } from '@shared/utils/json-utils';
+import type { JSONSchema } from '@shared/types/ai.types';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
+import { cachedAICall, generateChecksum } from '@/ai/cache';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -130,7 +132,7 @@ function getTypeInstructions(payload: EmailGenerationPayload): string {
       const days = payload.daysSinceApplication || 7;
       return `Write a follow-up email checking on application status.
 - It has been approximately ${days} days since the application was submitted
-- Be polite and brief — express continued interest without being pushy
+- Be polite and brief  -  express continued interest without being pushy
 - Mention you applied for the specific role and briefly restate your value
 - Ask if there are any updates on the hiring timeline
 - Keep it professional and concise, 75-150 words`;
@@ -152,7 +154,7 @@ function getTypeInstructions(payload: EmailGenerationPayload): string {
       return `Write a cold outreach email to a hiring manager.
 - Lead with something specific about the company (recent news, product, mission)
 - Briefly explain your relevant background and what you'd bring
-- Do NOT sound like a mass email — personalize heavily
+- Do NOT sound like a mass email  -  personalize heavily
 - Make a clear, specific ask (interest in the role, open to chat)
 - Keep it crisp and professional, 100-175 words
 - Avoid being overly flattering or desperate`;
@@ -160,7 +162,7 @@ function getTypeInstructions(payload: EmailGenerationPayload): string {
     case 'post_rejection':
       return `Write a graceful response to a job rejection.
 - Express gratitude for the opportunity and their time
-- Show maturity and professionalism — no bitterness
+- Show maturity and professionalism  -  no bitterness
 - Ask for brief feedback if appropriate
 - Keep the door open for future opportunities
 - Keep it brief and dignified, 75-125 words`;
@@ -170,6 +172,17 @@ function getTypeInstructions(payload: EmailGenerationPayload): string {
 - Be concise and professional, 100-175 words`;
   }
 }
+
+// ── Schema ──────────────────────────────────────────────────────────────
+
+const EMAIL_TEMPLATE_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    subject: { type: 'string', description: 'Email subject line' },
+    body: { type: 'string', description: 'Full email body with proper greeting and sign-off' },
+  },
+  required: ['subject', 'body'],
+};
 
 // ── Main Generation Function ────────────────────────────────────────────
 
@@ -185,9 +198,9 @@ export async function generateEmailTemplate(
   const skillsList =
     ctx.topSkills.length > 0 ? ctx.topSkills.join(', ') : 'various technical skills';
 
-  const prompt = `${PROMPT_SAFETY_PREAMBLE}
+  const emailSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
 
-You are an expert professional email writer helping a job candidate craft a personalized email.
+  const emailUserPrompt = `You are helping a job candidate craft a personalized email.
 
 CANDIDATE PROFILE:
 - Name: ${sanitizePromptInput(ctx.candidateName, 'candidateName')}
@@ -209,26 +222,34 @@ INSTRUCTIONS:
 ${typeInstructions}
 
 RULES:
-- Be authentic — avoid generic AI-sounding phrases like "I am writing to express..."
+- Be authentic  -  avoid generic AI-sounding phrases like "I am writing to express..."
 - Use the candidate's actual background, not fabricated details
 - Reference specific details from the JD or company where relevant
-- Maintain a natural, human tone
+- Maintain a natural, human tone`;
 
-Return ONLY a JSON object with this exact structure:
-{
-  "subject": "Email subject line",
-  "body": "Full email body with proper greeting and sign-off"
-}`;
+  const TTL_12H = 12 * 60 * 60 * 1000;
+  const emailCacheKey = `email:${generateChecksum(payload.emailType + ctx.companyName + ctx.jobTitle + ctx.candidateName)}`;
 
-  const response = await aiService.chat([{ role: 'user', content: prompt }], {
-    temperature,
-    maxTokens: 1000,
-  });
-
-  const parsed = extractJSONFromResponse<{ subject: string; body: string }>(response.content);
+  const parsed = await cachedAICall(
+    emailCacheKey,
+    () =>
+      aiService.chatStructured<{ subject: string; body: string }>(
+        [
+          { role: 'system', content: emailSystemPrompt },
+          { role: 'user', content: emailUserPrompt },
+        ],
+        EMAIL_TEMPLATE_SCHEMA,
+        'email_template',
+        {
+          temperature,
+          maxTokens: 1000,
+        }
+      ),
+    TTL_12H
+  );
 
   if (!parsed?.subject || !parsed?.body) {
-    throw new Error('Failed to generate email — invalid AI response');
+    throw new Error('Failed to generate email  -  invalid AI response');
   }
 
   const wordCount = parsed.body.split(/\s+/).filter(Boolean).length;

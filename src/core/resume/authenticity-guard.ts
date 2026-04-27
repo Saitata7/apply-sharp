@@ -157,7 +157,7 @@ export function measureSentenceVariety(text: string): {
     issues.push({
       severity: 'warning',
       category: 'sentence_variety',
-      message: 'Sentences are very uniform in length — a common AI pattern',
+      message: 'Sentences are very uniform in length  -  a common AI pattern',
       suggestion: 'Mix short punchy sentences with longer detailed ones',
     });
   }
@@ -297,7 +297,7 @@ export function measureToneNaturalness(text: string): {
     issues.push({
       severity: 'info',
       category: 'tone_naturalness',
-      message: 'No contractions used — sounds overly formal',
+      message: 'No contractions used  -  sounds overly formal',
       suggestion: "Use contractions like I'm, don't, it's for a more natural tone",
     });
     score -= 10;
@@ -347,7 +347,7 @@ export function measureToneNaturalness(text: string): {
       severity: 'info',
       category: 'tone_naturalness',
       message: 'Excessive hedging language detected',
-      suggestion: 'Be more direct — state accomplishments as facts',
+      suggestion: 'Be more direct  -  state accomplishments as facts',
     });
     score -= 10;
   }
@@ -387,7 +387,7 @@ export function measureStructureVariety(text: string): {
       severity: 'warning',
       category: 'structure_variety',
       message: `Low diversity in line openings (${uniqueStarts} unique out of ${lines.length})`,
-      suggestion: 'Vary how you start each bullet point — mix verbs, context, results',
+      suggestion: 'Vary how you start each bullet point  -  mix verbs, context, results',
     });
     score -= 20;
   } else if (startDiversity < 0.6 && lines.length >= 4) {
@@ -443,7 +443,7 @@ export function measureStructureVariety(text: string): {
         severity: 'info',
         category: 'structure_variety',
         message: 'Paragraphs are suspiciously uniform in length',
-        suggestion: 'Vary paragraph lengths — some short, some longer',
+        suggestion: 'Vary paragraph lengths  -  some short, some longer',
       });
       score -= 10;
     }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none" role="img" aria-label="ApplySharp">
+  <circle cx="58" cy="70" r="34" stroke="currentColor" stroke-width="6" fill="none" opacity="0.32"/>
+  <circle cx="58" cy="70" r="22" stroke="currentColor" stroke-width="6" fill="none" opacity="0.75"/>
+  <circle cx="58" cy="70" r="7" fill="currentColor"/>
+  <path d="M58 70 L100 28" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <path d="M82 28 L100 28 L100 46" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

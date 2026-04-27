@@ -4,32 +4,42 @@ import ResumeUpload from './pages/ResumeUpload';
 import MyProfile from './pages/MyProfile';
 import ProfileManager from './pages/ProfileManager';
 import AISettings from './pages/AISettings';
-import ATSScore from './pages/ATSScore';
-import InterviewPrep from './pages/InterviewPrep';
-import EmailTemplates from './pages/EmailTemplates';
-import ApplicationHistory from './pages/ApplicationHistory';
-import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import Tracker from './pages/Tracker';
+import JobFeed from './pages/JobFeed';
+import SponsorLookup from './pages/SponsorLookup';
+import OutreachComposer from './pages/OutreachComposer';
+import Contacts from './pages/Contacts';
+import Assistant from './pages/Assistant';
 import DataManager from './pages/DataManager';
+import { DEFAULT_FLAGS, type FeatureFlagKey } from '@shared/feature-flags';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import OnboardingWizard from './components/OnboardingWizard';
+import Logo from './components/Logo';
+import ThemeToggle from './components/ThemeToggle';
 import { ProfileProvider } from './context/ProfileContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 
 type Tab =
   | 'dashboard'
+  | 'assistant'
+  | 'jobfeed'
+  | 'sponsorlookup'
+  | 'composer'
   | 'resume'
   | 'myprofile'
   | 'profiles'
-  | 'atsscore'
-  | 'interview'
-  | 'email'
+  | 'contacts'
   | 'ai'
-  | 'history'
-  | 'analytics'
+  | 'tracker'
   | 'data';
 
-const NAV_ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
+const ALL_NAV_ITEMS: {
+  tab: Tab;
+  label: string;
+  icon: React.ReactNode;
+  flag?: FeatureFlagKey;
+}[] = [
   {
     tab: 'dashboard',
     label: 'Dashboard',
@@ -37,6 +47,17 @@ const NAV_ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
       <>
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         <polyline points="9 22 9 12 15 12 15 22" />
+      </>
+    ),
+  },
+  {
+    tab: 'assistant',
+    label: 'Assistant',
+    icon: (
+      <>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <circle cx="9" cy="11" r="1" />
+        <circle cx="15" cy="11" r="1" />
       </>
     ),
   },
@@ -77,19 +98,16 @@ const NAV_ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
       </>
     ),
   },
-  { tab: 'atsscore', label: 'ATS Score', icon: <path d="M22 12h-4l-3 9L9 3l-3 9H2" /> },
   {
-    tab: 'interview',
-    label: 'Interview Prep',
-    icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
-  },
-  {
-    tab: 'email',
-    label: 'Email Templates',
+    tab: 'contacts',
+    label: 'Contacts',
+    flag: 'pages.contactsCrm',
     icon: (
       <>
-        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-        <polyline points="22,6 12,13 2,6" />
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <path d="M20 8v6" />
+        <path d="M23 11h-6" />
       </>
     ),
   },
@@ -105,20 +123,50 @@ const NAV_ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    tab: 'history',
-    label: 'Applications',
+    tab: 'tracker',
+    label: 'Tracker',
     icon: (
-      <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
+      <>
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+      </>
     ),
   },
   {
-    tab: 'analytics',
-    label: 'Analytics',
+    tab: 'jobfeed',
+    label: 'Job Feed',
+    flag: 'pages.jobFeed',
     icon: (
       <>
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
+      </>
+    ),
+  },
+  {
+    tab: 'sponsorlookup',
+    label: 'Sponsor Lookup',
+    flag: 'pages.sponsorLookup',
+    icon: (
+      <>
+        <path d="M12 2C8 2 5 5 5 9c0 5.5 7 13 7 13s7-7.5 7-13c0-4-3-7-7-7z" />
+        <circle cx="12" cy="9" r="2.5" />
+      </>
+    ),
+  },
+  {
+    tab: 'composer',
+    label: 'Outreach',
+    flag: 'pages.outreachComposer',
+    icon: (
+      <>
+        <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
       </>
     ),
   },
@@ -134,6 +182,8 @@ const NAV_ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
 ];
+
+const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.flag || DEFAULT_FLAGS[item.flag]);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -155,9 +205,36 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Extension context may be invalidated — skip onboarding check
+        // Extension context may be invalidated, skip onboarding check
       })
       .finally(() => setCheckingOnboarding(false));
+  }, []);
+
+  // Workstream 10: read the optionsTab handoff written by handleOpenOptions
+  // in background/message-handler.ts. The sidepanel ContactsCard sends
+  // OPEN_OPTIONS with payload.tab='contacts' so the user lands on the
+  // CRM page after clicking "View all in CRM". The background writes the
+  // value to chrome.storage.local; we read it on mount, navigate, then
+  // delete the key so a future plain "open options" does not get stuck
+  // on the wrong tab. Pre-existing bug surfaced by WS10 iter-1 review.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const got = await chrome.storage.local.get('optionsTab');
+        if (cancelled) return;
+        const tab = got?.optionsTab as Tab | undefined;
+        if (tab && NAV_ITEMS.some((item) => item.tab === tab)) {
+          setActiveTab(tab);
+          await chrome.storage.local.remove('optionsTab');
+        }
+      } catch {
+        // chrome.storage may be unavailable; silent fall-through
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleOnboardingDone = async () => {
@@ -248,18 +325,10 @@ export default function App() {
           <div className="options-container">
             <aside className="sidebar">
               <div className="sidebar-header">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
-                </svg>
-                <span>ApplySharp</span>
+                <Logo size={32} />
+                <span className="sidebar-brand">
+                  Apply<strong>Sharp</strong>
+                </span>
               </div>
 
               {/* Workspace Switcher */}
@@ -291,10 +360,9 @@ export default function App() {
               </nav>
 
               <div className="sidebar-footer">
+                <ThemeToggle />
                 <div className="version">v{chrome.runtime.getManifest().version}</div>
-                <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '4px' }}>
-                  Alt+1-9 for tabs
-                </div>
+                <div className="version-hint">Alt+1-9 for tabs</div>
               </div>
             </aside>
 
@@ -302,15 +370,16 @@ export default function App() {
               {activeTab === 'dashboard' && (
                 <Dashboard onNavigate={(tab) => setActiveTab(tab as Tab)} />
               )}
+              {activeTab === 'assistant' && <Assistant />}
               {activeTab === 'resume' && <ResumeUpload />}
               {activeTab === 'myprofile' && <MyProfile />}
               {activeTab === 'profiles' && <ProfileManager />}
-              {activeTab === 'atsscore' && <ATSScore />}
-              {activeTab === 'interview' && <InterviewPrep />}
-              {activeTab === 'email' && <EmailTemplates />}
+              {activeTab === 'contacts' && <Contacts />}
               {activeTab === 'ai' && <AISettings />}
-              {activeTab === 'history' && <ApplicationHistory />}
-              {activeTab === 'analytics' && <AnalyticsDashboard />}
+              {activeTab === 'tracker' && <Tracker />}
+              {activeTab === 'jobfeed' && <JobFeed />}
+              {activeTab === 'sponsorlookup' && <SponsorLookup />}
+              {activeTab === 'composer' && <OutreachComposer />}
               {activeTab === 'data' && <DataManager />}
             </main>
           </div>

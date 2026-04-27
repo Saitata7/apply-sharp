@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { sendMessage } from '@shared/utils/messaging';
 import { Document, Packer, Paragraph, TextRun, convertInchesToTwip } from 'docx';
+import type { ResumeProfile } from '@shared/types/profile.types';
 
 interface CoverLetterGeneratorProps {
   onClose: () => void;
@@ -12,10 +13,20 @@ interface CoverLetterGeneratorProps {
 
 type Tone = 'professional' | 'conversational' | 'formal';
 
+interface AITellsResult {
+  hasIssues: boolean;
+  bannedTokens: string[];
+  structuralTells: string[];
+  hasEmDash: boolean;
+  uniformityScore: number;
+  summary: string;
+}
+
 interface GenerationResult {
   coverLetter: string;
   wordCount: number;
   tone: Tone;
+  aiTells?: AITellsResult;
 }
 
 export default function CoverLetterGenerator({
@@ -67,12 +78,12 @@ export default function CoverLetterGenerator({
 
   const wordCountColor =
     wordCount === 0
-      ? '#94a3b8'
+      ? 'var(--tx-muted)'
       : wordCount < 150
-        ? '#f59e0b'
+        ? 'var(--cl-orange)'
         : wordCount > 300
-          ? '#ef4444'
-          : '#22c55e';
+          ? 'var(--cl-rose)'
+          : 'var(--cl-emerald)';
 
   async function handleGenerate() {
     if (!jobDescription.trim()) {
@@ -167,7 +178,24 @@ export default function CoverLetterGenerator({
       });
     });
 
+    // Pull the candidate's name so DOCX core properties show the user, not
+    // the docx library default ("Un-named"). ATS systems and recruiters do
+    // scrape these fields; matching the resume content here avoids any
+    // "machine-generated" red flag.
+    let authorName = 'Candidate';
+    try {
+      const res = await sendMessage<void, ResumeProfile>({ type: 'GET_CURRENT_PROFILE' });
+      const fullName = res?.success ? res.data?.personal?.fullName?.trim() : '';
+      if (fullName) authorName = fullName;
+    } catch {
+      // Non-fatal: fall back to "Candidate" if profile lookup fails.
+    }
+
     const doc = new Document({
+      creator: authorName,
+      title: `Cover Letter - ${authorName} - ${companyName || 'Application'}`,
+      description: `Cover letter for ${jobTitle || 'position'} at ${companyName || 'company'}`,
+      lastModifiedBy: authorName,
       sections: [
         {
           properties: {
@@ -375,6 +403,35 @@ export default function CoverLetterGenerator({
 
             {result && (
               <>
+                {/* Workstream 3 humanization linter banner. The handler runs
+                    detectAITells across the generated cover letter and returns
+                    the result on the response payload. Render the summary as
+                    a soft warning so the user can rewrite or regenerate. */}
+                {result.aiTells?.hasIssues && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      padding: '10px 14px',
+                      marginBottom: 12,
+                      background: 'var(--cl-orange-glow)',
+                      border: '1px solid #fde68a',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      color: 'var(--cl-orange)',
+                    }}
+                  >
+                    <strong>Humanization check:</strong> {result.aiTells.summary}
+                    {result.aiTells.bannedTokens.length > 0 && (
+                      <div style={{ marginTop: 4, fontSize: 12 }}>
+                        Banned vocabulary detected:{' '}
+                        <em>{result.aiTells.bannedTokens.join(', ')}</em>. Edit before sending or
+                        click Generate again.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Toolbar */}
                 <div className="cl-toolbar">
                   <div className="cl-word-count" style={{ color: wordCountColor }}>
@@ -465,6 +522,7 @@ export default function CoverLetterGenerator({
                     />
                   ) : (
                     <div className="cl-letter-text">
+                      {/* Index key: lines are positional text splits that never reorder independently */}
                       {currentText.split('\n').map((line, i) => (
                         <p key={i}>{line || '\u00A0'}</p>
                       ))}
@@ -496,7 +554,7 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-modal {
-      background: #141820;
+      background: var(--sf-raised);
       border-radius: 12px;
       width: 100%;
       max-width: 900px;
@@ -511,14 +569,14 @@ function getCoverLetterStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 16px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid var(--bd-subtle);
     }
 
     .cl-header-left {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #e8ecf4;
+      color: var(--tx-primary);
     }
 
     .cl-header-left h2 {
@@ -530,15 +588,15 @@ function getCoverLetterStyles(): string {
     .cl-close-btn {
       background: none;
       border: none;
-      color: #94a3b8;
+      color: var(--tx-secondary);
       cursor: pointer;
       padding: 4px;
       border-radius: 6px;
     }
 
     .cl-close-btn:hover {
-      background: #1a1f2b;
-      color: #64748b;
+      background: var(--sf-overlay);
+      color: var(--tx-muted);
     }
 
     .cl-body {
@@ -552,7 +610,7 @@ function getCoverLetterStyles(): string {
       width: 320px;
       min-width: 320px;
       padding: 16px;
-      border-right: 1px solid rgba(255,255,255,0.06);
+      border-right: 1px solid var(--bd-subtle);
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -573,26 +631,26 @@ function getCoverLetterStyles(): string {
     .cl-field label {
       font-size: 12px;
       font-weight: 600;
-      color: #64748b;
+      color: var(--tx-muted);
     }
 
     .cl-field input,
     .cl-field textarea {
       padding: 8px 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
       border-radius: 6px;
       font-size: 13px;
       font-family: inherit;
-      color: #e8ecf4;
-      background: #0e1219;
+      color: var(--tx-primary);
+      background: var(--sf-raised);
       transition: border-color 0.15s;
     }
 
     .cl-field input:focus,
     .cl-field textarea:focus {
       outline: none;
-      border-color: #e8a832;
-      background: #141820;
+      border-color: var(--brand);
+      background: var(--sf-raised);
       box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
     }
 
@@ -610,25 +668,25 @@ function getCoverLetterStyles(): string {
     .cl-tone-btn {
       flex: 1;
       padding: 6px 8px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
       border-radius: 6px;
-      background: #0e1219;
+      background: var(--sf-raised);
       font-size: 11px;
       font-weight: 500;
-      color: #64748b;
+      color: var(--tx-muted);
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .cl-tone-btn:hover {
-      border-color: rgba(255,255,255,0.15);
-      background: #141820;
+      border-color: var(--bd-strong);
+      background: var(--sf-raised);
     }
 
     .cl-tone-btn.active {
-      border-color: #e8a832;
+      border-color: var(--brand);
       background: rgba(232,168,50,0.1);
-      color: #e8a832;
+      color: var(--brand);
     }
 
     .cl-generate-btn {
@@ -637,8 +695,8 @@ function getCoverLetterStyles(): string {
       justify-content: center;
       gap: 8px;
       padding: 10px 16px;
-      background: #e8a832;
-      color: #0a0d13;
+      background: var(--brand);
+      color: var(--tx-inverse);
       border: none;
       border-radius: 8px;
       font-size: 13px;
@@ -648,7 +706,7 @@ function getCoverLetterStyles(): string {
     }
 
     .cl-generate-btn:hover:not(:disabled) {
-      background: #c48a1a;
+      background: var(--brand-hover);
     }
 
     .cl-generate-btn:disabled {
@@ -674,7 +732,7 @@ function getCoverLetterStyles(): string {
       background: rgba(239,68,68,0.08);
       border: 1px solid rgba(239,68,68,0.2);
       border-radius: 6px;
-      color: #f87171;
+      color: var(--cl-rose);
       font-size: 12px;
     }
 
@@ -694,7 +752,7 @@ function getCoverLetterStyles(): string {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      color: #94a3b8;
+      color: var(--tx-secondary);
       padding: 40px;
     }
 
@@ -702,7 +760,7 @@ function getCoverLetterStyles(): string {
     .cl-loading p {
       margin: 0;
       font-size: 14px;
-      color: #64748b;
+      color: var(--tx-muted);
     }
 
     .cl-empty-state span,
@@ -713,8 +771,8 @@ function getCoverLetterStyles(): string {
     .cl-loading-spinner {
       width: 32px;
       height: 32px;
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #e8a832;
+      border: 3px solid var(--bd-default);
+      border-top-color: var(--brand);
       border-radius: 50%;
       animation: cl-spin 0.8s linear infinite;
       margin-bottom: 8px;
@@ -725,8 +783,8 @@ function getCoverLetterStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 8px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      background: #0e1219;
+      border-bottom: 1px solid var(--bd-subtle);
+      background: var(--sf-raised);
     }
 
     .cl-word-count {
@@ -744,28 +802,28 @@ function getCoverLetterStyles(): string {
       align-items: center;
       gap: 4px;
       padding: 5px 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
       border-radius: 6px;
-      background: #141820;
+      background: var(--sf-raised);
       font-size: 12px;
-      color: #64748b;
+      color: var(--tx-muted);
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .cl-tool-btn:hover {
-      background: #1a1f2b;
-      border-color: rgba(255,255,255,0.15);
+      background: var(--sf-overlay);
+      border-color: var(--bd-strong);
     }
 
     .cl-tool-btn-primary {
-      background: #e8a832;
-      border-color: #e8a832;
-      color: #0a0d13;
+      background: var(--brand);
+      border-color: var(--brand);
+      color: var(--tx-inverse);
     }
 
     .cl-tool-btn-primary:hover {
-      background: #c48a1a;
+      background: var(--brand-hover);
     }
 
     .cl-content {
@@ -778,7 +836,7 @@ function getCoverLetterStyles(): string {
       font-family: 'Calibri', 'Segoe UI', sans-serif;
       font-size: 14px;
       line-height: 1.7;
-      color: #e8ecf4;
+      color: var(--tx-primary);
     }
 
     .cl-letter-text p {
@@ -789,19 +847,19 @@ function getCoverLetterStyles(): string {
       width: 100%;
       height: 100%;
       min-height: 300px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
       border-radius: 6px;
       padding: 16px;
       font-family: 'Calibri', 'Segoe UI', sans-serif;
       font-size: 14px;
       line-height: 1.7;
-      color: #e8ecf4;
+      color: var(--tx-primary);
       resize: none;
     }
 
     .cl-edit-textarea:focus {
       outline: none;
-      border-color: #e8a832;
+      border-color: var(--brand);
       box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
     }
   `;

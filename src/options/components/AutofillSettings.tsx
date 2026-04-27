@@ -340,45 +340,51 @@ export default function AutofillSettings({ profile, onSave }: AutofillSettingsPr
           >
             <option value="citizen">US Citizen</option>
             <option value="permanent_resident">Permanent Resident / Green Card</option>
-            <option value="visa">Work Visa</option>
+            <option value="visa">Work Visa (H-1B, F-1 OPT, L-1, TN, O-1, etc.)</option>
             <option value="other">Other</option>
           </select>
+          {formData.workAuthorization !== 'visa' && (
+            <small className="section-hint" style={{ display: 'block', marginTop: 4 }}>
+              On a visa? Select <strong>Work Visa</strong> above to set your visa type (F-1 OPT,
+              H-1B, etc.) and sponsorship needs.
+            </small>
+          )}
+        </div>
+
+        {/* Sponsorship is asked on virtually every job application,
+            regardless of current visa status — surface it at top level. */}
+        <div className="form-group checkbox-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={formData.requiresSponsorship}
+              onChange={(e) => setFormData({ ...formData, requiresSponsorship: e.target.checked })}
+            />
+            <span>
+              I require visa sponsorship now or in the future (asked on most applications)
+            </span>
+          </label>
         </div>
 
         {formData.workAuthorization === 'visa' && (
-          <>
-            <div className="form-group">
-              <label>Visa Type</label>
-              <select
-                value={formData.visaType}
-                onChange={(e) => setFormData({ ...formData, visaType: e.target.value })}
-              >
-                <option value="">Select visa type...</option>
-                <option value="H-1B">H-1B (Specialty Occupation)</option>
-                <option value="L-1">L-1 (Intracompany Transfer)</option>
-                <option value="E-3">E-3 (Australian Specialty)</option>
-                <option value="TN">TN (NAFTA/USMCA)</option>
-                <option value="O-1">O-1 (Extraordinary Ability)</option>
-                <option value="F-1 OPT">F-1 OPT (Student)</option>
-                <option value="F-1 CPT">F-1 CPT (Student)</option>
-                <option value="J-1">J-1 (Exchange Visitor)</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className="form-group checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={formData.requiresSponsorship}
-                  onChange={(e) =>
-                    setFormData({ ...formData, requiresSponsorship: e.target.checked })
-                  }
-                />
-                <span>I require visa sponsorship</span>
-              </label>
-            </div>
-          </>
+          <div className="form-group">
+            <label>Visa Type</label>
+            <select
+              value={formData.visaType}
+              onChange={(e) => setFormData({ ...formData, visaType: e.target.value })}
+            >
+              <option value="">Select visa type...</option>
+              <option value="F-1 OPT">F-1 OPT (Student, post-graduation)</option>
+              <option value="F-1 CPT">F-1 CPT (Student, during program)</option>
+              <option value="H-1B">H-1B (Specialty Occupation)</option>
+              <option value="L-1">L-1 (Intracompany Transfer)</option>
+              <option value="E-3">E-3 (Australian Specialty)</option>
+              <option value="TN">TN (NAFTA/USMCA)</option>
+              <option value="O-1">O-1 (Extraordinary Ability)</option>
+              <option value="J-1">J-1 (Exchange Visitor)</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
         )}
       </div>
 

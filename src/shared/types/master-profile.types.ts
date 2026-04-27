@@ -50,8 +50,12 @@ export interface MasterProfile {
   // Autofill preferences
   autofillData?: ExtendedAutofillData;
 
-  // Generated role-specific profiles
+  // Generated role-specific profiles (legacy — kept for backwards compatibility)
   generatedProfiles: GeneratedProfile[];
+
+  // Role profiles — branches of truth (new model)
+  // Each role profile references trunk data with overrides for emphasis
+  roleProfiles?: RoleProfile[];
 }
 
 export interface ExtendedPersonalInfo {
@@ -401,6 +405,63 @@ export interface GeneratedProfile {
   // Usage tracking
   applicationsUsed: number;
   lastUsed?: Date;
+}
+
+/**
+ * Role Profile — Branch of truth
+ *
+ * The MasterProfile is the trunk (verified truth, never modified by tailoring).
+ * Role profiles are branches — same facts, different emphasis per target role.
+ * Branches store OVERRIDES only. When trunk data changes, all branches see the update.
+ *
+ * Example: Same person, two branches:
+ *   "Java Backend Engineer" → Spring bullets visible, React hidden, summary emphasizes distributed systems
+ *   "Full-Stack Developer"  → Both Spring and React visible, summary emphasizes end-to-end delivery
+ */
+export interface RoleProfile {
+  id: string;
+  masterProfileId: string;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // Identity
+  name: string; // Display name: "Java Backend Engineer"
+  targetRole: string; // Role being targeted
+  isActive: boolean;
+
+  // Tailored summary for this role
+  tailoredSummary: string;
+
+  // Skill emphasis — which skills to highlight/reorder for this role
+  // Skills not listed here are still included but not prioritized
+  skillEmphasis: string[];
+
+  // Bullet overrides — control visibility and wording per experience bullet
+  // Key: "{experienceIndex}_{bulletIndex}" (e.g., "0_2" = first job, third bullet)
+  bulletOverrides: Record<string, BulletOverride>;
+
+  // Project visibility — which projects are relevant for this role
+  // Key: project name or index. true = visible, false = hidden
+  projectVisibility: Record<string, boolean>;
+
+  // Section priority — different ordering per role
+  // Lower number = higher priority (shown first)
+  sectionPriority: Record<string, number>;
+
+  // Role strength — how strong is the candidate for this role type (0-100)
+  roleStrength: number;
+
+  // ATS keywords specific to this role
+  atsKeywords: string[];
+
+  // Usage tracking
+  applicationsUsed: number;
+  lastUsed?: Date;
+}
+
+export interface BulletOverride {
+  visible: boolean;
+  customText?: string; // Optional rewording for this role context
 }
 
 /**

@@ -11,7 +11,7 @@ import {
 // ── Test Data ────────────────────────────────────────────────────────────
 
 const HUMAN_TEXT = `
-I led the migration from a monolith to 12 microservices at Stripe, cutting deploy times from 45 minutes to under 3 minutes. Our team of 8 engineers shipped it in 6 months. The hardest part wasn't the technical work — it was convincing leadership to pause feature development for a quarter. We tracked a 40% reduction in production incidents after the switch. I'm proud of that project because it changed how our whole org thinks about deployments.
+I led the migration from a monolith to 12 microservices at Stripe, cutting deploy times from 45 minutes to under 3 minutes. Our team of 8 engineers shipped it in 6 months. The hardest part wasn't the technical work  -  it was convincing leadership to pause feature development for a quarter. We tracked a 40% reduction in production incidents after the switch. I'm proud of that project because it changed how our whole org thinks about deployments.
 `.trim();
 
 const AI_TEXT = `
@@ -19,7 +19,7 @@ I am excited to leverage my extensive experience in software engineering. I am t
 `.trim();
 
 const MIXED_TEXT = `
-Built a real-time data pipeline processing 2M events per day using Kafka and PostgreSQL. The system replaced a batch job that ran overnight. I'm happy with how the team handled the rollout — zero downtime during migration. We reduced data latency from 12 hours to under 30 seconds.
+Built a real-time data pipeline processing 2M events per day using Kafka and PostgreSQL. The system replaced a batch job that ran overnight. I'm happy with how the team handled the rollout  -  zero downtime during migration. We reduced data latency from 12 hours to under 30 seconds.
 `.trim();
 
 // ── detectAIPhraseUsage ──────────────────────────────────────────────────

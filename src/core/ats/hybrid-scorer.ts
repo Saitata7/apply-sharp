@@ -5,6 +5,7 @@
  */
 
 import type { AIService } from '@/ai';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
 import type {
   MasterProfile,
   GeneratedProfile,
@@ -12,6 +13,7 @@ import type {
 } from '@shared/types/master-profile.types';
 import type { ResumeProfile } from '@shared/types/profile.types';
 import type { ExtractedJob } from '@shared/types/job.types';
+import type { JSONSchema } from '@shared/types/ai.types';
 import { getCustomPatterns, getCustomVariations } from './custom-keywords';
 import { getAllPatterns, findKeywordByName } from './keywords';
 import {
@@ -19,6 +21,7 @@ import {
   getBackgroundConfig,
   type BackgroundType,
 } from '@shared/types/background.types';
+import { cachedAICall, generateChecksum } from '@/ai/cache';
 
 export interface KeywordWithWeight {
   keyword: string;
@@ -998,6 +1001,69 @@ function extractProfileSeniority(
   return null;
 }
 
+const DEEP_ATS_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    overallScore: { type: 'number', description: '0-100 (70+ means you would interview them)' },
+    skillMatchScore: { type: 'number', description: '0-100' },
+    experienceMatchScore: {
+      type: 'number',
+      description: '0-100 (depth + scale, not just keywords)',
+    },
+    cultureFitScore: {
+      type: 'number',
+      description: '0-100 (inferred from writing style, career choices)',
+    },
+    strengths: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'What makes this candidate stand out',
+    },
+    gaps: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Honest gaps that matter for THIS role',
+    },
+    suggestions: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Specific actions to improve chances',
+    },
+    prioritizedActions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          priority: { type: 'string', description: 'high|medium|low' },
+          action: { type: 'string' },
+          impact: { type: 'string' },
+        },
+        required: ['priority', 'action', 'impact'],
+      },
+    },
+    competitivePosition: {
+      type: 'string',
+      description: 'Where they stand vs typical applicant pool',
+    },
+    aiAnalysis: {
+      type: 'string',
+      description: '2-3 sentences: honest assessment a recruiter would give',
+    },
+  },
+  required: [
+    'overallScore',
+    'skillMatchScore',
+    'experienceMatchScore',
+    'cultureFitScore',
+    'strengths',
+    'gaps',
+    'suggestions',
+    'prioritizedActions',
+    'competitivePosition',
+    'aiAnalysis',
+  ],
+};
+
 /**
  * Deep ATS Score - Strategic AI-powered analysis
  * Uses the same 3-step approach as resume optimization
@@ -1013,10 +1079,13 @@ export async function calculateDeepATSScore(
   // Build profile context for AI
   const profileContext = buildProfileContext(profile);
 
-  // Strategic prompt that thinks like a hiring manager
-  const prompt = `You are a senior hiring manager at ${job.company || 'a tech company'} evaluating a candidate for the "${job.title}" role.
+  // Strategic system+user prompt that thinks like a hiring manager
+  const deepScoreSystemPrompt = buildSystemPrompt(
+    `${PERSONAS.HIRING_MANAGER} You are evaluating a candidate for the "${job.title}" role at ${job.company || 'a tech company'}.`,
+    [CORE_RULES]
+  );
 
-## YOUR MINDSET
+  const deepScoreUserPrompt = `## YOUR MINDSET
 Think about what you REALLY need for this role, not just keyword matching:
 - What business problem will this person solve?
 - What's the #1 thing that would make them successful?
@@ -1044,41 +1113,40 @@ Think step by step:
 4. RED FLAGS: What concerns would make you hesitate?
 5. COMPETITIVE POSITION: How do they compare to typical applicants you see?
 
-Return a JSON object:
-{
-  "overallScore": 0-100 (be honest - 70+ means you'd interview them),
-  "skillMatchScore": 0-100,
-  "experienceMatchScore": 0-100 (depth + scale, not just keywords),
-  "cultureFitScore": 0-100 (inferred from writing style, career choices),
-  "strengths": ["What makes this candidate stand out (be specific)", "...", "..."],
-  "gaps": ["Honest gaps that matter for THIS role", "..."],
-  "suggestions": [
-    "Specific action to improve chances (not generic advice)",
-    "How to address the biggest gap",
-    "What to emphasize in the interview"
-  ],
-  "prioritizedActions": [
-    {"priority": "high", "action": "Most impactful thing to do NOW", "impact": "Why this matters"},
-    {"priority": "medium", "action": "...", "impact": "..."}
-  ],
-  "competitivePosition": "One sentence: where they stand vs typical applicant pool",
-  "aiAnalysis": "2-3 sentences: honest assessment a recruiter would give their colleague"
-}
-
 Be direct and honest. Inflated scores waste everyone's time.`;
 
+  const TTL_12H = 12 * 60 * 60 * 1000;
+  const deepScoreCacheKey = `deep-ats:${generateChecksum(job.description + profileContext)}`;
+
   try {
-    const response = await aiService.chat([{ role: 'user', content: prompt }], {
-      temperature: 0.3,
-      maxTokens: 1500,
-    });
-
-    const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
-    }
-
-    const aiResult = JSON.parse(jsonMatch[0]);
+    const aiResult = await cachedAICall(
+      deepScoreCacheKey,
+      () =>
+        aiService.chatStructured<{
+          overallScore: number;
+          skillMatchScore: number;
+          experienceMatchScore: number;
+          cultureFitScore: number;
+          strengths: string[];
+          gaps: string[];
+          suggestions: string[];
+          prioritizedActions: Array<{ priority: string; action: string; impact: string }>;
+          competitivePosition: string;
+          aiAnalysis: string;
+        }>(
+          [
+            { role: 'system', content: deepScoreSystemPrompt },
+            { role: 'user', content: deepScoreUserPrompt },
+          ],
+          DEEP_ATS_SCHEMA,
+          'deep_ats_score',
+          {
+            temperature: 0.3,
+            maxTokens: 1500,
+          }
+        ),
+      TTL_12H
+    );
 
     return {
       ...quickScore,
@@ -1090,7 +1158,10 @@ Be direct and honest. Inflated scores waste everyone's time.`;
       strengths: aiResult.strengths || [],
       gaps: aiResult.gaps || [],
       suggestions: aiResult.suggestions || [],
-      prioritizedActions: aiResult.prioritizedActions || [],
+      prioritizedActions: (aiResult.prioritizedActions || []).map((a) => ({
+        ...a,
+        priority: a.priority as PrioritizedAction['priority'],
+      })),
       competitivePosition: aiResult.competitivePosition || 'Unable to assess',
       aiAnalysis: aiResult.aiAnalysis || 'Analysis unavailable',
       tier: getTier(aiResult.overallScore || quickScore.score),
@@ -1294,6 +1365,95 @@ ATS Keywords: ${gp.atsKeywords?.join(', ') || 'N/A'}
 /**
  * Get score color for UI
  */
+// ── Semantic ATS Score (optional, requires embeddings) ───────────────────
+
+export interface SemanticATSScore {
+  /** Semantic similarity score 0-100 */
+  semanticScore: number;
+  /** Keywords that matched semantically but not via exact string match */
+  semanticMatches: Array<{ keyword: string; matchedTo: string; similarity: number }>;
+  /** Combined score: weighted blend of quick score + semantic score */
+  combinedScore: number;
+}
+
+/**
+ * Augment a QuickATSScore with semantic similarity matching.
+ * Uses embeddings to find semantically equivalent terms that
+ * exact string matching would miss (e.g., "microservices" ≈ "distributed systems").
+ *
+ * This is a separate function (not inlined into calculateQuickATSScore)
+ * because it requires async API calls and is optional.
+ *
+ * @param quickScore - The existing quick ATS score result
+ * @param profileSkillTexts - Array of skill strings from the profile
+ * @param embeddingsService - An initialized EmbeddingsService instance
+ * @returns Semantic score data to augment the quick score, or null if scoring fails
+ */
+export async function calculateSemanticATSScore(
+  quickScore: QuickATSScore,
+  profileSkillTexts: string[],
+  embeddingsService: {
+    findMostSimilar: (
+      query: string,
+      candidates: string[],
+      topK?: number
+    ) => Promise<Array<{ text: string; score: number }>>;
+  }
+): Promise<SemanticATSScore | null> {
+  try {
+    if (quickScore.missingKeywords.length === 0 || profileSkillTexts.length === 0) {
+      return null;
+    }
+
+    const SEMANTIC_THRESHOLD = 0.75; // Minimum cosine similarity to count as a match
+    const semanticMatches: SemanticATSScore['semanticMatches'] = [];
+
+    // For each "missing" keyword, check if the profile has a semantic equivalent
+    // Process in batches to limit API calls
+    const missingToCheck = quickScore.missingKeywords.slice(0, 15);
+
+    for (const keyword of missingToCheck) {
+      try {
+        const similar = await embeddingsService.findMostSimilar(keyword, profileSkillTexts, 1);
+        if (similar.length > 0 && similar[0].score >= SEMANTIC_THRESHOLD) {
+          semanticMatches.push({
+            keyword,
+            matchedTo: similar[0].text,
+            similarity: similar[0].score,
+          });
+        }
+      } catch {
+        // Skip individual keyword failures silently
+        continue;
+      }
+    }
+
+    if (semanticMatches.length === 0) {
+      return null;
+    }
+
+    // Calculate semantic score: what percentage of missing keywords had semantic matches
+    const semanticMatchRate = semanticMatches.length / missingToCheck.length;
+    const semanticScore = Math.round(semanticMatchRate * 100);
+
+    // Combined score: 75% quick (exact match) + 25% semantic bonus
+    // Semantic bonus is capped  -  it augments, not replaces, exact matching
+    const semanticBonus = Math.round(
+      semanticMatches.length * (100 / quickScore.weightedKeywords.length) * 0.25
+    );
+    const combinedScore = Math.min(quickScore.score + semanticBonus, 95);
+
+    return {
+      semanticScore,
+      semanticMatches,
+      combinedScore,
+    };
+  } catch (error) {
+    console.debug('[SemanticATS] Semantic scoring failed, falling back to quick score:', error);
+    return null;
+  }
+}
+
 export function getScoreColor(score: number): string {
   if (score >= 80) return '#22c55e'; // green
   if (score >= 60) return '#eab308'; // yellow

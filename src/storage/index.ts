@@ -5,3 +5,4 @@ export { jobRepo } from './repositories/job.repo';
 export { applicationRepo } from './repositories/application.repo';
 export { settingsRepo } from './repositories/settings.repo';
 export { resumeVersionRepo } from './repositories/resume-version.repo';
+export { contactRepo } from './repositories/contact.repo';

@@ -16,7 +16,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const { profile, allProfiles } = useProfile();
   const [applications, setApplications] = useState<ApplicationWithJob[]>([]);
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
   const [learningInsights, setLearningInsights] = useState<{
     topKeywords?: { keyword: string; score: number }[];
   } | null>(null);
@@ -24,10 +23,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     Array<{ type: string; title: string; description: string; priority: string }>
   >([]);
 
+  // Kick off all loads in parallel; do NOT gate the page on any of them.
+  // Previously a global loading flag waited for Promise.all of 4 async
+  // background calls — if one hung (e.g., learning service IndexedDB
+  // first-init), the whole page sat on "Loading dashboard..." for minutes.
+  // Each section already renders sensibly with empty data.
   useEffect(() => {
-    Promise.all([loadApplications(), loadInsights(), loadSavedJobs(), loadImprovements()]).finally(
-      () => setLoading(false)
-    );
+    void loadApplications();
+    void loadInsights();
+    void loadSavedJobs();
+    void loadImprovements();
   }, []);
 
   async function loadApplications() {
@@ -164,14 +169,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return { score: Math.round((done / items.length) * 100), items };
   }, [profile, aiConfigured]);
 
-  if (loading) {
-    return (
-      <div className="page-loading" role="status">
-        Loading dashboard...
-      </div>
-    );
-  }
-
   const name = profile?.personal?.fullName?.split(' ')[0] || 'there';
   const roleCount = profile?.generatedProfiles?.length ?? 0;
 
@@ -303,7 +300,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </svg>
               Upload Resume
             </button>
-            <button className="dashboard-action-btn" onClick={() => onNavigate('atsscore')}>
+            <button className="dashboard-action-btn" onClick={() => onNavigate('assistant')}>
               <svg
                 width="18"
                 height="18"
@@ -313,9 +310,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 strokeWidth="2"
                 aria-hidden="true"
               >
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <circle cx="9" cy="11" r="1" />
+                <circle cx="15" cy="11" r="1" />
               </svg>
-              ATS Score
+              Ask Assistant
             </button>
             <button className="dashboard-action-btn" onClick={() => onNavigate('profiles')}>
               <svg
@@ -331,22 +330,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 <polyline points="14 2 14 8 20 8" />
               </svg>
               Generate Resume
-            </button>
-            <button className="dashboard-action-btn" onClick={() => onNavigate('analytics')}>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-              Full Analytics
             </button>
           </div>
 

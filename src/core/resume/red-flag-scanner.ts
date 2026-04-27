@@ -160,7 +160,7 @@ function detectEmploymentGaps(experience: EnrichedExperience[]): RedFlag[] {
         severity: 'error',
         message: `${gapMonths}-month employment gap between ${current.company} and ${next.company}`,
         suggestion:
-          'Address this gap in your cover letter — mention freelance work, education, personal development, or caregiving',
+          'Address this gap in your cover letter  -  mention freelance work, education, personal development, or caregiving',
         details: `${formatDateShort(currentEnd)} to ${formatDateShort(nextStart)}`,
       });
     } else if (gapMonths >= 6) {
@@ -168,7 +168,7 @@ function detectEmploymentGaps(experience: EnrichedExperience[]): RedFlag[] {
         category: 'employment-gap',
         severity: 'warning',
         message: `${gapMonths}-month gap between ${current.company} and ${next.company}`,
-        suggestion: 'Consider briefly explaining this gap — employers notice gaps over 6 months',
+        suggestion: 'Consider briefly explaining this gap  -  employers notice gaps over 6 months',
         details: `${formatDateShort(currentEnd)} to ${formatDateShort(nextStart)}`,
       });
     }
@@ -178,7 +178,7 @@ function detectEmploymentGaps(experience: EnrichedExperience[]): RedFlag[] {
 }
 
 function detectJobHopping(experience: EnrichedExperience[]): RedFlag[] {
-  // Only count full-time roles — short contracts/freelance/internships are expected
+  // Only count full-time roles  -  short contracts/freelance/internships are expected
   const fullTimeRoles = experience.filter(
     (exp) => exp.employmentType === 'full-time' || !exp.employmentType
   );
@@ -192,7 +192,7 @@ function detectJobHopping(experience: EnrichedExperience[]): RedFlag[] {
       {
         category: 'job-hopping',
         severity: 'warning',
-        message: `${shortRoles.length} full-time roles lasted under 18 months — may appear as job hopping`,
+        message: `${shortRoles.length} full-time roles lasted under 18 months  -  may appear as job hopping`,
         suggestion:
           'Emphasize growth and accomplishments at each role to show intentional career moves, not instability',
         details: shortRoles.map((r) => `${r.company} (${r.durationMonths} months)`).join(', '),
@@ -222,7 +222,7 @@ function checkContactInfo(personal: ExtendedPersonalInfo): RedFlag[] {
       category: 'contact-info',
       severity: 'error',
       message: 'Missing email address',
-      suggestion: 'Add a professional email address — this is essential for applications',
+      suggestion: 'Add a professional email address  -  this is essential for applications',
     });
   }
 
@@ -231,7 +231,7 @@ function checkContactInfo(personal: ExtendedPersonalInfo): RedFlag[] {
       category: 'contact-info',
       severity: 'warning',
       message: 'Missing phone number',
-      suggestion: 'Add a phone number — many recruiters prefer to call rather than email',
+      suggestion: 'Add a phone number  -  many recruiters prefer to call rather than email',
     });
   }
 
@@ -240,7 +240,7 @@ function checkContactInfo(personal: ExtendedPersonalInfo): RedFlag[] {
       category: 'contact-info',
       severity: 'warning',
       message: 'Missing LinkedIn URL',
-      suggestion: '87% of recruiters check LinkedIn — add your profile URL to your resume',
+      suggestion: '87% of recruiters check LinkedIn  -  add your profile URL to your resume',
     });
   }
 
@@ -278,7 +278,7 @@ function checkSummary(careerContext: CareerContext | undefined): RedFlag[] {
     flags.push({
       category: 'generic-language',
       severity: 'warning',
-      message: `Professional summary is only ${wordCount} words — too brief to make an impact`,
+      message: `Professional summary is only ${wordCount} words  -  too brief to make an impact`,
       suggestion:
         'Expand your summary to 50-80 words with specific achievements and target role alignment',
     });
@@ -293,7 +293,7 @@ function checkSummary(careerContext: CareerContext | undefined): RedFlag[] {
       severity: 'warning',
       message: `Summary uses generic language: "${foundPhrases.join('", "')}"`,
       suggestion:
-        'Replace clichés with specific achievements — "results-driven" → "Delivered 3 products generating $2M ARR"',
+        'Replace clichés with specific achievements  -  "results-driven" → "Delivered 3 products generating $2M ARR"',
     });
   }
 
@@ -355,7 +355,7 @@ function checkAchievements(experience: EnrichedExperience[]): RedFlag[] {
         severity: 'warning',
         message: `Only 1 bullet point for ${exp.title} at ${exp.company}`,
         suggestion:
-          'Add at least 3 bullets per role — highlight different achievements, skills, and impacts',
+          'Add at least 3 bullets per role  -  highlight different achievements, skills, and impacts',
       });
     }
   }

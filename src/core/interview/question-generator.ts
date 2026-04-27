@@ -7,8 +7,10 @@
 
 import type { AIService } from '@ai/index';
 import type { MasterProfile } from '@shared/types/master-profile.types';
-import { PROMPT_SAFETY_PREAMBLE, sanitizePromptInput } from '@shared/utils/prompt-safety';
-import { extractJSONFromResponse } from '@shared/utils/json-utils';
+import type { JSONSchema } from '@shared/types/ai.types';
+import { sanitizePromptInput } from '@shared/utils/prompt-safety';
+import { buildSystemPrompt, PERSONAS, CORE_RULES } from '@/ai/prompts/system-rules';
+import { cachedAICall, generateChecksum } from '@/ai/cache';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -127,6 +129,58 @@ export function buildProfileContext(profile: MasterProfile): ProfileContext {
   };
 }
 
+// ── Schemas ─────────────────────────────────────────────────────────────
+
+const QUESTIONS_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    questions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          category: {
+            type: 'string',
+            description:
+              'behavioral|technical|role_specific|company_culture|weakness_gap|curveball',
+          },
+          question: { type: 'string' },
+          why: {
+            type: 'string',
+            description: 'One sentence explaining why this question is likely',
+          },
+          difficulty: { type: 'string', description: 'easy|medium|hard' },
+          tips: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['id', 'category', 'question', 'why', 'difficulty', 'tips'],
+      },
+    },
+    companyInsights: { type: 'array', items: { type: 'string' } },
+    generalTips: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['questions', 'companyInsights', 'generalTips'],
+};
+
+const ANSWERS_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    answers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          questionId: { type: 'string' },
+          answer: { type: 'string', description: 'Full 3-5 sentence STAR answer' },
+          keyPoints: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['questionId', 'answer', 'keyPoints'],
+      },
+    },
+  },
+  required: ['answers'],
+};
+
 // ── AI Generation ───────────────────────────────────────────────────────
 
 export async function generateInterviewPrep(
@@ -139,10 +193,8 @@ export async function generateInterviewPrep(
   const ctx = buildProfileContext(profile);
 
   // ── Call 1: Generate questions ──────────────────────────────────────
-  const questionsPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are an expert interview coach preparing a candidate for a specific job interview.
-Generate exactly 12 interview questions that are LIKELY to be asked for this role.
+  const qSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+  const qUserPrompt = `You are preparing a candidate for a specific job interview. Generate exactly 12 interview questions that are LIKELY to be asked for this role.
 
 CANDIDATE PROFILE:
 - Name: ${ctx.name}
@@ -170,38 +222,32 @@ Generate exactly 12 questions with this distribution:
 - 1 weakness_gap (addressing resume gaps vs JD requirements)
 - 1 curveball (uncommon but realistic for this role level)
 
-Respond with a JSON object:
-{
-  "questions": [
-    {
-      "id": "q1",
-      "category": "behavioral",
-      "question": "...",
-      "why": "One sentence explaining why this question is likely",
-      "difficulty": "easy|medium|hard",
-      "tips": ["tip 1", "tip 2"]
-    }
-  ],
-  "companyInsights": ["Research suggestion 1", "Research suggestion 2", "Research suggestion 3"],
-  "generalTips": ["Tip based on role level 1", "Tip 2", "Tip 3"]
-}
+Provide questions, companyInsights, and generalTips.`;
 
-Return ONLY valid JSON, no other text.`;
+  const TTL_24H = 24 * 60 * 60 * 1000;
+  const questionsCacheKey = `interview-q:${generateChecksum(jobTitle + companyName + ctx.title + ctx.seniority)}`;
 
-  const questionsResponse = await aiService.chat([{ role: 'user', content: questionsPrompt }], {
-    temperature: 0.4,
-    maxTokens: 2500,
-  });
-
-  if (!questionsResponse?.content) {
-    throw new Error('Failed to generate interview questions');
-  }
-
-  const questionsData = extractJSONFromResponse<{
-    questions: InterviewQuestion[];
-    companyInsights: string[];
-    generalTips: string[];
-  }>(questionsResponse.content);
+  const questionsData = await cachedAICall(
+    questionsCacheKey,
+    () =>
+      aiService.chatStructured<{
+        questions: InterviewQuestion[];
+        companyInsights: string[];
+        generalTips: string[];
+      }>(
+        [
+          { role: 'system', content: qSystemPrompt },
+          { role: 'user', content: qUserPrompt },
+        ],
+        QUESTIONS_SCHEMA,
+        'interview_questions',
+        {
+          temperature: 0.4,
+          maxTokens: 2000,
+        }
+      ),
+    TTL_24H
+  );
 
   if (!questionsData?.questions?.length) {
     throw new Error('Failed to parse interview questions from AI response');
@@ -212,10 +258,9 @@ Return ONLY valid JSON, no other text.`;
     .map((q, i) => `${i + 1}. [${q.id}] ${q.question}`)
     .join('\n');
 
-  const answersPrompt = `${PROMPT_SAFETY_PREAMBLE}
-
-You are an expert interview coach preparing STAR-method answers for a candidate.
-Use ONLY the candidate's real experience — NEVER fabricate achievements or metrics.
+  const aSystemPrompt = buildSystemPrompt(PERSONAS.CAREER_ADVISOR, [CORE_RULES]);
+  const aUserPrompt = `You are preparing STAR-method answers for a candidate's interview.
+Use ONLY the candidate's real experience  -  NEVER fabricate achievements or metrics.
 
 CANDIDATE PROFILE:
 - Name: ${ctx.name}
@@ -227,7 +272,7 @@ RECENT EXPERIENCE:
 ${ctx.recentExperience}
 
 KEY ACCOMPLISHMENTS:
-${ctx.accomplishments || 'Not provided — use experience details above'}
+${ctx.accomplishments || 'Not provided  -  use experience details above'}
 
 TARGET ROLE: ${sanitizePromptInput(jobTitle, 'job_title')} at ${sanitizePromptInput(companyName, 'company_name')}
 
@@ -236,40 +281,30 @@ ${questionsList}
 
 For each question, generate a prepared answer using the STAR method (Situation, Task, Action, Result) where applicable. For technical or company questions, provide structured talking points instead.
 
-Respond with a JSON object:
-{
-  "answers": [
-    {
-      "questionId": "q1",
-      "answer": "Full 3-5 sentence answer using real experience...",
-      "keyPoints": ["Quick bullet 1", "Quick bullet 2", "Quick bullet 3"]
-    }
-  ]
-}
-
 CRITICAL RULES:
-- Reference REAL experience from the profile — no fabricated stories
+- Reference REAL experience from the profile  -  no fabricated stories
 - If no specific experience matches, frame transferable skills honestly
 - Keep answers concise (3-5 sentences) but specific
 - For "weakness" questions, show genuine self-awareness with a growth plan
-- For company/culture questions, suggest what to research (don't make up facts)
-
-Return ONLY valid JSON, no other text.`;
+- For company/culture questions, suggest what to research (don't make up facts)`;
 
   let answers: PreparedAnswer[] = [];
   try {
-    const answersResponse = await aiService.chat([{ role: 'user', content: answersPrompt }], {
-      temperature: 0.5,
-      maxTokens: 3500,
-    });
-
-    if (answersResponse?.content) {
-      const answersData = extractJSONFromResponse<{ answers: PreparedAnswer[] }>(
-        answersResponse.content
-      );
-      if (answersData?.answers?.length) {
-        answers = answersData.answers;
+    const answersData = await aiService.chatStructured<{ answers: PreparedAnswer[] }>(
+      [
+        { role: 'system', content: aSystemPrompt },
+        { role: 'user', content: aUserPrompt },
+      ],
+      ANSWERS_SCHEMA,
+      'interview_answers',
+      {
+        temperature: 0.5,
+        maxTokens: 1000,
       }
+    );
+
+    if (answersData?.answers?.length) {
+      answers = answersData.answers;
     }
   } catch (error) {
     console.warn('[InterviewPrep] Answer generation failed, returning questions only:', error);

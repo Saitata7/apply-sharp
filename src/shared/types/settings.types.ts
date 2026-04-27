@@ -4,7 +4,7 @@ import {
   DEFAULT_OLLAMA_CONTEXT_LENGTH,
 } from '@shared/constants/models';
 
-export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'groq';
+export type AIProvider = 'gemini-nano' | 'ollama' | 'openai' | 'anthropic' | 'groq';
 
 export interface UserSettings {
   id: string;

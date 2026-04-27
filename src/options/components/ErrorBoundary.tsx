@@ -29,8 +29,8 @@ export default class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>Something went wrong</h2>
-          <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+          <h2 style={{ color: 'var(--cl-rose)', marginBottom: '1rem' }}>Something went wrong</h2>
+          <p style={{ color: 'var(--tx-secondary)', marginBottom: '1rem' }}>
             {this.state.error?.message || 'An unexpected error occurred.'}
           </p>
           {canRetry ? (
@@ -43,18 +43,19 @@ export default class ErrorBoundary extends Component<Props, State> {
                 }))
               }
               style={{
-                padding: '0.5rem 1rem',
-                background: '#e8a832',
-                color: '#0a0d13',
+                padding: '0.5rem 1.25rem',
+                background: 'var(--brand)',
+                color: '#ffffff',
                 border: 'none',
-                borderRadius: '0.375rem',
+                borderRadius: 999,
                 cursor: 'pointer',
+                fontWeight: 600,
               }}
             >
               Try Again ({this.state.retryCount + 1}/{MAX_RETRIES})
             </button>
           ) : (
-            <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+            <p style={{ color: 'var(--tx-muted)', fontSize: '0.875rem' }}>
               Max retries reached. Please reload the page.
             </p>
           )}

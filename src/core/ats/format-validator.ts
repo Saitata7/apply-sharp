@@ -67,7 +67,7 @@ const DANGEROUS_DATE_PATTERNS = [
   /'\d{2}/, // '23
   /summer|spring|fall|winter|autumn/i, // Seasonal
   /ongoing/i, // "Ongoing" instead of "Present"
-  /^\d{4}\s*[-–—]\s*\d{4}$/, // Just years (2022-2023)
+  /^\d{4}\s*[-–\u2014]\s*\d{4}$/, // Just years (2022-2023). \u2014 is the em-dash, restored after the project-wide em-dash sweep because it must remain in DETECTION patterns even though we ban it from generated output.
 ];
 
 /** Common tech acronyms that should also include full form */
@@ -356,7 +356,7 @@ function validateKeywordDensity(
     issues.push({
       category: 'keywords',
       severity: 'info',
-      message: `"${word}" appears ${count} times — may seem repetitive`,
+      message: `"${word}" appears ${count} times  -  may seem repetitive`,
       suggestion: `Try to limit to 4-5 uses max. Use variations or synonyms.`,
     });
     score -= 5;
@@ -450,7 +450,7 @@ function validatePageCount(
     issues.push({
       category: 'page_count',
       severity,
-      message: `Resume is ${pageCount} page(s) — exceeds recommended ${targetPages[1]} for ${yearsOfExperience} years experience`,
+      message: `Resume is ${pageCount} page(s)  -  exceeds recommended ${targetPages[1]} for ${yearsOfExperience} years experience`,
       suggestion:
         yearsOfExperience <= 5
           ? 'Entry-level resumes should be 1 page. Remove older or less relevant experience.'
@@ -498,7 +498,7 @@ function validateAcronyms(fullText: string, issues: FormatIssue[]): number {
       issues.push({
         category: 'acronyms',
         severity: 'warning',
-        message: `${missingCount} acronym(s) missing full form — ATS may not recognize them`,
+        message: `${missingCount} acronym(s) missing full form  -  ATS may not recognize them`,
         suggestion: 'Include both acronym and full term for key technologies',
       });
     }

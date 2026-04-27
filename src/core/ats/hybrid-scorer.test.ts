@@ -244,7 +244,7 @@ describe('calculateQuickATSScore', () => {
       - Brand management experience
     `;
     const result = calculateQuickATSScore(profile, jd);
-    // The profile has CS skills and the JD is marketing — should detect mismatch
+    // The profile has CS skills and the JD is marketing  -  should detect mismatch
     // (depends on background detection working, but the function should not crash)
     expect(result.detectedJobBackground).toBeDefined();
     expect(typeof result.backgroundMismatch).toBe('boolean');

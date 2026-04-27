@@ -43,7 +43,7 @@ describe('AdaptiveKeywordDB', () => {
     it('initializes with HIGH_VALUE_KEYWORDS when no saved data exists', async () => {
       // Wait for init
       const recs = db.getRecommendations(['JavaScript'], [], 'linkedin');
-      // Should not crash — init is async but getRecommendations is sync
+      // Should not crash  -  init is async but getRecommendations is sync
       expect(Array.isArray(recs)).toBe(true);
     });
 

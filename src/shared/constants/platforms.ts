@@ -61,6 +61,22 @@ export const PLATFORMS: PlatformConfig[] = [
     ],
     icon: 'wellfound',
   },
+  {
+    name: 'YC Work at a Startup',
+    platform: 'generic',
+    urlPatterns: [
+      /workatastartup\.com\/jobs\/\d+/,
+      /workatastartup\.com\/jobs\/[\w-]+/,
+      /workatastartup\.com\/companies\/[\w-]+/,
+    ],
+    icon: 'workatastartup',
+  },
+  {
+    name: 'Himalayas',
+    platform: 'generic',
+    urlPatterns: [/himalayas\.app\/jobs\//, /himalayas\.app\/companies\/[\w-]+\/jobs\//],
+    icon: 'himalayas',
+  },
 
   // ATS Platforms
   {

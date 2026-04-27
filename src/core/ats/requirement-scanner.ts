@@ -405,7 +405,7 @@ export function parseSponsorshipStatus(jobDescription: string): SponsorshipStatu
     if (pattern.test(jobDescription)) return 'available';
   }
 
-  // Check negative (no sponsorship) — use existing patterns
+  // Check negative (no sponsorship)  -  use existing patterns
   const sponsorshipEntry = REQUIREMENT_PATTERNS.find((p) => p.type === 'sponsorship');
   if (sponsorshipEntry) {
     for (const pattern of sponsorshipEntry.patterns) {

@@ -16,12 +16,26 @@ import { escapeHtml } from '@shared/utils/dom-utils';
 import { extractDeadlineFromJD } from '@core/jobs/deadline-extractor';
 
 let overlayElement: HTMLElement | null = null;
+let shadowRoot: ShadowRoot | null = null;
 let isMinimized = false;
 let currentJob: ExtractedJob | null = null;
 let currentScore: ATSScore | null = null;
 let isDragging = false;
 let dragStartY = 0;
 let panelStartTop = 0;
+
+// Scan token: incremented every time the sidebar is shown so async
+// scans (requirement gaps, profile load) can detect that they raced
+// with a navigation and bail before writing into a fresh sidebar.
+let scanToken = 0;
+
+// Document-level drag listeners are attached once for the lifetime of
+// this content-script instance. setupDrag() used to add new mousemove
+// and mouseup handlers on every sidebar render; after a few SPA
+// navigations the document accumulated stacked handlers all firing on
+// every mouse move. Now setupDrag only wires the per-render mousedown
+// onto the drag handle; the document-wide move/up listeners live here.
+let docDragListenersAttached = false;
 
 // Export state for debugging and extension communication
 export function getSidebarState() {
@@ -30,7 +44,19 @@ export function getSidebarState() {
 
 export function showSidebar(job: ExtractedJob, platform: JobPlatform): void {
   currentJob = job;
+  // Invalidate any in-flight async scans from a previous job. Their
+  // promise resolutions will compare myToken !== scanToken and bail
+  // before writing into the new shadow root.
+  scanToken += 1;
   hideSidebar();
+
+  // Defensive cleanup: hideSidebar() above only removes the overlay this
+  // module instance knows about. When the sidebar IIFE is re-injected on
+  // a LinkedIn SPA navigation the fresh module instance starts with
+  // overlayElement = null, so any prior overlay placed by an earlier
+  // injection would survive and a new one would stack on top. Sweep
+  // every #applysharp-overlay node out of the DOM before mounting.
+  document.querySelectorAll('#applysharp-overlay').forEach((el) => el.remove());
 
   overlayElement = createOverlayElement(job, platform);
   document.body.appendChild(overlayElement);
@@ -55,8 +81,14 @@ export function showSidebar(job: ExtractedJob, platform: JobPlatform): void {
       currentJob.applicationDeadline = extracted;
     }
   }
-  renderDeadline(overlayElement, currentJob.applicationDeadline ?? null);
-  attachDeadlineListeners(overlayElement);
+  if (shadowRoot) {
+    renderDeadline(shadowRoot, currentJob.applicationDeadline ?? null);
+    attachDeadlineListeners(shadowRoot);
+    const emptyJdWarning = shadowRoot.querySelector('#jp-empty-jd-warning') as HTMLElement | null;
+    if (emptyJdWarning) {
+      emptyJdWarning.style.display = job.description ? 'none' : 'block';
+    }
+  }
 
   // Scan for requirement gaps (async, updates UI when done)
   scanAndShowRequirementGaps().catch((err) => {
@@ -68,6 +100,7 @@ export function hideSidebar(): void {
   if (overlayElement) {
     overlayElement.remove();
     overlayElement = null;
+    shadowRoot = null;
   }
 }
 
@@ -88,13 +121,13 @@ export function updateATSScore(
 ): void {
   currentScore = score;
 
-  if (!overlayElement) return;
+  if (!overlayElement || !shadowRoot) return;
 
-  const scoreEl = overlayElement.querySelector('#jp-ats-score');
-  const scoreCircle = overlayElement.querySelector('#jp-score-circle');
-  const matchedEl = overlayElement.querySelector('#jp-matched-keywords');
-  const missingEl = overlayElement.querySelector('#jp-missing-keywords');
-  const analyzeBtn = overlayElement.querySelector('#jp-analyze-btn') as HTMLButtonElement;
+  const scoreEl = shadowRoot.querySelector('#jp-ats-score');
+  const scoreCircle = shadowRoot.querySelector('#jp-score-circle');
+  const matchedEl = shadowRoot.querySelector('#jp-matched-keywords');
+  const missingEl = shadowRoot.querySelector('#jp-missing-keywords');
+  const analyzeBtn = shadowRoot.querySelector('#jp-analyze-btn') as HTMLButtonElement;
 
   // If background mismatch, show "--" instead of score
   const hasBackgroundMismatch = score.backgroundMismatch === true;
@@ -190,8 +223,8 @@ export function updateATSScore(
   }
 
   // Show background mismatch warning prominently (always visible)
-  const mismatchSection = overlayElement.querySelector('#jp-mismatch-section') as HTMLElement;
-  const mismatchContent = overlayElement.querySelector('#jp-mismatch-content');
+  const mismatchSection = shadowRoot.querySelector('#jp-mismatch-section') as HTMLElement;
+  const mismatchContent = shadowRoot.querySelector('#jp-mismatch-content');
 
   if (mismatchSection && mismatchContent) {
     if (score.backgroundMismatch && score.backgroundMismatchMessage) {
@@ -209,9 +242,9 @@ export function updateATSScore(
   }
 
   // Update insights section (role detection, suggestions) - collapsible
-  const insightsSection = overlayElement.querySelector('#jp-insights-section') as HTMLElement;
-  const insightsList = overlayElement.querySelector('#jp-insights-list') as HTMLElement;
-  const insightsCount = overlayElement.querySelector('#jp-insights-count');
+  const insightsSection = shadowRoot.querySelector('#jp-insights-section') as HTMLElement;
+  const insightsList = shadowRoot.querySelector('#jp-insights-list') as HTMLElement;
+  const insightsCount = shadowRoot.querySelector('#jp-insights-count');
 
   if (insightsSection && insightsList) {
     const insights: string[] = [];
@@ -252,6 +285,70 @@ export function updateATSScore(
   }
 }
 
+/**
+ * Update the ghost score circle + alert pill. Lower total = better
+ * (less ghost-like). Buckets:
+ *   < 30   green  "looks legit"
+ *   30-59  yellow "apply with caution"
+ *   60-79  red    "likely ghost"
+ *   >= 80  red    "skip - ghost job"
+ *
+ * Also shows a critical alert pill above the score section when the
+ * total is >= 60 so the user sees the warning before reading anything else.
+ *
+ * Graceful degradation: if the sidebar HTML doesn't have the ghost
+ * elements (e.g. older overlay variant), this function silently no-ops
+ * instead of throwing.
+ */
+export function updateGhostScore(data: {
+  total?: number;
+  bucket?: string;
+  recommendation?: string;
+}): void {
+  if (!overlayElement || !shadowRoot) return;
+
+  const numEl = shadowRoot.querySelector('#jp-ghost-score');
+  const circle = shadowRoot.querySelector('#jp-ghost-circle');
+  const wrap = shadowRoot.querySelector('#jp-ghost-wrap') as HTMLElement | null;
+  const alert = shadowRoot.querySelector('#jp-ghost-alert') as HTMLElement | null;
+  const alertText = shadowRoot.querySelector('#jp-ghost-alert-text');
+
+  if (!numEl || !circle) return; // older overlay variant; no-op
+
+  const total = typeof data.total === 'number' ? data.total : 0;
+  numEl.textContent = `${total}`;
+  circle.className = 'jp-ghost-circle';
+  if (total < 30) circle.classList.add('jp-ghost-good');
+  else if (total < 60) circle.classList.add('jp-ghost-warn');
+  else circle.classList.add('jp-ghost-bad');
+
+  // Tooltip on hover so the user can see what the score means
+  if (wrap) {
+    const verdict =
+      total < 30
+        ? 'looks legit'
+        : total < 60
+          ? 'apply with caution'
+          : total < 80
+            ? 'likely ghost'
+            : 'skip - ghost job';
+    wrap.title = `Ghost risk ${total}/100 - ${verdict} (lower is better)`;
+  }
+
+  // Critical alert pill at the top of the body when ghost is high
+  if (alert && alertText) {
+    if (total >= 60) {
+      alertText.textContent =
+        total >= 80
+          ? `Likely ghost job (${total}/100). Consider skipping.`
+          : `Likely ghost job (${total}/100). Apply only with referral.`;
+      alert.style.display = 'flex';
+    } else {
+      alert.style.display = 'none';
+    }
+  }
+}
+
 function formatBackground(background: string): string {
   const names: Record<string, string> = {
     'computer-science': 'Software/Tech',
@@ -272,10 +369,10 @@ function formatBackground(background: string): string {
  * Update the requirement gaps section based on JD analysis
  */
 export function updateRequirementGaps(gaps: RequirementGap[]): void {
-  if (!overlayElement) return;
+  if (!overlayElement || !shadowRoot) return;
 
-  const gapsSection = overlayElement.querySelector('#jp-gaps-section') as HTMLElement;
-  const gapsList = overlayElement.querySelector('#jp-gaps-list');
+  const gapsSection = shadowRoot.querySelector('#jp-gaps-section') as HTMLElement;
+  const gapsList = shadowRoot.querySelector('#jp-gaps-list');
 
   if (!gapsSection || !gapsList) return;
 
@@ -316,9 +413,9 @@ function updateSponsorshipBadge(
   status: SponsorshipStatus,
   userRequiresSponsorship?: boolean
 ): void {
-  if (!overlayElement) return;
-  const badge = overlayElement.querySelector('#jp-sponsorship-badge') as HTMLElement;
-  const warning = overlayElement.querySelector('#jp-visa-warning') as HTMLElement;
+  if (!overlayElement || !shadowRoot) return;
+  const badge = shadowRoot.querySelector('#jp-sponsorship-badge') as HTMLElement;
+  const warning = shadowRoot.querySelector('#jp-visa-warning') as HTMLElement;
   if (!badge) return;
 
   if (status === 'not_available') {
@@ -372,7 +469,7 @@ function formatDeadlineDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function renderDeadline(overlay: HTMLElement, deadline: Date | null): void {
+function renderDeadline(overlay: ShadowRoot | HTMLElement, deadline: Date | null): void {
   const row = overlay.querySelector('#jp-deadline-row') as HTMLElement;
   const label = overlay.querySelector('#jp-deadline-label') as HTMLElement;
   if (!row || !label) return;
@@ -396,7 +493,7 @@ function renderDeadline(overlay: HTMLElement, deadline: Date | null): void {
   row.className = `jp-deadline-row ${urgencyClass}`;
 }
 
-function attachDeadlineListeners(overlay: HTMLElement): void {
+function attachDeadlineListeners(overlay: ShadowRoot | HTMLElement): void {
   const editBtn = overlay.querySelector('#jp-deadline-edit-btn');
   const saveBtn = overlay.querySelector('#jp-deadline-save-btn');
   const cancelBtn = overlay.querySelector('#jp-deadline-cancel-btn');
@@ -446,19 +543,24 @@ function attachDeadlineListeners(overlay: HTMLElement): void {
 export async function scanAndShowRequirementGaps(): Promise<void> {
   if (!currentJob || !currentJob.description) return;
 
+  // Snapshot the token for this scan. If a fresh sidebar is shown
+  // (different job), scanToken is bumped and our writes are dropped.
+  const myToken = scanToken;
+  const myJobDescription = currentJob.description;
+
   try {
-    // Get user profile data for comparison
     const profileResponse = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
 
+    if (myToken !== scanToken) return;
+
     if (!profileResponse?.success || !profileResponse.data) {
-      console.log('[ApplySharp] No profile for requirement gap analysis');
+      console.debug('[ApplySharp] No profile for requirement gap analysis');
       return;
     }
 
     const profile = profileResponse.data;
     const autofillData = profile.autofillData || {};
 
-    // Build user requirement profile for comparison
     const userProfile: UserRequirementProfile = {
       workAuthorization: autofillData.workAuthorization,
       requiresSponsorship: autofillData.requiresSponsorship,
@@ -472,28 +574,30 @@ export async function scanAndShowRequirementGaps(): Promise<void> {
       remotePreference: autofillData.remotePreference,
     };
 
-    // Scan the JD for requirements
-    const gaps = scanRequirements(currentJob.description, userProfile);
+    const gaps = scanRequirements(myJobDescription, userProfile);
 
-    // Update the UI
+    if (myToken !== scanToken) return;
+
     updateRequirementGaps(gaps);
 
-    // Detect and show sponsorship status with user context
-    const sponsorStatus = parseSponsorshipStatus(currentJob.description);
+    const sponsorStatus = parseSponsorshipStatus(myJobDescription);
     updateSponsorshipBadge(sponsorStatus, userProfile.requiresSponsorship);
 
-    console.log('[ApplySharp] Requirement gaps found:', gaps.length);
+    console.debug('[ApplySharp] Requirement gaps found:', gaps.length);
   } catch (error) {
     console.error('[ApplySharp] Failed to scan requirement gaps:', error);
   }
 }
 
 function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLElement {
-  const overlay = document.createElement('div');
-  overlay.id = 'applysharp-overlay';
-  overlay.style.transform = 'translateX(100%)';
+  const host = document.createElement('div');
+  host.id = 'applysharp-overlay';
+  host.style.cssText =
+    'position:fixed;top:100px;right:0;z-index:2147483647;transform:translateX(100%);transition:transform 0.25s ease;';
+  const shadow = host.attachShadow({ mode: 'closed' });
+  shadowRoot = shadow;
 
-  overlay.innerHTML = `
+  shadow.innerHTML = `
     <style>${getOverlayStyles()}</style>
 
     <!-- Minimized State - Vertical Tab -->
@@ -546,6 +650,9 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             <span id="jp-sponsorship-badge" style="display:none;"></span>
           </div>
           <div id="jp-visa-warning" style="display:none;"></div>
+          <div id="jp-empty-jd-warning" style="display:none; margin-top: 6px; padding: 6px 8px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.4); border-radius: 4px; font-size: 11px; line-height: 1.4; color: #d97706;">
+            ⚠ Couldn't extract the job description. Score and gap analysis run on title only. Try clicking <strong>"Show more"</strong> on the job, then re-analyze.
+          </div>
           <div class="jp-deadline-row" id="jp-deadline-row" style="display:none;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -564,7 +671,13 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
           </div>
         </div>
 
-        <!-- ATS Score -->
+        <!-- Ghost Job Alert (only shown when ghost score >= 60) -->
+        <div class="jp-ghost-alert" id="jp-ghost-alert" style="display: none;">
+          <span class="jp-ghost-alert-icon">👻</span>
+          <span id="jp-ghost-alert-text"></span>
+        </div>
+
+        <!-- Score Section: ATS + Ghost side by side -->
         <div class="jp-score-section">
           <div class="jp-score-row">
             <div class="jp-score-circle" id="jp-score-circle">
@@ -573,6 +686,12 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             <div class="jp-score-details">
               <div class="jp-score-title">ATS Match Score</div>
               <button class="jp-analyze-link" id="jp-analyze-btn">Analyze Resume Match</button>
+            </div>
+            <div class="jp-ghost-circle-wrap" id="jp-ghost-wrap" title="Ghost job risk - lower is better">
+              <div class="jp-ghost-circle" id="jp-ghost-circle">
+                <span id="jp-ghost-score">--</span>
+              </div>
+              <div class="jp-ghost-label">GHOST</div>
             </div>
           </div>
         </div>
@@ -674,6 +793,37 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
             </svg>
             Auto-Fill Application
           </button>
+
+          <!-- Quick Tailor (8.17) -->
+          <div class="jp-tailor-section" id="jp-tailor-section">
+            <div class="jp-tailor-row">
+              <button class="jp-btn jp-btn-accent" id="jp-tailor-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span id="jp-tailor-label">Tailor Resume</span>
+              </button>
+              <select class="jp-tailor-format" id="jp-tailor-format" title="Output format">
+                <option value="docx">DOCX</option>
+                <option value="pdf">PDF</option>
+              </select>
+            </div>
+            <div class="jp-tailor-progress" id="jp-tailor-progress" style="display:none">
+              <div class="jp-tailor-spinner"></div>
+              <span id="jp-tailor-step">Analyzing job...</span>
+            </div>
+            <div class="jp-tailor-result" id="jp-tailor-result" style="display:none">
+              <div class="jp-tailor-result-info">
+                <span class="jp-tailor-score-badge" id="jp-tailor-score"></span>
+                <span class="jp-tailor-changes" id="jp-tailor-changes"></span>
+              </div>
+              <div class="jp-tailor-result-actions">
+                <button class="jp-btn jp-btn-sm jp-btn-accent" id="jp-tailor-download">Download</button>
+                <button class="jp-btn jp-btn-sm jp-btn-outline" id="jp-tailor-review">Review in Options</button>
+              </div>
+            </div>
+          </div>
+
           <div class="jp-btn-row">
             <button class="jp-btn jp-btn-secondary" id="jp-cover-letter-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -718,13 +868,13 @@ function createOverlayElement(job: ExtractedJob, platform: JobPlatform): HTMLEle
   `;
 
   // Attach event listeners
-  attachEventListeners(overlay, job, platform);
+  attachEventListeners(shadow, job, platform);
 
-  return overlay;
+  return host;
 }
 
 function attachEventListeners(
-  overlay: HTMLElement,
+  overlay: ShadowRoot | HTMLElement,
   job: ExtractedJob,
   platform: JobPlatform
 ): void {
@@ -773,8 +923,8 @@ function attachEventListeners(
     const btn = overlay.querySelector('#jp-analyze-btn') as HTMLButtonElement;
     const scoreEl = overlay.querySelector('#jp-ats-score');
 
-    console.log('[ApplySharp] Re-analyze clicked, job:', job?.title, 'platform:', platform);
-    console.log('[ApplySharp] Job description length:', job?.description?.length || 0);
+    console.debug('[ApplySharp] Re-analyze clicked, job:', job?.title, 'platform:', platform);
+    console.debug('[ApplySharp] Job description length:', job?.description?.length || 0);
 
     btn.textContent = 'Analyzing...';
     btn.disabled = true;
@@ -785,16 +935,16 @@ function attachEventListeners(
         payload: { job, platform, useAI: true }, // Use AI for manual re-analyze
       });
 
-      console.log('[ApplySharp] Analyze response:', response);
+      console.debug('[ApplySharp] Analyze response:', response);
 
       if (response?.success && response.data) {
-        console.log('[ApplySharp] Score:', response.data.overallScore);
-        console.log(
+        console.debug('[ApplySharp] Score:', response.data.overallScore);
+        console.debug(
           '[ApplySharp] Matched:',
           response.data.matchedKeywords?.length || 0,
           'keywords'
         );
-        console.log(
+        console.debug(
           '[ApplySharp] Missing:',
           response.data.missingKeywords?.length || 0,
           'keywords'
@@ -877,6 +1027,106 @@ function attachEventListeners(
       .catch((err) => console.warn('[ApplySharp] Cover letter request failed:', err?.message));
   });
 
+  // Quick Tailor (8.17)
+  overlay.querySelector('#jp-tailor-btn')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#jp-tailor-btn') as HTMLButtonElement;
+    const progressEl = overlay.querySelector('#jp-tailor-progress') as HTMLElement;
+    const resultEl = overlay.querySelector('#jp-tailor-result') as HTMLElement;
+    const stepEl = overlay.querySelector('#jp-tailor-step') as HTMLElement;
+    const formatEl = overlay.querySelector('#jp-tailor-format') as HTMLSelectElement;
+
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+
+    // Show progress
+    if (progressEl) progressEl.style.display = 'flex';
+    if (resultEl) resultEl.style.display = 'none';
+
+    try {
+      // Get active profile
+      if (stepEl) stepEl.textContent = 'Loading profile...';
+      const profileRes = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_MASTER_PROFILE' });
+      if (!profileRes?.success || !profileRes.data?.id) {
+        throw new Error('No active profile. Create one in Settings first.');
+      }
+
+      const profileId = profileRes.data.id;
+      const roleId = profileRes.data.generatedProfiles?.[0]?.id || '';
+      const format = formatEl?.value || 'docx';
+
+      // Run QUICK_TAILOR
+      if (stepEl) stepEl.textContent = 'Analyzing & tailoring...';
+      const tailorRes = await chrome.runtime.sendMessage({
+        type: 'QUICK_TAILOR',
+        payload: {
+          masterProfileId: profileId,
+          roleId,
+          jobDescription: job.description || '',
+          companyName: job.company || '',
+          jobTitle: job.title || '',
+          format,
+        },
+      });
+
+      if (!tailorRes?.success) {
+        throw new Error(tailorRes?.error || 'Tailoring failed');
+      }
+
+      // Show result
+      if (progressEl) progressEl.style.display = 'none';
+      if (resultEl) resultEl.style.display = 'flex';
+
+      const scoreEl = overlay.querySelector('#jp-tailor-score') as HTMLElement;
+      const changesEl = overlay.querySelector('#jp-tailor-changes') as HTMLElement;
+      const newScore = tailorRes.data?.newScore || tailorRes.data?.tailoredContent?.newScore || 0;
+      const addedKw = tailorRes.data?.tailoredContent?.addedKeywords?.length || 0;
+
+      if (scoreEl) scoreEl.textContent = `${newScore}% match`;
+      if (changesEl) changesEl.textContent = `${addedKw} keywords added`;
+
+      // Download — open Options page with tailored content ready
+      const downloadBtn = overlay.querySelector('#jp-tailor-download');
+      downloadBtn?.addEventListener(
+        'click',
+        () => {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_OPTIONS',
+            payload: {
+              tab: 'resume',
+              jobDescription: job.description,
+              autoDownload: format,
+            },
+          });
+        },
+        { once: true }
+      );
+
+      // Review in Options handler
+      const reviewBtn = overlay.querySelector('#jp-tailor-review');
+      reviewBtn?.addEventListener(
+        'click',
+        () => {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_OPTIONS',
+            payload: { tab: 'resume', jobDescription: job.description },
+          });
+        },
+        { once: true }
+      );
+    } catch (error) {
+      const msg = (error as Error)?.message || 'Tailoring failed';
+      if (stepEl) stepEl.textContent = msg;
+      if (progressEl) {
+        progressEl.style.display = 'flex';
+        const spinner = progressEl.querySelector('.jp-tailor-spinner') as HTMLElement;
+        if (spinner) spinner.style.display = 'none';
+      }
+      console.error('[ApplySharp] Quick tailor failed:', error);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // Settings
   overlay.querySelector('#jp-settings-btn')?.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
@@ -904,7 +1154,7 @@ function attachEventListeners(
   });
 }
 
-async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
+async function loadProfilesIntoSelect(overlay: ShadowRoot | HTMLElement): Promise<void> {
   const select = overlay.querySelector('#jp-profile-select') as HTMLSelectElement;
   if (!select) return;
 
@@ -970,23 +1220,33 @@ async function loadProfilesIntoSelect(overlay: HTMLElement): Promise<void> {
         profileSection.appendChild(refreshHint);
       }
     } else {
-      select.innerHTML = '<option value="">Error loading profiles</option>';
+      select.innerHTML = '<option value="">Error loading profiles - open Options to fix</option>';
+      console.warn('[ApplySharp] Profile load failed; underlying error:', errorMessage);
     }
   }
 }
 
-function setupDrag(overlay: HTMLElement, handleSelector: string): void {
+function setupDrag(overlay: ShadowRoot | HTMLElement, handleSelector: string): void {
   const handle = overlay.querySelector(handleSelector) as HTMLElement;
   if (!handle) return;
 
+  // Per-render: mousedown lives on the drag handle inside this overlay.
+  // The handle is recreated each render so this listener naturally
+  // dies with the shadow root. No accumulation.
   handle.addEventListener('mousedown', (e: MouseEvent) => {
     isDragging = true;
     dragStartY = e.clientY;
-    panelStartTop = overlay.offsetTop;
-    overlay.style.transition = 'none';
+    panelStartTop = overlayElement?.offsetTop || 0;
+    if (overlayElement) overlayElement.style.transition = 'none';
     document.body.style.userSelect = 'none';
     e.preventDefault();
   });
+
+  // Document-wide mousemove/mouseup attach exactly once per content-script
+  // instance and read module-level isDragging + overlayElement so the
+  // current sidebar is always the target.
+  if (docDragListenersAttached) return;
+  docDragListenersAttached = true;
 
   document.addEventListener('mousemove', (e: MouseEvent) => {
     if (!isDragging || !overlayElement) return;
@@ -994,7 +1254,6 @@ function setupDrag(overlay: HTMLElement, handleSelector: string): void {
     const deltaY = e.clientY - dragStartY;
     let newTop = panelStartTop + deltaY;
 
-    // Constrain to viewport
     const panelHeight = overlayElement.offsetHeight;
     const minTop = 10;
     const maxTop = window.innerHeight - panelHeight - 10;
@@ -1009,13 +1268,12 @@ function setupDrag(overlay: HTMLElement, handleSelector: string): void {
       isDragging = false;
       overlayElement.style.transition = 'transform 0.25s ease';
       document.body.style.userSelect = '';
-      // Save position
       sessionStorage.setItem('jp-panel-top', overlayElement.style.top);
     }
   });
 }
 
-function toggleMinimize(overlay: HTMLElement, minimize: boolean): void {
+function toggleMinimize(overlay: ShadowRoot | HTMLElement, minimize: boolean): void {
   isMinimized = minimize;
   const minimized = overlay.querySelector('#jp-minimized') as HTMLElement;
   const expanded = overlay.querySelector('#jp-expanded') as HTMLElement;
@@ -1042,7 +1300,7 @@ function capitalize(str: string): string {
 /**
  * Check if the current job URL is already saved (1b.3)
  */
-async function checkIfJobSaved(overlay: HTMLElement): Promise<void> {
+async function checkIfJobSaved(overlay: ShadowRoot | HTMLElement): Promise<void> {
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'GET_JOB',
@@ -1065,7 +1323,10 @@ async function checkIfJobSaved(overlay: HTMLElement): Promise<void> {
 /**
  * Load ATS scores for all generated profiles and show comparison (1b.4)
  */
-async function loadProfileComparison(overlay: HTMLElement, job: ExtractedJob): Promise<void> {
+async function loadProfileComparison(
+  overlay: ShadowRoot | HTMLElement,
+  job: ExtractedJob
+): Promise<void> {
   if (!job.description) return;
 
   const section = overlay.querySelector('#jp-comparison-section') as HTMLElement;
@@ -1159,15 +1420,10 @@ async function loadProfileComparison(overlay: HTMLElement, job: ExtractedJob): P
 
 function getOverlayStyles(): string {
   return `
-    #applysharp-overlay {
-      position: fixed;
-      top: 100px;
-      right: 0;
-      z-index: 2147483647;
+    :host {
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 12px;
       line-height: 1.4;
-      transition: transform 0.25s ease;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -1476,6 +1732,69 @@ function getOverlayStyles(): string {
     .jp-score-circle.jp-score-low { background: #ef4444; color: white; box-shadow: 0 0 8px rgba(248,113,113,0.3); }
     .jp-score-circle.jp-score-mismatch { background: #475569; color: white; }
 
+    /* Ghost score circle - lower is better, opposite of ATS */
+    .jp-ghost-circle-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      margin-left: auto;
+      cursor: help;
+    }
+    .jp-ghost-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: #1a1f2b;
+      color: #64748b;
+      border: 2px solid #334155;
+    }
+    .jp-ghost-circle.jp-ghost-good {
+      background: rgba(16,185,129,0.15);
+      color: #34d399;
+      border-color: #10b981;
+    }
+    .jp-ghost-circle.jp-ghost-warn {
+      background: rgba(217,119,6,0.15);
+      color: #fbbf24;
+      border-color: #d97706;
+    }
+    .jp-ghost-circle.jp-ghost-bad {
+      background: rgba(239,68,68,0.15);
+      color: #f87171;
+      border-color: #ef4444;
+    }
+    .jp-ghost-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+    }
+
+    /* Ghost job alert pill - shown above scores when ghost >= 60 */
+    .jp-ghost-alert {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      margin-bottom: 8px;
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: 6px;
+      color: #fca5a5;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .jp-ghost-alert-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
     .jp-score-title {
       font-weight: 500;
       color: #94a3b8;
@@ -1780,6 +2099,106 @@ function getOverlayStyles(): string {
     .jp-btn-outline:hover { border-color: #e8a832; color: #e8a832; }
 
     .jp-btn-success { background: #10b981 !important; color: white !important; }
+
+    .jp-btn-accent { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; }
+    .jp-btn-accent:hover { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); }
+
+    .jp-btn-sm { padding: 3px 8px; font-size: 9px; }
+
+    /* Quick Tailor Section (8.17) */
+    .jp-tailor-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .jp-tailor-row {
+      display: flex;
+      gap: 0;
+    }
+
+    .jp-tailor-row .jp-btn {
+      border-radius: 5px 0 0 5px;
+      flex: 1;
+    }
+
+    .jp-tailor-format {
+      width: 50px;
+      min-width: 50px;
+      padding: 0 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-left: none;
+      border-radius: 0 5px 5px 0;
+      background: #141820;
+      font-size: 9px;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+
+    .jp-tailor-progress {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      background: rgba(34,197,94,0.08);
+      border-radius: 5px;
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    .jp-tailor-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(34,197,94,0.2);
+      border-top-color: #22c55e;
+      border-radius: 50%;
+      animation: jp-spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes jp-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .jp-tailor-result {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 8px;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 5px;
+    }
+
+    .jp-tailor-result-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+    }
+
+    .jp-tailor-score-badge {
+      background: rgba(34,197,94,0.2);
+      color: #22c55e;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 9px;
+    }
+
+    .jp-tailor-changes {
+      color: #94a3b8;
+      font-size: 9px;
+    }
+
+    .jp-tailor-result-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .jp-tailor-result-actions .jp-btn {
+      flex: 1;
+    }
 
     /* Footer */
     .jp-footer {

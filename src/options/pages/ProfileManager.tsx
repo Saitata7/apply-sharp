@@ -53,6 +53,43 @@ export default function ProfileManager() {
     return () => document.removeEventListener('keydown', handleKey);
   }, [modalType, createState.isGenerating]);
 
+  // LinkedIn sidebar Tailor handoff: when the user clicks Tailor in the
+  // LinkedIn sidebar, the inject function writes a tailorHandoff blob to
+  // chrome.storage.local and navigates here. We auto-open the Generate
+  // Resume modal so the user lands directly on the tailor flow with the
+  // JD pre-filled. ResumeGenerator reads the same handoff to pre-fill
+  // its jobDescription textarea, then both consumers delete the key.
+  useEffect(() => {
+    if (!profile || isLoading) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const got = await chrome.storage.local.get('tailorHandoff');
+        if (cancelled) return;
+        const handoff = got?.tailorHandoff as { jobTitle?: string; createdAt?: number } | undefined;
+        if (!handoff || !handoff.jobTitle) return;
+        // Drop stale handoffs older than 5 minutes so a refresh doesn't
+        // re-open the modal hours later
+        if (
+          typeof handoff.createdAt === 'number' &&
+          Date.now() - handoff.createdAt > 5 * 60 * 1000
+        ) {
+          await chrome.storage.local.remove('tailorHandoff');
+          return;
+        }
+        // Auto-open the Generate Resume modal. ResumeGenerator will
+        // read the same handoff and pre-fill its jobDescription, then
+        // remove the key so subsequent opens are clean.
+        setModalType('generate-resume');
+      } catch {
+        // chrome.storage may be unavailable; silent fall-through
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, isLoading]);
+
   // Suggested roles based on career context
   const suggestedRoles = profile?.careerContext?.bestFitRoles?.map((r) => r.title) || [
     'Backend Developer',

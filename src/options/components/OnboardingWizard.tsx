@@ -262,7 +262,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
     <div
       style={{
         minHeight: '100vh',
-        background: '#0a0d13',
+        background: 'var(--sf-base)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -279,7 +279,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               width: 10,
               height: 10,
               borderRadius: '50%',
-              background: i <= step ? '#e8a832' : '#334155',
+              background: i <= step ? 'var(--brand)' : 'var(--bd-default)',
               transition: 'background 0.3s ease',
             }}
           />
@@ -301,18 +301,38 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
             <svg
               width="48"
               height="48"
-              viewBox="0 0 24 24"
+              viewBox="0 0 128 128"
               fill="none"
-              stroke="#e8a832"
-              strokeWidth="2"
-              style={{ margin: '0 auto 16px', display: 'block' }}
+              style={{ margin: '0 auto 16px', display: 'block', color: 'var(--brand)' }}
             >
-              <path d="M20 7h-4V4a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM10 4h4v3h-4V4z" />
+              <circle cx="58" cy="70" r="34" stroke="currentColor" strokeWidth="6" opacity="0.32" />
+              <circle cx="58" cy="70" r="22" stroke="currentColor" strokeWidth="6" opacity="0.75" />
+              <circle cx="58" cy="70" r="7" fill="currentColor" />
+              <path
+                d="M58 70 L100 28"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M82 28 L100 28 L100 46"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-            <h1 style={{ fontSize: 24, margin: '0 0 8px', color: '#e8ecf4' }}>
+            <h1 style={{ fontSize: 24, margin: '0 0 8px', color: 'var(--tx-primary)' }}>
               Welcome to ApplySharp
             </h1>
-            <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 24px', lineHeight: 1.6 }}>
+            <p
+              style={{
+                fontSize: 14,
+                color: 'var(--tx-secondary)',
+                margin: '0 0 24px',
+                lineHeight: 1.6,
+              }}
+            >
               Your local-first AI job application assistant.
               <br />
               All data stays on your machine — always private.
@@ -334,12 +354,14 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                 ['Auto-detect jobs', 'on LinkedIn, Indeed, Greenhouse, and 20+ platforms'],
               ].map(([title, desc], i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#e8a832', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
+                  <span
+                    style={{ color: 'var(--brand)', fontWeight: 600, fontSize: 14, flexShrink: 0 }}
+                  >
                     {i + 1}.
                   </span>
-                  <span style={{ fontSize: 13, color: '#cbd5e1' }}>
+                  <span style={{ fontSize: 13, color: 'var(--tx-primary)' }}>
                     <strong>{title}</strong>
-                    <span style={{ color: '#94a3b8' }}> — {desc}</span>
+                    <span style={{ color: 'var(--tx-secondary)' }}> — {desc}</span>
                   </span>
                 </div>
               ))}
@@ -356,7 +378,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#64748b',
+                color: 'var(--tx-muted)',
                 fontSize: 12,
                 cursor: 'pointer',
                 marginTop: 12,
@@ -371,20 +393,20 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
         {/* Step 1: Upload Resume */}
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e8ecf4' }}>
+            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: 'var(--tx-primary)' }}>
               Upload Your Resume
             </h2>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px' }}>
+            <p style={{ fontSize: 13, color: 'var(--tx-secondary)', margin: '0 0 20px' }}>
               We&apos;ll analyze your experience, skills, and career context.
             </p>
 
             {isAnalyzing ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }}></div>
-                <p style={{ fontSize: 14, color: '#e8ecf4', margin: '0 0 4px' }}>
+                <p style={{ fontSize: 14, color: 'var(--tx-primary)', margin: '0 0 4px' }}>
                   {uploadProgress}
                 </p>
-                <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                <p style={{ fontSize: 12, color: 'var(--tx-muted)', margin: 0 }}>
                   This may take 1-2 minutes...
                 </p>
               </div>
@@ -402,7 +424,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
-                <p style={{ fontSize: 15, color: '#10b981', fontWeight: 600, margin: 0 }}>
+                <p style={{ fontSize: 15, color: 'var(--cl-emerald)', fontWeight: 600, margin: 0 }}>
                   Resume analyzed successfully!
                 </p>
               </div>
@@ -414,7 +436,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   onDrop={handleDrop}
                   onClick={() => document.getElementById('onboarding-file-input')?.click()}
                   style={{
-                    border: `2px dashed ${isDragging ? '#e8a832' : file ? '#10b981' : '#334155'}`,
+                    border: `2px dashed ${isDragging ? 'var(--brand)' : file ? 'var(--cl-emerald)' : 'var(--bd-default)'}`,
                     borderRadius: 8,
                     padding: file ? '16px' : '40px 16px',
                     textAlign: 'center',
@@ -444,8 +466,8 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
-                      <span style={{ fontSize: 14, color: '#e8ecf4' }}>{file.name}</span>
-                      <span style={{ fontSize: 12, color: '#64748b' }}>
+                      <span style={{ fontSize: 14, color: 'var(--tx-primary)' }}>{file.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>
                         ({(file.size / 1024).toFixed(1)} KB)
                       </span>
                     </div>
@@ -464,13 +486,15 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                         <polyline points="17 8 12 3 7 8" />
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
-                      <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 4px' }}>
+                      <p style={{ fontSize: 14, color: 'var(--tx-secondary)', margin: '0 0 4px' }}>
                         Drag and drop your resume, or{' '}
-                        <span style={{ color: '#e8a832', textDecoration: 'underline' }}>
+                        <span style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
                           browse
                         </span>
                       </p>
-                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>PDF, DOCX, or TXT</p>
+                      <p style={{ fontSize: 12, color: 'var(--tx-muted)', margin: 0 }}>
+                        PDF, DOCX, or TXT
+                      </p>
                     </>
                   )}
                   <input
@@ -500,7 +524,11 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   <button
                     className="btn"
                     onClick={() => setStep(2)}
-                    style={{ padding: '10px 20px', background: '#1a1f2b', borderColor: '#334155' }}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'var(--sf-overlay)',
+                      borderColor: 'var(--bd-default)',
+                    }}
                   >
                     Skip for now
                   </button>
@@ -513,10 +541,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
         {/* Step 2: AI Setup */}
         {step === 2 && (
           <div>
-            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: '#e8ecf4' }}>
+            <h2 style={{ fontSize: 20, margin: '0 0 4px', color: 'var(--tx-primary)' }}>
               Configure AI Provider
             </h2>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px' }}>
+            <p style={{ fontSize: 13, color: 'var(--tx-secondary)', margin: '0 0 20px' }}>
               Choose how AI features like resume optimization and cover letters are powered.
             </p>
 
@@ -535,16 +563,24 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   style={{
                     padding: '12px',
                     borderRadius: 8,
-                    border: `2px solid ${selectedProvider === p.id ? '#e8a832' : '#334155'}`,
-                    background: selectedProvider === p.id ? 'rgba(232,168,50,0.1)' : '#1a1f2b',
+                    border: `2px solid ${selectedProvider === p.id ? 'var(--brand)' : 'var(--bd-default)'}`,
+                    background:
+                      selectedProvider === p.id ? 'var(--ac-amber-ghost)' : 'var(--sf-overlay)',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ecf4', marginBottom: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: 'var(--tx-primary)',
+                      marginBottom: 2,
+                    }}
+                  >
                     {p.name}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{p.description}</div>
+                  <div style={{ fontSize: 11, color: 'var(--tx-secondary)' }}>{p.description}</div>
                 </button>
               ))}
             </div>
@@ -553,7 +589,12 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
             {PROVIDERS.find((p) => p.id === selectedProvider)?.needsKey && (
               <div style={{ marginBottom: 16 }}>
                 <label
-                  style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    color: 'var(--tx-secondary)',
+                    marginBottom: 4,
+                  }}
                 >
                   API Key
                 </label>
@@ -581,13 +622,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                       ? 'rgba(16,185,129,0.1)'
                       : testStatus === 'error'
                         ? 'rgba(239,68,68,0.1)'
-                        : 'rgba(232,168,50,0.1)',
+                        : 'var(--ac-amber-ghost)',
                   color:
                     testStatus === 'success'
-                      ? '#10b981'
+                      ? 'var(--cl-emerald)'
                       : testStatus === 'error'
-                        ? '#ef4444'
-                        : '#94a3b8',
+                        ? 'var(--cl-rose)'
+                        : 'var(--tx-muted)',
                 }}
               >
                 {testMessage}
@@ -606,7 +647,11 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               <button
                 className="btn"
                 onClick={() => setStep(3)}
-                style={{ padding: '10px 20px', background: '#1a1f2b', borderColor: '#334155' }}
+                style={{
+                  padding: '10px 20px',
+                  background: 'var(--sf-overlay)',
+                  borderColor: 'var(--bd-default)',
+                }}
               >
                 {aiConfigured ? 'Next' : 'Skip for now'}
               </button>
@@ -629,10 +674,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
-            <h2 style={{ fontSize: 22, margin: '0 0 8px', color: '#e8ecf4' }}>
+            <h2 style={{ fontSize: 22, margin: '0 0 8px', color: 'var(--tx-primary)' }}>
               You&apos;re all set!
             </h2>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 24px' }}>
+            <p style={{ fontSize: 13, color: 'var(--tx-secondary)', margin: '0 0 24px' }}>
               Here&apos;s what&apos;s ready:
             </p>
 
@@ -662,12 +707,19 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
               style={{
                 textAlign: 'left',
                 padding: '16px',
-                background: '#1a1f2b',
+                background: 'var(--sf-overlay)',
                 borderRadius: 8,
                 marginBottom: 24,
               }}
             >
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#e8ecf4', margin: '0 0 8px' }}>
+              <p
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--tx-primary)',
+                  margin: '0 0 8px',
+                }}
+              >
                 What to do next:
               </p>
               <ul
@@ -675,12 +727,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
                   margin: 0,
                   paddingLeft: 20,
                   fontSize: 12,
-                  color: '#94a3b8',
+                  color: 'var(--tx-secondary)',
                   lineHeight: 1.8,
                 }}
               >
                 <li>
-                  Visit <strong style={{ color: '#cbd5e1' }}>ATS Score</strong> to check your resume
+                  Visit <strong style={{ color: 'var(--tx-primary)' }}>ATS Score</strong> to check
+                  your resume
                 </li>
                 <li>Browse jobs — we&apos;ll detect them automatically</li>
                 <li>Generate tailored resumes for each application</li>
@@ -730,7 +783,7 @@ function CheckItem({ done, label, fallback }: { done: boolean; label: string; fa
           <circle cx="12" cy="12" r="10" />
         </svg>
       )}
-      <span style={{ fontSize: 13, color: done ? '#10b981' : '#94a3b8' }}>
+      <span style={{ fontSize: 13, color: done ? 'var(--cl-emerald)' : 'var(--tx-muted)' }}>
         {done ? label : fallback}
       </span>
     </div>

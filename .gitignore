@@ -25,6 +25,9 @@ npm-debug.log*
 
 # Testing
 coverage/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Misc
 *.local
@@ -40,3 +43,7 @@ docs/diagrams/visual/exported/
 # SaasCode Kit — private
 docs/product/
 .saascode/logs/
+
+# ApplySharp CLI bridge — local profile state, never commit
+tools/applysharp/state.json
+.claude/

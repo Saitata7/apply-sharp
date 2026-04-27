@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Senior AI Engineer at Jireh - Wellfound</title>
+    <meta name="og:title" content="Senior AI Engineer at Jireh" />
+    <meta name="og:site_name" content="Wellfound" />
+  </head>
+  <body>
+    <header>
+      <h1 class="job-title">Senior AI Engineer</h1>
+      <div class="company-name">Jireh</div>
+      <div class="job-meta">San Francisco, CA · Full-time · 5+ years experience</div>
+    </header>
+
+    <section class="job-description">
+      <p>
+        Jireh helps B2B sellers find ready buyers and tells them what to say. We're hiring an
+        AI engineer to own the inference and prompt engineering pipeline that powers our
+        recommendation engine. You'll work in TypeScript and Python, build evals from real
+        sales conversations, and ship to production weekly.
+      </p>
+    </section>
+
+    <!--
+      Synthesized apply form. Mimics the shape of the real Wellfound modal:
+      a couple of standard contact fields, a work-authorization radio group,
+      a "why this company" textarea, a select for years of experience.
+    -->
+    <div role="dialog" aria-label="Apply to Senior AI Engineer">
+      <form id="apply-form">
+        <label for="full-name">Full Name</label>
+        <input id="full-name" name="fullName" type="text" required />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+
+        <label for="phone">Phone</label>
+        <input id="phone" name="phone" type="tel" />
+
+        <label for="linkedin">LinkedIn URL</label>
+        <input id="linkedin" name="linkedinUrl" type="url" />
+
+        <fieldset>
+          <legend>Work authorization</legend>
+          <label><input type="radio" name="workAuth" value="citizen" />US Citizen</label>
+          <label><input type="radio" name="workAuth" value="visa" />Visa holder</label>
+          <label><input type="radio" name="workAuth" value="other" />Other</label>
+        </fieldset>
+
+        <label for="years">Years of experience</label>
+        <select id="years" name="yearsExperience">
+          <option value="">Select</option>
+          <option value="0-2">0-2 years</option>
+          <option value="3-5">3-5 years</option>
+          <option value="6-10">6-10 years</option>
+          <option value="10+">10+ years</option>
+        </select>
+
+        <label for="why">Why are you interested in working at Jireh?</label>
+        <textarea id="why" name="whyCompany" rows="4" required maxlength="500"></textarea>
+
+        <label for="why-role">What excites you about this role?</label>
+        <textarea id="why-role" name="whyRole" rows="4" required maxlength="500"></textarea>
+
+        <label>
+          <input type="checkbox" name="agreeTerms" required />
+          I agree to the terms
+        </label>
+
+        <button type="submit">Submit application</button>
+      </form>
+    </div>
+  </body>
+</html>

@@ -65,12 +65,12 @@ export default function LinkedInChecker({ profile, onClose }: LinkedInCheckerPro
   }
 
   const scoreColor = (score: number) =>
-    score >= 90 ? '#22c55e' : score >= 70 ? '#f59e0b' : '#ef4444';
+    score >= 90 ? 'var(--cl-emerald)' : score >= 70 ? 'var(--cl-orange)' : 'var(--cl-rose)';
 
   const severityColor: Record<DiscrepancySeverity, string> = {
-    error: '#ef4444',
-    warning: '#f59e0b',
-    info: '#38bdf8',
+    error: 'var(--cl-rose)',
+    warning: 'var(--cl-orange)',
+    info: 'var(--cl-sky)',
   };
 
   const severityLabel: Record<DiscrepancySeverity, string> = {
@@ -265,8 +265,11 @@ export default function LinkedInChecker({ profile, onClose }: LinkedInCheckerPro
                   </div>
                 ) : (
                   <div className="li-discrepancy-list">
-                    {report.discrepancies.map((d, i) => (
-                      <div key={i} className={`li-discrepancy li-discrepancy-${d.severity}`}>
+                    {report.discrepancies.map((d) => (
+                      <div
+                        key={`${d.field}-${d.severity}`}
+                        className={`li-discrepancy li-discrepancy-${d.severity}`}
+                      >
                         <div className="li-disc-header">
                           <span
                             className="li-severity-dot"
@@ -321,7 +324,7 @@ function getLinkedInCheckerStyles(): string {
     }
 
     .li-modal {
-      background: #141820;
+      background: var(--sf-raised);
       border-radius: 12px;
       width: 100%;
       max-width: 900px;
@@ -336,14 +339,14 @@ function getLinkedInCheckerStyles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 16px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid var(--bd-subtle);
     }
 
     .li-header-left {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #e8ecf4;
+      color: var(--tx-primary);
     }
 
     .li-header-left h2 {
@@ -355,15 +358,15 @@ function getLinkedInCheckerStyles(): string {
     .li-close-btn {
       background: none;
       border: none;
-      color: #94a3b8;
+      color: var(--tx-secondary);
       cursor: pointer;
       padding: 4px;
       border-radius: 6px;
     }
 
     .li-close-btn:hover {
-      background: #1a1f2b;
-      color: #64748b;
+      background: var(--sf-overlay);
+      color: var(--tx-muted);
     }
 
     .li-body {
@@ -377,7 +380,7 @@ function getLinkedInCheckerStyles(): string {
       width: 320px;
       min-width: 320px;
       padding: 16px;
-      border-right: 1px solid rgba(255,255,255,0.06);
+      border-right: 1px solid var(--bd-subtle);
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -390,7 +393,7 @@ function getLinkedInCheckerStyles(): string {
       border: 1px solid rgba(56,189,248,0.15);
       border-radius: 8px;
       font-size: 12px;
-      color: #38bdf8;
+      color: var(--cl-sky);
     }
 
     .li-instructions h4 {
@@ -422,27 +425,27 @@ function getLinkedInCheckerStyles(): string {
     .li-field label {
       font-size: 12px;
       font-weight: 600;
-      color: #64748b;
+      color: var(--tx-muted);
     }
 
     .li-field textarea {
       flex: 1;
       min-height: 200px;
       padding: 8px 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
       border-radius: 6px;
       font-size: 13px;
       font-family: inherit;
-      color: #e8ecf4;
-      background: #0e1219;
+      color: var(--tx-primary);
+      background: var(--sf-raised);
       resize: none;
       transition: border-color 0.15s;
     }
 
     .li-field textarea:focus {
       outline: none;
-      border-color: #e8a832;
-      background: #141820;
+      border-color: var(--brand);
+      background: var(--sf-raised);
       box-shadow: 0 0 0 3px rgba(232, 168, 50, 0.1);
     }
 
@@ -452,8 +455,8 @@ function getLinkedInCheckerStyles(): string {
       justify-content: center;
       gap: 8px;
       padding: 10px 16px;
-      background: #e8a832;
-      color: #0a0d13;
+      background: var(--brand);
+      color: var(--tx-inverse);
       border: none;
       border-radius: 8px;
       font-size: 13px;
@@ -463,7 +466,7 @@ function getLinkedInCheckerStyles(): string {
     }
 
     .li-check-btn:hover {
-      background: #c48a1a;
+      background: var(--brand-hover);
     }
 
     .li-error {
@@ -471,7 +474,7 @@ function getLinkedInCheckerStyles(): string {
       background: rgba(239,68,68,0.08);
       border: 1px solid rgba(239,68,68,0.2);
       border-radius: 6px;
-      color: #f87171;
+      color: var(--cl-rose);
       font-size: 12px;
     }
 
@@ -490,14 +493,14 @@ function getLinkedInCheckerStyles(): string {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      color: #94a3b8;
+      color: var(--tx-secondary);
       padding: 40px;
     }
 
     .li-empty-state p {
       margin: 0;
       font-size: 14px;
-      color: #64748b;
+      color: var(--tx-muted);
     }
 
     .li-empty-state span {
@@ -517,9 +520,9 @@ function getLinkedInCheckerStyles(): string {
       align-items: center;
       gap: 16px;
       padding: 16px;
-      background: #0e1219;
+      background: var(--sf-raised);
       border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--bd-default);
     }
 
     .li-score-circle {
@@ -542,7 +545,7 @@ function getLinkedInCheckerStyles(): string {
 
     .li-score-label {
       font-size: 11px;
-      color: #94a3b8;
+      color: var(--tx-secondary);
     }
 
     .li-score-info h3 {
@@ -554,7 +557,7 @@ function getLinkedInCheckerStyles(): string {
     .li-score-info p {
       margin: 0 0 8px 0;
       font-size: 13px;
-      color: #64748b;
+      color: var(--tx-muted);
     }
 
     .li-summary-badges {
@@ -569,9 +572,9 @@ function getLinkedInCheckerStyles(): string {
       font-weight: 600;
     }
 
-    .li-badge-error { background: rgba(239,68,68,0.1); color: #f87171; }
-    .li-badge-warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
-    .li-badge-info { background: rgba(56,189,248,0.1); color: #38bdf8; }
+    .li-badge-error { background: var(--cl-rose-glow); color: var(--cl-rose); }
+    .li-badge-warning { background: var(--cl-orange-glow); color: var(--cl-orange); }
+    .li-badge-info { background: var(--cl-sky-glow); color: var(--cl-sky); }
 
     /* No issues */
     .li-no-issues {
@@ -583,7 +586,7 @@ function getLinkedInCheckerStyles(): string {
       border: 1px solid rgba(52,211,153,0.2);
       border-radius: 8px;
       font-size: 14px;
-      color: #34d399;
+      color: var(--cl-emerald);
     }
 
     .li-no-issues p { margin: 0; }
@@ -598,8 +601,8 @@ function getLinkedInCheckerStyles(): string {
     .li-discrepancy {
       padding: 12px;
       border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: #141820;
+      border: 1px solid var(--bd-default);
+      background: var(--sf-raised);
     }
 
     .li-discrepancy-error { border-left: 3px solid #ef4444; }
@@ -628,14 +631,14 @@ function getLinkedInCheckerStyles(): string {
 
     .li-disc-field {
       font-size: 12px;
-      color: #64748b;
+      color: var(--tx-muted);
       margin-left: auto;
     }
 
     .li-disc-message {
       margin: 0 0 8px 0;
       font-size: 13px;
-      color: #e8ecf4;
+      color: var(--tx-primary);
       font-weight: 500;
     }
 
@@ -645,7 +648,7 @@ function getLinkedInCheckerStyles(): string {
       gap: 4px;
       margin-bottom: 8px;
       padding: 8px;
-      background: #0e1219;
+      background: var(--sf-raised);
       border-radius: 6px;
       font-size: 12px;
     }
@@ -657,14 +660,14 @@ function getLinkedInCheckerStyles(): string {
 
     .li-disc-label {
       font-weight: 600;
-      color: #64748b;
+      color: var(--tx-muted);
       min-width: 60px;
     }
 
     .li-disc-suggestion {
       margin: 0;
       font-size: 12px;
-      color: #059669;
+      color: var(--cl-emerald);
       font-style: italic;
     }
   `;

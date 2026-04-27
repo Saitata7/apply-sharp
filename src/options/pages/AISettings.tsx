@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { UserSettings, AIProvider } from '@shared/types/settings.types';
 import { getDefaultSettings } from '@shared/types/settings.types';
+import UsageStats from '../components/UsageStats';
+import GeminiNanoBanner from '../components/GeminiNanoBanner';
 import {
   DEFAULT_MODELS,
   DEFAULT_OLLAMA_BASE_URL,
@@ -156,7 +158,7 @@ export default function AISettings() {
         if (!apiKey) {
           throw new Error('API key is required');
         }
-        const model = settings.ai.anthropic?.model || 'claude-3-5-haiku-20241022';
+        const model = settings.ai.anthropic?.model || 'claude-haiku-4-5-20251001';
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -208,10 +210,16 @@ export default function AISettings() {
         </p>
       </div>
 
+      <GeminiNanoBanner
+        currentProvider={settings.ai.provider}
+        onUseGeminiNano={() => updateProvider('gemini-nano' as AIProvider)}
+      />
+
       <div className="settings-section">
         <h3>AI Provider</h3>
         <p className="section-description">
-          Choose between local AI (Ollama) for privacy or cloud providers for better quality.
+          Choose between local AI (Gemini Nano or Ollama) for privacy and zero cost, or cloud
+          providers for the strongest results.
         </p>
 
         <div className="provider-cards">
@@ -560,6 +568,9 @@ export default function AISettings() {
           </select>
         </div>
       </div>
+
+      {/* Token Usage */}
+      <UsageStats />
     </div>
   );
 }

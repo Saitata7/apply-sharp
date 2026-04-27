@@ -150,10 +150,10 @@ export default function DataManager() {
 
   return (
     <div className="page-container" style={{ maxWidth: 900, padding: '32px 24px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
+      <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--tx-primary)', margin: '0 0 4px' }}>
         Data Manager
       </h1>
-      <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 24px' }}>
+      <p style={{ fontSize: 13, color: 'var(--tx-secondary)', margin: '0 0 24px' }}>
         Export your data for backup or transfer to another machine. All data stays local.
       </p>
 
@@ -161,26 +161,28 @@ export default function DataManager() {
       {successMessage && (
         <div
           className="settings-section"
-          style={{ padding: 14, marginBottom: 16, borderColor: '#10b981' }}
+          style={{ padding: 14, marginBottom: 16, borderColor: 'var(--cl-emerald)' }}
         >
-          <p style={{ color: '#10b981', fontSize: 13, margin: 0 }}>{successMessage}</p>
+          <p style={{ color: 'var(--cl-emerald)', fontSize: 13, margin: 0 }}>{successMessage}</p>
         </div>
       )}
       {error && (
         <div
           className="settings-section"
-          style={{ padding: 14, marginBottom: 16, borderColor: '#ef4444' }}
+          style={{ padding: 14, marginBottom: 16, borderColor: 'var(--cl-rose)' }}
         >
-          <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>
+          <p style={{ color: 'var(--cl-rose)', fontSize: 13, margin: 0 }}>{error}</p>
         </div>
       )}
 
       {/* ── Export Section ─────────────────────────────────────────────── */}
       <div className="settings-section" style={{ padding: 20, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
+        <h2
+          style={{ fontSize: 16, fontWeight: 600, color: 'var(--tx-primary)', margin: '0 0 4px' }}
+        >
           Export
         </h2>
-        <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px' }}>
+        <p style={{ fontSize: 12, color: 'var(--tx-secondary)', margin: '0 0 16px' }}>
           Download a backup of all your data or export application history as a spreadsheet.
         </p>
 
@@ -222,9 +224,9 @@ export default function DataManager() {
             disabled={isExportingCSV}
             style={{
               flex: '1 1 200px',
-              background: '#1a1f2b',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: '#e8ecf4',
+              background: 'var(--sf-overlay)',
+              border: '1px solid var(--bd-default)',
+              color: 'var(--tx-primary)',
             }}
           >
             {isExportingCSV ? (
@@ -257,10 +259,12 @@ export default function DataManager() {
 
       {/* ── Import Section ─────────────────────────────────────────────── */}
       <div className="settings-section" style={{ padding: 20, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#e8ecf4', margin: '0 0 4px' }}>
+        <h2
+          style={{ fontSize: 16, fontWeight: 600, color: 'var(--tx-primary)', margin: '0 0 4px' }}
+        >
           Import
         </h2>
-        <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px' }}>
+        <p style={{ fontSize: 12, color: 'var(--tx-secondary)', margin: '0 0 16px' }}>
           Restore from a previously exported JSON backup. Existing data with the same ID will be
           skipped (not overwritten).
         </p>
@@ -275,7 +279,7 @@ export default function DataManager() {
               border: '2px dashed #334155',
               borderRadius: 8,
               cursor: 'pointer',
-              color: '#94a3b8',
+              color: 'var(--tx-muted)',
               fontSize: 13,
               transition: 'border-color 0.2s',
             }}
@@ -306,10 +310,10 @@ export default function DataManager() {
             {/* Preview */}
             <div
               style={{
-                background: '#0a0d13',
+                background: 'var(--sf-base)',
                 borderRadius: 8,
                 padding: 16,
-                border: '1px solid rgba(255,255,255,0.06)',
+                border: '1px solid var(--bd-subtle)',
                 marginBottom: 16,
               }}
             >
@@ -317,7 +321,7 @@ export default function DataManager() {
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: '#e8ecf4',
+                  color: 'var(--tx-primary)',
                   marginBottom: 10,
                 }}
               >
@@ -339,7 +343,7 @@ export default function DataManager() {
                 />
                 <CountBadge label="Settings" count={importPreview.data.settings ? 1 : 0} />
               </div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--tx-secondary)', marginTop: 10 }}>
                 Exported on {new Date(importPreview.exportedAt).toLocaleDateString()} (v
                 {importPreview.version})
               </div>
@@ -364,7 +368,11 @@ export default function DataManager() {
               <button
                 className="btn"
                 onClick={cancelImport}
-                style={{ background: '#1a1f2b', border: '1px solid #334155', color: '#94a3b8' }}
+                style={{
+                  background: 'var(--sf-overlay)',
+                  border: '1px solid #334155',
+                  color: 'var(--tx-muted)',
+                }}
               >
                 Cancel
               </button>
@@ -376,7 +384,14 @@ export default function DataManager() {
       {/* ── Import Result ──────────────────────────────────────────────── */}
       {importResult && (
         <div className="settings-section" style={{ padding: 20, marginBottom: 20 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: '#10b981', margin: '0 0 12px' }}>
+          <h2
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: 'var(--cl-emerald)',
+              margin: '0 0 12px',
+            }}
+          >
             Import Complete
           </h2>
           <div
@@ -406,9 +421,9 @@ export default function DataManager() {
             <CountBadge label="Skipped" count={importResult.skipped} color="#f59e0b" />
           </div>
           {importResult.errors.length > 0 && (
-            <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>
-              {importResult.errors.map((err, i) => (
-                <div key={i}>{err}</div>
+            <div style={{ fontSize: 12, color: 'var(--cl-rose)', marginTop: 8 }}>
+              {importResult.errors.map((err) => (
+                <div key={err}>{err}</div>
               ))}
             </div>
           )}
@@ -423,7 +438,7 @@ export default function DataManager() {
 function CountBadge({
   label,
   count,
-  color = '#94a3b8',
+  color = 'var(--tx-muted)',
 }: {
   label: string;
   count: number;
@@ -433,13 +448,13 @@ function CountBadge({
     <div
       style={{
         padding: '8px 12px',
-        background: '#1a1f2b',
+        background: 'var(--sf-overlay)',
         borderRadius: 6,
         textAlign: 'center',
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 700, color }}>{count}</div>
-      <div style={{ fontSize: 11, color: '#64748b' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--tx-secondary)' }}>{label}</div>
     </div>
   );
 }

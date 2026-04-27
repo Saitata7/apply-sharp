@@ -39,8 +39,8 @@ export default function StatusTimeline({ history, currentStatus, createdAt }: St
         </div>
       </div>
 
-      {history.map((change, i) => (
-        <div key={i} className="timeline-item">
+      {history.map((change) => (
+        <div key={`${change.from}-${change.to}-${change.changedAt}`} className="timeline-item">
           <div className={`timeline-dot timeline-dot--${change.to}`} />
           <div className="timeline-content">
             <span className="timeline-label">

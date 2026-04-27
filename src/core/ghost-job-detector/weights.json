@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "posting_age": {
+    "gt30": 25,
+    "gt60": 35,
+    "gt90": 45
+  },
+  "salary_spread": 15,
+  "salary_missing": 5,
+  "reposting": {
+    "onePrior": 30,
+    "twoPlus": 45
+  },
+  "title_vagueness": 5,
+  "applicant_volume": 10,
+  "layoff_news": 35,
+  "jd_vagueness": 15,
+  "buckets": {
+    "green": 0,
+    "amber": 30,
+    "red": 60
+  },
+  "auto_escalate_threshold": 40
+}

@@ -46,7 +46,11 @@ export type MessageType =
   // Answer Bank messages
   | 'SAVE_ANSWER'
   | 'GET_ANSWER_SUGGESTION'
-  | 'GENERATE_AI_ANSWER'
+  | 'RUN_AUTOFILL'
+  | 'GENERATE_OUTREACH'
+  | 'CREATE_GMAIL_DRAFT'
+  | 'APPLICATION_SUBMIT_DETECTED'
+  | 'GET_PROFILE_NEXT_QUESTION'
   // Application management messages
   | 'GET_APPLICATIONS'
   | 'GET_APPLICATION'
@@ -83,7 +87,46 @@ export type MessageType =
   | 'EXPORT_APPLICATIONS_CSV'
   // Deadline management
   | 'SET_JOB_DEADLINE'
-  | 'QUICK_TAILOR';
+  | 'QUICK_TAILOR'
+  // Conversational Profile Builder
+  | 'START_PROFILE_CONVERSATION'
+  | 'SEND_CONVERSATION_MESSAGE'
+  | 'GET_CONVERSATION_STATE'
+  // Role Profile Management (Branches)
+  | 'CREATE_ROLE_PROFILE'
+  | 'GET_ROLE_PROFILES'
+  // Claims Validation
+  | 'VALIDATE_CLAIMS'
+  | 'VALIDATE_SINGLE_CLAIM'
+  // Profile Health Review
+  | 'GET_PROFILE_HEALTH'
+  // AI Fallback Job Detection
+  | 'AI_EXTRACT_JOB'
+  // AI Usage Tracking
+  | 'GET_AI_USAGE'
+  | 'CLEAR_AI_USAGE'
+  // Workstream 7-9: Side panel + ghost detector + discovery
+  | 'GET_TAB_JOB_CONTEXT'
+  | 'OPEN_SIDE_PANEL'
+  | 'SCORE_GHOST_JOB'
+  | 'SCORE_JOB_CARDS_BATCH'
+  | 'GET_LEAD_LIST'
+  | 'DISMISS_LEAD'
+  | 'CLEAR_LEAD_LIST_CACHE'
+  | 'GET_PORTAL_RECOMMENDATIONS'
+  | 'FETCH_HN_WHOS_HIRING'
+  | 'GET_YC_ATS_LINKS'
+  // Workstream 10: Contact CRM
+  | 'SAVE_CONTACTS'
+  | 'GET_CONTACTS'
+  | 'GET_CONTACTS_FOR_JOB'
+  | 'GET_CONTACT_BY_ID'
+  | 'UPDATE_CONTACT'
+  | 'ARCHIVE_CONTACT'
+  | 'BULK_DELETE_CONTACTS'
+  | 'EXTRACT_CONTACTS_FOR_JOB'
+  | 'EXPORT_CONTACTS_CSV'
+  | 'EXPORT_CONTACTS_VCARD';
 
 export interface Message<T = unknown> {
   type: MessageType;

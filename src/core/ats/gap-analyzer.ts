@@ -385,7 +385,7 @@ export const LEARNING_RESOURCES: Record<string, LearningResource> = {
       { name: 'AWS Skill Builder (free courses)', type: 'course' },
     ],
     transferableFrom: ['gcp', 'azure', 'cloud computing'],
-    framingTip: 'Mention any cloud platform experience — skills are transferable',
+    framingTip: 'Mention any cloud platform experience  -  skills are transferable',
   },
   gcp: {
     estimatedHours: 60,
@@ -719,7 +719,7 @@ function buildActionText(gap: CategorizedGap): string {
     const hours = gap.learning.estimatedHours;
     return `Learn ${gap.keyword} via ${topResource} (~${hours} hrs)`;
   }
-  return `Research ${gap.keyword} — check official documentation`;
+  return `Research ${gap.keyword}  -  check official documentation`;
 }
 
 export function analyzeSkillGaps(
@@ -769,7 +769,7 @@ export function analyzeSkillGaps(
     }))
     .sort((a, b) => b.totalWeight - a.totalWeight);
 
-  // Build roadmap — top 7 gaps
+  // Build roadmap  -  top 7 gaps
   const roadmap: RoadmapItem[] = gaps.slice(0, 7).map((gap) => {
     const kw = missingWeighted.find((w) => w.keyword === gap.keyword)!;
     return {

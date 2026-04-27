@@ -58,7 +58,7 @@ export default function RedFlagSection({ report }: RedFlagSectionProps) {
 
       {report.flags.map((flag, i) => (
         <div
-          key={i}
+          key={`${flag.category}-${flag.message}`}
           style={{
             padding: '8px 0',
             borderTop: i > 0 ? `1px solid ${border.default}` : 'none',

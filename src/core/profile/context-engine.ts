@@ -5,6 +5,7 @@
  */
 
 import type { AIService } from '@/ai';
+import type { JSONSchema } from '@shared/types/ai.types';
 import type {
   MasterProfile,
   CareerContext,
@@ -15,21 +16,25 @@ import type {
   CommonQuestionType,
 } from '@shared/types/master-profile.types';
 import {
-  RESUME_PARSE_PROMPT,
-  CAREER_CONTEXT_PROMPT,
-  SKILLS_ENRICHMENT_PROMPT,
-  PROFILE_GENERATOR_PROMPT,
-  ANSWER_BANK_PROMPT,
-  HUMANIZE_CONTENT_PROMPT,
+  buildResumeParseMessages,
+  buildCareerContextMessages,
+  buildSkillsEnrichmentMessages,
+  buildProfileGeneratorMessages,
+  buildAnswerBankMessages,
+  buildHumanizeContentMessages,
 } from '@/ai/prompts/templates';
-import { sanitizePromptInput } from '@shared/utils/prompt-safety';
-import { generateChecksum, estimateYearsOfExperience } from '../resume/text-utils';
+import {
+  generateChecksum as generateResumeChecksum,
+  estimateYearsOfExperience,
+} from '../resume/text-utils';
+import { cachedAICall, generateChecksum as generateCacheChecksum } from '@/ai/cache';
 import {
   detectBackgroundFromJD,
   getBackgroundConfig,
   detectRoleFromJD,
 } from '@shared/types/background.types';
 import type { UserBackgroundConfig } from '@shared/types/background.types';
+import { sleep } from '@shared/utils/async-utils';
 
 export interface AnalysisProgress {
   stage: 'parsing' | 'extracting' | 'analyzing' | 'enriching' | 'generating' | 'complete';
@@ -45,174 +50,406 @@ export type ProgressCallback = (progress: AnalysisProgress) => void;
 // With 5+ total calls, need ~15s between calls to stay under limit
 const AI_CALL_DELAY_MS = 5000; // 5 seconds between calls
 
-/**
- * Sleep helper to add delays between API calls
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// ─── JSON Schemas for Structured AI Outputs ────────────────────────────────
+
+const RESUME_PARSE_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    personal: {
+      type: 'object',
+      properties: {
+        fullName: { type: 'string' },
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        email: { type: ['string', 'null'] },
+        phone: { type: ['string', 'null'] },
+        location: {
+          type: 'object',
+          properties: {
+            city: { type: ['string', 'null'] },
+            state: { type: ['string', 'null'] },
+            country: { type: ['string', 'null'] },
+            formatted: { type: 'string' },
+          },
+        },
+        linkedInUrl: { type: ['string', 'null'] },
+        githubUrl: { type: ['string', 'null'] },
+        portfolioUrl: { type: ['string', 'null'] },
+      },
+      required: ['fullName', 'firstName', 'lastName'],
+    },
+    experience: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          company: { type: 'string' },
+          title: { type: 'string' },
+          location: { type: ['string', 'null'] },
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
+          isCurrent: { type: 'boolean' },
+          description: { type: 'string' },
+          achievements: { type: 'array', items: { type: 'string' } },
+          technologies: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    education: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          institution: { type: 'string' },
+          degree: { type: 'string' },
+          field: { type: 'string' },
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
+          gpa: { type: ['number', 'null'] },
+          honors: { type: ['array', 'null'], items: { type: 'string' } },
+        },
+      },
+    },
+    skills: {
+      type: 'object',
+      properties: {
+        technical: { type: 'array', items: { type: 'string' } },
+        tools: { type: 'array', items: { type: 'string' } },
+        frameworks: { type: 'array', items: { type: 'string' } },
+        languages: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    certifications: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          issuer: { type: 'string' },
+          date: { type: ['string', 'null'] },
+        },
+      },
+    },
+    projects: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          description: { type: 'string' },
+          technologies: { type: 'array', items: { type: 'string' } },
+          url: { type: ['string', 'null'] },
+        },
+      },
+    },
+  },
+  required: ['personal', 'experience', 'education', 'skills'],
+};
+
+const CAREER_CONTEXT_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    careerTrajectory: { type: 'string', enum: ['ascending', 'pivoting', 'stable', 'returning'] },
+    yearsOfExperience: { type: 'number' },
+    seniorityLevel: {
+      type: 'string',
+      enum: ['entry', 'mid', 'senior', 'lead', 'principal', 'executive'],
+    },
+    primaryDomain: { type: 'string' },
+    secondaryDomains: { type: 'array', items: { type: 'string' } },
+    industryExperience: { type: 'array', items: { type: 'string' } },
+    bestFitRoles: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          fitScore: { type: 'number' },
+          reasons: { type: 'array', items: { type: 'string' } },
+          yearsRelevantExp: { type: 'number' },
+        },
+      },
+    },
+    strengthAreas: { type: 'array', items: { type: 'string' } },
+    growthAreas: { type: 'array', items: { type: 'string' } },
+    writingStyle: {
+      type: 'object',
+      properties: {
+        tone: { type: 'string' },
+        complexity: { type: 'string' },
+        preferredVoice: { type: 'string' },
+      },
+    },
+    topAccomplishments: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          statement: { type: 'string' },
+          impact: { type: 'string' },
+          skills: { type: 'array', items: { type: 'string' } },
+          relevantFor: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    uniqueValueProps: { type: 'array', items: { type: 'string' } },
+  },
+  required: [
+    'summary',
+    'careerTrajectory',
+    'yearsOfExperience',
+    'seniorityLevel',
+    'primaryDomain',
+    'bestFitRoles',
+    'strengthAreas',
+  ],
+};
+
+const SKILLS_ENRICHMENT_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    technical: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          normalizedName: { type: 'string' },
+          category: { type: 'string' },
+          yearsOfExperience: { type: 'number' },
+          proficiency: { type: 'string', enum: ['basic', 'intermediate', 'advanced', 'expert'] },
+          lastUsed: { type: 'string' },
+          aliases: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    frameworks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          normalizedName: { type: 'string' },
+          category: { type: 'string' },
+          yearsOfExperience: { type: 'number' },
+          proficiency: { type: 'string', enum: ['basic', 'intermediate', 'advanced', 'expert'] },
+          lastUsed: { type: 'string' },
+          aliases: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    tools: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          normalizedName: { type: 'string' },
+          category: { type: 'string' },
+          yearsOfExperience: { type: 'number' },
+          proficiency: { type: 'string', enum: ['basic', 'intermediate', 'advanced', 'expert'] },
+          lastUsed: { type: 'string' },
+          aliases: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    clusters: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          skills: { type: 'array', items: { type: 'string' } },
+          strength: { type: 'number' },
+          relevantRoles: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+  },
+  required: ['technical', 'clusters'],
+};
+
+const ANSWER_BANK_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    why_interested: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    greatest_strength: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    challenge_overcome: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    leadership_example: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    why_leaving: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    career_goals: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    technical_achievement: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+    handle_pressure: {
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        shortAnswer: { type: 'string' },
+      },
+      required: ['answer'],
+    },
+  },
+  required: [
+    'why_interested',
+    'greatest_strength',
+    'challenge_overcome',
+    'leadership_example',
+    'why_leaving',
+    'career_goals',
+    'technical_achievement',
+    'handle_pressure',
+  ],
+};
+
+interface AnswerBankAIResponse {
+  why_interested: { answer: string; shortAnswer?: string };
+  greatest_strength: { answer: string; shortAnswer?: string };
+  challenge_overcome: { answer: string; shortAnswer?: string };
+  leadership_example: { answer: string; shortAnswer?: string };
+  why_leaving: { answer: string; shortAnswer?: string };
+  career_goals: { answer: string; shortAnswer?: string };
+  technical_achievement: { answer: string; shortAnswer?: string };
+  handle_pressure: { answer: string; shortAnswer?: string };
 }
 
-/**
- * Extract JSON from AI response, handling markdown code blocks and extra text
- */
+const HUMANIZE_CONTENT_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    rewrittenContent: { type: 'string' },
+  },
+  required: ['rewrittenContent'],
+};
+
+const PROFILE_GENERATOR_SCHEMA: JSONSchema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    targetRole: { type: 'string' },
+    tailoredSummary: { type: 'string' },
+    highlightedSkills: { type: 'array', items: { type: 'string' } },
+    relevantExperience: { type: 'array', items: { type: 'string' } },
+    atsKeywords: { type: 'array', items: { type: 'string' } },
+    strengthsForRole: { type: 'array', items: { type: 'string' } },
+    positioningStrategy: { type: 'string' },
+  },
+  required: ['name', 'targetRole', 'tailoredSummary', 'highlightedSkills'],
+};
+
+interface RoleProfileAIResponse {
+  name: string;
+  targetRole: string;
+  tailoredSummary: string;
+  highlightedSkills: string[];
+  relevantExperience?: string[];
+  atsKeywords?: string[];
+  strengthsForRole?: string[];
+  positioningStrategy?: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractJSON(content: string): any {
-  console.log('[extractJSON] Attempting to extract JSON from response of length:', content.length);
-
-  // Clean up the content first - remove any BOM and normalize whitespace
-  const cleaned = content.trim();
-
-  // Method 1: Try to extract from markdown code blocks (various formats)
-  const codeBlockPatterns = [/```json\s*([\s\S]*?)```/i, /```\s*([\s\S]*?)```/, /`([\s\S]*?)`/];
-
-  for (const pattern of codeBlockPatterns) {
-    const match = cleaned.match(pattern);
-    if (match) {
-      try {
-        const extracted = match[1].trim();
-        console.log('[extractJSON] Found code block, trying to parse...');
-        return JSON.parse(extracted);
-      } catch (e) {
-        console.log('[extractJSON] Code block parse failed, trying next method...');
-      }
-    }
-  }
-
-  // Method 2: Try direct parse (in case the response is pure JSON)
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Expected: direct parse may fail, continue to balanced JSON extraction
-  }
-
-  // Method 3: Find JSON object or array by matching balanced braces/brackets
-  // This handles responses like "Here is the JSON:\n{...}\n\nLet me explain..."
-  const jsonResult = findBalancedJSON(cleaned);
-  if (jsonResult) {
-    console.log('[extractJSON] Found balanced JSON structure');
-    try {
-      return JSON.parse(jsonResult);
-    } catch (e) {
-      // Try to fix common JSON issues
-      const fixed = fixCommonJSONIssues(jsonResult);
-      try {
-        return JSON.parse(fixed);
-      } catch (fixError) {
-        console.error(
-          '[extractJSON] Failed to parse even after fixes:',
-          jsonResult.substring(0, 300)
-        );
-      }
-    }
-  }
-
-  // Method 4: Try to find JSON-like structure with regex (last resort)
-  // Look for object starting with { and containing key-value pairs
-  const jsonObjectMatch = cleaned.match(/\{[\s\S]*?"[^"]+"\s*:\s*[\s\S]*\}/);
-  if (jsonObjectMatch) {
-    const potentialJson = jsonObjectMatch[0];
-    // Find the balanced end
-    const balanced = findBalancedJSON(potentialJson);
-    if (balanced) {
-      try {
-        return JSON.parse(balanced);
-      } catch {
-        const fixed = fixCommonJSONIssues(balanced);
-        try {
-          return JSON.parse(fixed);
-        } catch {
-          // Expected: regex-matched JSON may not be valid, exhaust all methods
-        }
-      }
-    }
-  }
-
-  console.error('[extractJSON] No JSON found. Content preview:', cleaned.substring(0, 500));
-  throw new Error('No JSON found in AI response');
-}
-
-/**
- * Find balanced JSON (object or array) in a string
- */
-function findBalancedJSON(content: string): string | null {
-  // Find the first { or [
-  let startChar: '{' | '[' | null = null;
-  let endChar: '}' | ']' | null = null;
-  let startIndex = -1;
-
-  for (let i = 0; i < content.length; i++) {
-    if (content[i] === '{') {
-      startChar = '{';
-      endChar = '}';
-      startIndex = i;
-      break;
-    } else if (content[i] === '[') {
-      startChar = '[';
-      endChar = ']';
-      startIndex = i;
-      break;
-    }
-  }
-
-  if (startIndex === -1 || !startChar || !endChar) {
-    return null;
-  }
-
-  // Now find the matching closing bracket, accounting for strings
-  let depth = 0;
-  let inString = false;
-  let escapeNext = false;
-
-  for (let i = startIndex; i < content.length; i++) {
-    const char = content[i];
-
-    if (escapeNext) {
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === '\\') {
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-
-    if (inString) {
-      continue;
-    }
-
-    if (char === startChar) {
-      depth++;
-    } else if (char === endChar) {
-      depth--;
-      if (depth === 0) {
-        return content.substring(startIndex, i + 1);
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Fix common JSON formatting issues from AI responses
- */
-function fixCommonJSONIssues(jsonStr: string): string {
-  return (
-    jsonStr
-      // Remove trailing commas before } or ]
-      .replace(/,(\s*[}\]])/g, '$1')
-      // Fix unquoted keys (simple cases)
-      .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
-      // Remove comments (// style)
-      .replace(/\/\/[^\n]*/g, '')
-      // Remove unescaped newlines inside JSON string values
-      .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match) => match.replace(/\n/g, '\\n'))
-  );
+interface ResumeParseAIResponse {
+  personal: {
+    fullName: string;
+    firstName: string;
+    lastName: string;
+    email?: string | null;
+    phone?: string | null;
+    location?: {
+      city?: string | null;
+      state?: string | null;
+      country?: string | null;
+      formatted?: string;
+    };
+    linkedInUrl?: string | null;
+    githubUrl?: string | null;
+    portfolioUrl?: string | null;
+  };
+  experience: Array<{
+    company: string;
+    title: string;
+    location?: string | null;
+    startDate: string;
+    endDate: string;
+    isCurrent: boolean;
+    description: string;
+    achievements: string[];
+    technologies: string[];
+  }>;
+  education: Array<{
+    institution: string;
+    degree: string;
+    field: string;
+    startDate: string;
+    endDate: string;
+    gpa?: number | null;
+    honors?: string[] | null;
+  }>;
+  skills: {
+    technical: string[];
+    tools: string[];
+    frameworks: string[];
+    languages: string[];
+  };
+  certifications?: Array<{
+    name: string;
+    issuer: string;
+    date?: string | null;
+  }>;
+  projects?: Array<{
+    name: string;
+    description: string;
+    technologies: string[];
+    url?: string | null;
+  }>;
 }
 
 /**
@@ -248,7 +485,7 @@ export class CareerContextEngine {
     };
 
     // Generate checksum
-    const checksum = await generateChecksum(rawText);
+    const checksum = await generateResumeChecksum(rawText);
     const yearsExp = estimateYearsOfExperience(rawText);
 
     // Create initial profile with basic info
@@ -394,26 +631,27 @@ export class CareerContextEngine {
   }
 
   /**
-   * Extract structured data using AI
+   * Extract structured data using AI (cached  -  resume text rarely changes)
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async extractStructuredData(rawText: string): Promise<any> {
-    const prompt = RESUME_PARSE_PROMPT.replace(
-      '{resumeText}',
-      sanitizePromptInput(rawText, 'resume_text')
-    );
+    const { messages } = buildResumeParseMessages(rawText);
+    const cacheKey = `profile-extraction:${generateCacheChecksum(rawText)}`;
 
     try {
       console.log('[ContextEngine] Calling AI for structured extraction...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.1,
-        maxTokens: 4000,
-      });
+      const parsed = await cachedAICall(
+        cacheKey,
+        () =>
+          this.aiService.chatStructured<ResumeParseAIResponse>(
+            messages,
+            RESUME_PARSE_SCHEMA,
+            'resume_parse',
+            { temperature: 0.1, maxTokens: 3000, feature: 'profile_extraction' }
+          ),
+        24 * 60 * 60 * 1000
+      );
 
-      console.log('[ContextEngine] AI response length:', response.content.length);
-      console.log('[ContextEngine] AI response preview:', response.content.substring(0, 500));
-
-      const parsed = extractJSON(response.content);
       console.log('[ContextEngine] Parsed data - personal:', parsed.personal);
       console.log('[ContextEngine] Parsed data - experience count:', parsed.experience?.length);
       console.log('[ContextEngine] Parsed data - skills:', parsed.skills);
@@ -421,36 +659,41 @@ export class CareerContextEngine {
       return parsed;
     } catch (error) {
       console.error('[ContextEngine] Failed to extract structured data:', error);
-      return {};
+      // Re-throw so handleAnalyzeResume returns success:false with a real
+      // error instead of silently saving an empty profile. Previously the
+      // empty {} fallback masked AI failures and produced ghost profiles.
+      throw new Error(
+        `Resume parsing failed (${(error as Error).message}). Try a stronger model — Claude Sonnet 4.6 has better tool-use compliance than Haiku 4.5 for structured extraction. Switch in AI Settings and retry.`
+      );
     }
   }
 
   /**
-   * Build career context using AI
+   * Build career context using AI (cached  -  profile data rarely changes)
    */
   private async buildCareerContext(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parsedData: any,
     estimatedYears: number
   ): Promise<CareerContext> {
-    const prompt = CAREER_CONTEXT_PROMPT.replace(
-      '{parsedData}',
-      sanitizePromptInput(JSON.stringify(parsedData, null, 2), 'parsed_resume')
-    );
+    const parsedStr = JSON.stringify(parsedData, null, 2);
+    const { messages } = buildCareerContextMessages(parsedStr);
+    const cacheKey = `career-context:${generateCacheChecksum(parsedStr)}`;
 
     try {
       console.log('[ContextEngine] Building career context...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.3,
-        maxTokens: 2500,
-      });
-
-      console.log(
-        '[ContextEngine] Career context response preview:',
-        response.content.substring(0, 300)
+      const context = await cachedAICall(
+        cacheKey,
+        () =>
+          this.aiService.chatStructured<CareerContext>(
+            messages,
+            CAREER_CONTEXT_SCHEMA,
+            'career_context',
+            { temperature: 0.3, maxTokens: 1000, feature: 'career_context' }
+          ),
+        24 * 60 * 60 * 1000
       );
 
-      const context = extractJSON(response.content) as CareerContext;
       console.log(
         '[ContextEngine] Career context parsed - summary:',
         context.summary?.substring(0, 100)
@@ -507,32 +750,28 @@ export class CareerContextEngine {
   }
 
   /**
-   * Enrich skills with context
+   * Enrich skills with context (cached  -  skills data rarely changes)
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async enrichSkills(parsedData: any, basicSkills: string[]): Promise<SkillsWithContext> {
-    const prompt = SKILLS_ENRICHMENT_PROMPT.replace(
-      '{parsedData}',
-      sanitizePromptInput(
-        JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2),
-        'parsed_resume'
-      )
-    );
+    const inputStr = JSON.stringify({ ...parsedData, detectedSkills: basicSkills }, null, 2);
+    const { messages } = buildSkillsEnrichmentMessages(inputStr);
+    const cacheKey = `skills-enrichment:${generateCacheChecksum(inputStr)}`;
 
     try {
       console.log('[ContextEngine] Calling AI for skills enrichment...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.2,
-        maxTokens: 2000,
-      });
-
-      console.log('[ContextEngine] Skills enrichment response length:', response.content.length);
-      console.log(
-        '[ContextEngine] Skills enrichment response preview:',
-        response.content.substring(0, 500)
+      const result = await cachedAICall(
+        cacheKey,
+        () =>
+          this.aiService.chatStructured<SkillsWithContext>(
+            messages,
+            SKILLS_ENRICHMENT_SCHEMA,
+            'skills_enrichment',
+            { temperature: 0.2, maxTokens: 800, feature: 'skills_enrichment' }
+          ),
+        24 * 60 * 60 * 1000
       );
 
-      const result = extractJSON(response.content) as SkillsWithContext;
       console.log(
         '[ContextEngine] Skills enrichment parsed successfully, technical skills:',
         result.technical?.length || 0
@@ -563,29 +802,27 @@ export class CareerContextEngine {
   }
 
   /**
-   * Generate answer bank for common questions
+   * Generate answer bank for common questions (cached  -  profile-dependent)
    */
   private async generateAnswerBank(profile: MasterProfile): Promise<AnswerBank> {
     const candidateProfile = this.formatProfileForPrompt(profile);
-    const prompt = ANSWER_BANK_PROMPT.replace(
-      '{candidateProfile}',
-      sanitizePromptInput(candidateProfile, 'candidate_profile')
-    );
+    const { messages } = buildAnswerBankMessages(candidateProfile);
+    const cacheKey = `answer-bank:${generateCacheChecksum(candidateProfile)}`;
 
     try {
       console.log('[ContextEngine] Calling AI for answer bank...');
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.5,
-        maxTokens: 3000,
-      });
-
-      console.log('[ContextEngine] Answer bank AI response length:', response.content.length);
-      console.log(
-        '[ContextEngine] Answer bank response preview:',
-        response.content.substring(0, 300)
+      const answers = await cachedAICall(
+        cacheKey,
+        () =>
+          this.aiService.chatStructured<AnswerBankAIResponse>(
+            messages,
+            ANSWER_BANK_SCHEMA,
+            'answer_bank',
+            { temperature: 0.5, maxTokens: 600, feature: 'answer_bank' }
+          ),
+        24 * 60 * 60 * 1000
       );
 
-      const answers = extractJSON(response.content);
       console.log('[ContextEngine] Answer bank parsed, keys:', Object.keys(answers));
 
       // Convert to CachedAnswer format
@@ -601,13 +838,17 @@ export class CareerContextEngine {
         'handle_pressure',
       ];
 
+      const answersRecord = answers as unknown as Record<
+        string,
+        { answer: string; shortAnswer?: string }
+      >;
       for (const type of questionTypes) {
-        if (answers[type]) {
+        if (answersRecord[type]) {
           commonQuestions.push({
             questionType: type,
             question: this.getQuestionText(type),
-            answer: answers[type].answer || answers[type],
-            shortAnswer: answers[type].shortAnswer,
+            answer: answersRecord[type].answer,
+            shortAnswer: answersRecord[type].shortAnswer,
             generatedAt: new Date(),
             usageCount: 0,
           });
@@ -671,27 +912,24 @@ export class CareerContextEngine {
   }
 
   /**
-   * Generate a single role-specific profile
+   * Generate a single role-specific profile (NOT cached  -  varies by target role)
    */
   async generateRoleProfile(
     masterProfile: MasterProfile,
     targetRole: string
   ): Promise<GeneratedProfile | null> {
-    const prompt = PROFILE_GENERATOR_PROMPT.replace(
-      '{masterProfile}',
-      sanitizePromptInput(
-        JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2),
-        'master_profile'
-      )
-    ).replace('{targetRole}', targetRole);
+    const { messages } = buildProfileGeneratorMessages(
+      JSON.stringify(this.formatMasterForPrompt(masterProfile), null, 2),
+      targetRole
+    );
 
     try {
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.4,
-        maxTokens: 1500,
-      });
-
-      const result = extractJSON(response.content);
+      const result = await this.aiService.chatStructured<RoleProfileAIResponse>(
+        messages,
+        PROFILE_GENERATOR_SCHEMA,
+        'role_profile',
+        { temperature: 0.4, maxTokens: 2000, feature: 'role_profile' }
+      );
 
       return {
         id: crypto.randomUUID(),
@@ -722,21 +960,22 @@ export class CareerContextEngine {
     content: string,
     writingStyle: CareerContext['writingStyle']
   ): Promise<string> {
-    const prompt = HUMANIZE_CONTENT_PROMPT.replace(
-      '{content}',
-      sanitizePromptInput(content, 'original_content')
-    )
-      .replace('{tone}', writingStyle.tone)
-      .replace('{complexity}', writingStyle.complexity)
-      .replace('{voice}', writingStyle.preferredVoice);
+    const { messages } = buildHumanizeContentMessages(
+      content,
+      writingStyle.tone,
+      writingStyle.complexity,
+      writingStyle.preferredVoice
+    );
 
     try {
-      const response = await this.aiService.chat([{ role: 'user', content: prompt }], {
-        temperature: 0.7,
-        maxTokens: 1000,
-      });
+      const result = await this.aiService.chatStructured<{ rewrittenContent: string }>(
+        messages,
+        HUMANIZE_CONTENT_SCHEMA,
+        'humanize_content',
+        { temperature: 0.7, maxTokens: 600, feature: 'humanize_content' }
+      );
 
-      return response.content.trim();
+      return result.rewrittenContent.trim();
     } catch (error) {
       console.error('Failed to humanize content:', error);
       return content; // Return original on failure

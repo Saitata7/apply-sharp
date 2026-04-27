@@ -112,7 +112,9 @@ export default function ResumeVersionManager({ profileId, onClose }: ResumeVersi
           ) : (
             <>
               {versions.length >= 2 && (
-                <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '12px' }}>
+                <p
+                  style={{ fontSize: '0.8rem', color: 'var(--tx-secondary)', marginBottom: '12px' }}
+                >
                   Select two versions to compare side by side.
                 </p>
               )}
@@ -157,17 +159,17 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
           <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px' }}>
             {a.name}
             {a.atsScore != null && (
-              <span style={{ marginLeft: '8px', color: '#22c55e', fontWeight: 500 }}>
+              <span style={{ marginLeft: '8px', color: 'var(--cl-emerald)', fontWeight: 500 }}>
                 ({a.atsScore}%)
               </span>
             )}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--tx-muted)', marginBottom: '8px' }}>
             {formatDate(a.createdAt)}
           </div>
           <pre
             style={{
-              background: '#141820',
+              background: 'var(--sf-raised)',
               padding: '12px',
               borderRadius: '8px',
               fontSize: '0.75rem',
@@ -175,9 +177,10 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
               wordBreak: 'break-word',
               maxHeight: '400px',
               overflowY: 'auto',
-              border: '1px solid rgba(255,255,255,0.06)',
+              border: '1px solid var(--bd-subtle)',
             }}
           >
+            {/* Index key: positional text lines from diff split, never reorder independently */}
             {linesA.map((line, i) => {
               const inB = linesBSet.has(line);
               return (
@@ -203,17 +206,17 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
           <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px' }}>
             {b.name}
             {b.atsScore != null && (
-              <span style={{ marginLeft: '8px', color: '#22c55e', fontWeight: 500 }}>
+              <span style={{ marginLeft: '8px', color: 'var(--cl-emerald)', fontWeight: 500 }}>
                 ({b.atsScore}%)
               </span>
             )}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--tx-muted)', marginBottom: '8px' }}>
             {formatDate(b.createdAt)}
           </div>
           <pre
             style={{
-              background: '#141820',
+              background: 'var(--sf-raised)',
               padding: '12px',
               borderRadius: '8px',
               fontSize: '0.75rem',
@@ -221,9 +224,10 @@ function VersionDiff({ a, b, onBack }: { a: ResumeVersion; b: ResumeVersion; onB
               wordBreak: 'break-word',
               maxHeight: '400px',
               overflowY: 'auto',
-              border: '1px solid rgba(255,255,255,0.06)',
+              border: '1px solid var(--bd-subtle)',
             }}
           >
+            {/* Index key: positional text lines from diff split, never reorder independently */}
             {linesB.map((line, i) => {
               const inA = linesASet.has(line);
               return (

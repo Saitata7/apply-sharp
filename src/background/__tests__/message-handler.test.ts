@@ -92,6 +92,10 @@ vi.mock('@/ai', () => ({
     chat: vi.fn(),
     isAvailable: vi.fn().mockResolvedValue(true),
   })),
+  // Workstream 6 cost router. Default mock returns null so tests that
+  // expect "AI service unavailable" still surface that error message
+  // instead of silently picking up Gemini Nano via the fallback path.
+  detectBestProvider: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@core/profile/context-engine', () => ({
@@ -1079,14 +1083,27 @@ describe('handleMessage', () => {
       // Mock 3 sequential AI calls
       const mockChat = vi
         .fn()
-        .mockResolvedValueOnce({ content: JSON.stringify(jdAnalysis) }) // Step 1: JD analysis
         .mockResolvedValueOnce({
           content:
             'Experienced React engineer with 5 years building scalable TypeScript applications on AWS.',
-        }) // Step 2: Summary
-        .mockResolvedValueOnce({ content: JSON.stringify(enhancedBullets) }); // Step 3: Bullets
+        }) // Step 2: Summary (only step still using chat)
+        .mockResolvedValueOnce({
+          content:
+            'Experienced React engineer with 5 years building scalable TypeScript applications on AWS.',
+        }); // Step 2 retry (if quality gate triggers)
 
-      const mockAI = { chat: mockChat, isAvailable: vi.fn().mockResolvedValue(true) };
+      const mockChatStructured = vi
+        .fn()
+        .mockResolvedValueOnce(jdAnalysis) // Step 1: JD analysis (chatStructured returns parsed object)
+        .mockResolvedValueOnce({ enhancedBullets }) // Step 3: Bullets (wrapped in object)
+        .mockResolvedValueOnce(jdAnalysis) // Step 1 retry (if quality gate triggers)
+        .mockResolvedValueOnce({ enhancedBullets }); // Step 3 retry
+
+      const mockAI = {
+        chat: mockChat,
+        chatStructured: mockChatStructured,
+        isAvailable: vi.fn().mockResolvedValue(true),
+      };
       (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
 
       const res = await handleMessage(
@@ -1110,11 +1127,17 @@ describe('handleMessage', () => {
       expect(res.data).toHaveProperty('enhancedBullets');
       expect(res.data).toHaveProperty('addedKeywords');
       expect(res.data).toHaveProperty('newScore');
-      expect(mockChat).toHaveBeenCalledTimes(3);
+      // Step 2 uses chat (plain text), Steps 1 & 3 use chatStructured (JSON)
+      expect(mockChat).toHaveBeenCalled();
+      expect(mockChatStructured).toHaveBeenCalled();
     });
 
     it('returns error when AI service is unavailable', async () => {
-      const mockAI = { chat: vi.fn(), isAvailable: vi.fn().mockResolvedValue(false) };
+      const mockAI = {
+        chat: vi.fn(),
+        chatStructured: vi.fn(),
+        isAvailable: vi.fn().mockResolvedValue(false),
+      };
       (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
 
       const res = await handleMessage(
@@ -1136,11 +1159,21 @@ describe('handleMessage', () => {
     it('handles AI returning malformed JSON gracefully', async () => {
       const mockChat = vi
         .fn()
-        .mockResolvedValueOnce({ content: 'not valid json at all' }) // Step 1: bad JSON
         .mockResolvedValueOnce({ content: 'A valid optimized summary.' }) // Step 2: plain text (OK)
-        .mockResolvedValueOnce({ content: 'also not valid json' }); // Step 3: bad JSON
+        .mockResolvedValueOnce({ content: 'A valid optimized summary.' }); // Step 2 retry
 
-      const mockAI = { chat: mockChat, isAvailable: vi.fn().mockResolvedValue(true) };
+      const mockChatStructured = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Invalid JSON')) // Step 1: chatStructured throws
+        .mockRejectedValueOnce(new Error('Invalid JSON')) // Step 3: chatStructured throws
+        .mockRejectedValueOnce(new Error('Invalid JSON')) // Step 1 retry
+        .mockRejectedValueOnce(new Error('Invalid JSON')); // Step 3 retry
+
+      const mockAI = {
+        chat: mockChat,
+        chatStructured: mockChatStructured,
+        isAvailable: vi.fn().mockResolvedValue(true),
+      };
       (AIService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockAI);
 
       const res = await handleMessage(

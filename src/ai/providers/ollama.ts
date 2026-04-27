@@ -3,6 +3,8 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  JSONSchema,
+  TokenUsage,
 } from '@shared/types/ai.types';
 import type { OllamaConfig } from '@shared/types/settings.types';
 import {
@@ -17,6 +19,7 @@ const BASE_DELAY_MS = 1000;
 export class OllamaProvider implements AIProviderInterface {
   name = 'Ollama';
   isLocal = true;
+  lastTokenUsage?: TokenUsage;
 
   private baseUrl: string;
   private model: string;
@@ -70,13 +73,16 @@ export class OllamaProvider implements AIProviderInterface {
 
         const data = await response.json();
 
+        const tokensUsed: TokenUsage = {
+          prompt: data.prompt_eval_count || 0,
+          completion: data.eval_count || 0,
+          total: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        };
+        this.lastTokenUsage = tokensUsed;
+
         return {
           content: data.message?.content || '',
-          tokensUsed: {
-            prompt: data.prompt_eval_count || 0,
-            completion: data.eval_count || 0,
-            total: (data.prompt_eval_count || 0) + (data.eval_count || 0),
-          },
+          tokensUsed,
           model: this.model,
           finishReason: 'stop',
         };
@@ -95,6 +101,84 @@ export class OllamaProvider implements AIProviderInterface {
     }
 
     throw lastError || new Error('Ollama request failed after retries');
+  }
+
+  async chatStructured<T>(
+    messages: ChatMessage[],
+    schema: JSONSchema,
+    _schemaName: string,
+    options?: ChatOptions
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Ollama supports passing a JSON schema to `format` for structured output.
+        // Falls back to `format: 'json'` if schema is empty/invalid.
+        const format =
+          schema && typeof schema === 'object' && Object.keys(schema).length > 0 ? schema : 'json';
+
+        const response = await fetch(`${this.baseUrl}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            stream: false,
+            format,
+            options: {
+              temperature: options?.temperature ?? 0.3,
+              num_predict: options?.maxTokens ?? 2048,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+            console.log(
+              `[Ollama] Structured: rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+            );
+            await this.sleep(delay);
+            continue;
+          }
+          throw new Error(`Ollama structured request failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        this.lastTokenUsage = {
+          prompt: data.prompt_eval_count || 0,
+          completion: data.eval_count || 0,
+          total: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        };
+
+        const content = data.message?.content;
+
+        if (!content) {
+          throw new Error('Ollama structured: empty response content');
+        }
+
+        return JSON.parse(content) as T;
+      } catch (error) {
+        lastError = error as Error;
+        if (
+          attempt < MAX_RETRIES - 1 &&
+          (lastError.message.includes('fetch') || lastError.message.includes('network'))
+        ) {
+          await this.sleep(BASE_DELAY_MS * Math.pow(2, attempt));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+
+    throw lastError || new Error('Ollama structured request failed after retries');
   }
 
   async *chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string> {

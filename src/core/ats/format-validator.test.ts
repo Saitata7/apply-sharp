@@ -117,7 +117,7 @@ describe('validateATSFormat', () => {
   });
 
   it('warns about low keyword density', () => {
-    // 500 words but all unique — no repeated keywords
+    // 500 words but all unique  -  no repeated keywords
     const uniqueWords = Array.from({ length: 500 }, (_, i) => `uniqueword${i}`).join(' ');
     const content = makeResumeContent({
       fullText: uniqueWords,

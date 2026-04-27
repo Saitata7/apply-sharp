@@ -4,10 +4,15 @@ import type { Job, JobPlatform } from '@shared/types/job.types';
 import type { Application, ApplicationStatus } from '@shared/types/application.types';
 import type { UserSettings } from '@shared/types/settings.types';
 import type { ResumeVersion } from '@shared/types/resume-version.types';
+import type { Contact } from '@shared/types/contact.types';
 
 const DB_NAME = 'applysharp-db';
 const OLD_DB_NAME = 'jobs-pilot-db';
-const DB_VERSION = 2;
+// v3 (Workstream 10): adds the contacts store with by-email-hash + by-job
+// + by-created indexes. Migration is additive: only the contacts store is
+// created. Existing applications/jobs/profiles/resume-versions are
+// untouched. Idempotent: only runs when oldVersion < 3.
+const DB_VERSION = 3;
 
 export interface ApplySharpDB extends DBSchema {
   profiles: {
@@ -50,6 +55,17 @@ export interface ApplySharpDB extends DBSchema {
       'by-profile': string;
       'by-job': string;
       'by-created': Date;
+    };
+  };
+  contacts: {
+    key: string;
+    value: Contact;
+    indexes: {
+      'by-email-hash': string;
+      'by-phone': string;
+      'by-job': string;
+      'by-created': string;
+      'by-updated': string;
     };
   };
 }
@@ -125,6 +141,19 @@ export async function initDB(): Promise<IDBPDatabase<ApplySharpDB>> {
         rvStore.createIndex('by-profile', 'profileId');
         rvStore.createIndex('by-job', 'jobId');
         rvStore.createIndex('by-created', 'createdAt');
+      }
+
+      // Contacts store (added in v3 by Workstream 10).
+      // by-email-hash uses canonical.email which is computed from
+      // sightings; by-job is multiEntry so a contact seen on multiple
+      // job pages is queryable from any of them.
+      if (!db.objectStoreNames.contains('contacts')) {
+        const contactStore = db.createObjectStore('contacts', { keyPath: 'id' });
+        contactStore.createIndex('by-email-hash', 'canonical.email');
+        contactStore.createIndex('by-phone', 'canonical.phone');
+        contactStore.createIndex('by-job', 'jobIds', { multiEntry: true });
+        contactStore.createIndex('by-created', 'createdAt');
+        contactStore.createIndex('by-updated', 'updatedAt');
       }
     },
   });

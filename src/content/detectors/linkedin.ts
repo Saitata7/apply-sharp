@@ -21,7 +21,7 @@ export class LinkedInDetector implements JobDetector {
     const hasCurrentJobId = /currentJobId=\d+/.test(window.location.href);
 
     // Check for job-related elements (job details panel)
-    const hasJobElements = (
+    const hasJobElements =
       document.querySelector('.jobs-description__content') !== null ||
       document.querySelector('.job-view-layout') !== null ||
       document.querySelector('.jobs-unified-top-card') !== null ||
@@ -30,8 +30,7 @@ export class LinkedInDetector implements JobDetector {
       document.querySelector('#job-details') !== null ||
       document.querySelector('.jobs-search__job-details') !== null ||
       document.querySelector('.scaffold-layout__detail') !== null ||
-      document.querySelector('.jobs-details__main-content') !== null
-    );
+      document.querySelector('.jobs-details__main-content') !== null;
 
     return isJobUrl && (hasJobElements || hasCurrentJobId);
   }
@@ -186,6 +185,13 @@ export class LinkedInDetector implements JobDetector {
     cleanTitle = cleanTitle.replace(/^[,\s]+/, '').trim();
     if (cleanTitle.length < 3) {
       cleanTitle = '';
+    }
+
+    if (!description) {
+      console.warn(
+        '[ApplySharp/LinkedIn] description selectors all empty; ATS scoring will run on title-only and likely score low. ' +
+          'Likely cause: LinkedIn changed the description container class or the description is lazy-loaded behind a "show more" gate.'
+      );
     }
 
     return {

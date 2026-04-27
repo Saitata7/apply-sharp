@@ -78,7 +78,7 @@ export interface LinkedInConsistencyReport {
 function normalize(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[.,\-–—/\\()&]+/g, ' ')
+    .replace(/[.,\-–\u2014/\\()&]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -220,7 +220,7 @@ function compareExperience(
         resumeValue: `${re.title} at ${re.company}`,
         linkedInValue: '(not found)',
         message: `"${re.title} at ${re.company}" is on your resume but not on LinkedIn`,
-        suggestion: 'Add this role to your LinkedIn profile — recruiters will check',
+        suggestion: 'Add this role to your LinkedIn profile  -  recruiters will check',
       });
       continue;
     }
@@ -237,7 +237,7 @@ function compareExperience(
         resumeValue: re.company,
         linkedInValue: le.company,
         message: `Company name differs: resume says "${re.company}", LinkedIn says "${le.company}"`,
-        suggestion: 'Use the exact same company name on both — inconsistencies raise red flags',
+        suggestion: 'Use the exact same company name on both  -  inconsistencies raise red flags',
       });
     }
 
@@ -251,7 +251,7 @@ function compareExperience(
         linkedInValue: le.title,
         message: `Title mismatch at ${re.company}: resume says "${re.title}", LinkedIn says "${le.title}"`,
         suggestion:
-          'Job titles must match exactly — this is the #1 thing recruiters verify on LinkedIn',
+          'Job titles must match exactly  -  this is the #1 thing recruiters verify on LinkedIn',
       });
     } else if (match.titleScore < 0.9) {
       flags.push({
@@ -277,7 +277,7 @@ function compareExperience(
         linkedInValue: le.startDate || '(not set)',
         message: `Start date differs at ${re.company}: resume "${re.startDate}" vs LinkedIn "${le.startDate}"`,
         suggestion:
-          'Ensure dates match within 1 month — discrepancies suggest dishonesty to recruiters',
+          'Ensure dates match within 1 month  -  discrepancies suggest dishonesty to recruiters',
       });
     }
 
@@ -342,7 +342,7 @@ function compareEducation(
         resumeValue: `${re.degree} in ${re.field} at ${re.institution}`,
         linkedInValue: '(not found)',
         message: `"${re.degree} at ${re.institution}" is on your resume but not on LinkedIn`,
-        suggestion: 'Add your education to LinkedIn — it helps with recruiter search filters',
+        suggestion: 'Add your education to LinkedIn  -  it helps with recruiter search filters',
       });
       continue;
     }
@@ -456,7 +456,7 @@ function compareSkills(profile: MasterProfile, linkedInSkills: string[]): Linked
       linkedInValue: '(not listed)',
       message: `${missingOnLinkedIn.length} resume skills not on LinkedIn`,
       suggestion:
-        'Add your top skills to LinkedIn — recruiters filter candidates by LinkedIn skills',
+        'Add your top skills to LinkedIn  -  recruiters filter candidates by LinkedIn skills',
     });
   }
 
@@ -604,7 +604,7 @@ export function parseLinkedInText(text: string): LinkedInProfileData {
 
 // Date pattern for LinkedIn: "Jan 2024 - Present", "2020 - 2024", etc.
 const DATE_RANGE_PATTERN =
-  /^((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}|\d{4})\s*[-–—]\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}|\d{4}|present|current)/i;
+  /^((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}|\d{4})\s*[-–\u2014]\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}|\d{4}|present|current)/i;
 
 const DURATION_PATTERN = /·?\s*(\d+\s*(?:yr|year|mo|month)s?(?:\s+\d+\s*(?:yr|year|mo|month)s?)?)/i;
 
@@ -632,7 +632,7 @@ function parseExperienceEntry(
     // Check if this is a date range line
     if (DATE_RANGE_PATTERN.test(l) || DURATION_PATTERN.test(l)) {
       if (!companyLine && j === startIdx + 1) {
-        // No company found between title and date — might be sparse format
+        // No company found between title and date  -  might be sparse format
       }
       dateRange = l;
       nextIdx = j + 1;
@@ -647,7 +647,7 @@ function parseExperienceEntry(
       break;
     }
 
-    // Check for section header — stop
+    // Check for section header  -  stop
     const lLower = l.toLowerCase().replace(/[:\s]+$/, '');
     if (
       [

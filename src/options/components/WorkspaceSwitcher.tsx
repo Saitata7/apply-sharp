@@ -39,9 +39,11 @@ export default function WorkspaceSwitcher() {
     );
   };
 
-  // Get color for workspace (stable by ID hash, not index)
+  // Get color for workspace (stable by ID hash, not index).
+  // LinkedIn-aligned palette: brand blue first, then complementary hues that
+  // read on both white and dark surfaces.
   const getWorkspaceColor = (id: string) => {
-    const colors = ['#e8a832', '#10b981', '#38bdf8', '#ef4444', '#a78bfa', '#ec4899'];
+    const colors = ['#0a66c2', '#057642', '#7c3aed', '#c47d00', '#cc1016', '#0891b2'];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;

@@ -6,11 +6,14 @@
 
   "permissions": [
     "storage",
-    "unlimitedStorage",
     "activeTab",
+    "scripting",
     "contextMenus",
     "alarms",
-    "notifications"
+    "notifications",
+    "identity",
+    "sidePanel",
+    "tabs"
   ],
 
   "host_permissions": [
@@ -36,9 +39,14 @@
     "https://*.breezy.hr/*",
     "https://*.rippling.com/*",
     "https://*.recruitee.com/*",
-    "https://*.workable.com/*",
-    "http://localhost:*/*"
+    "https://*.workable.com/*"
   ],
+
+  "optional_host_permissions": ["http://localhost:*/*", "https://hn.algolia.com/*"],
+
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
 
   "background": {
     "service_worker": "src/background/index.ts",
@@ -48,7 +56,6 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.linkedin.com/jobs/*",
         "https://www.indeed.com/*",
         "https://www.dice.com/*",
         "https://www.monster.com/*",
@@ -78,13 +85,14 @@
     },
     {
       "matches": [
-        "https://www.linkedin.com/jobs/*",
         "https://www.indeed.com/*",
         "https://www.dice.com/*",
         "https://www.monster.com/*",
         "https://www.ziprecruiter.com/*",
         "https://www.glassdoor.com/*",
         "https://wellfound.com/*",
+        "https://workatastartup.com/*",
+        "https://himalayas.app/*",
         "https://boards.greenhouse.io/*",
         "https://*.greenhouse.io/*",
         "https://jobs.lever.co/*",
@@ -102,11 +110,19 @@
         "https://*.recruitee.com/*",
         "https://*.workable.com/*"
       ],
-      "js": ["src/content/autofill-content.ts"],
-      "run_at": "document_idle",
-      "all_frames": true
+      "js": ["src/content/autofill/v2/index.ts"],
+      "run_at": "document_idle"
     }
   ],
+  "commands": {
+    "run-autofill-v2": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Run ApplySharp one-click autofill on the current job application"
+    }
+  },
 
   "action": {
     "default_popup": "src/popup/index.html",
@@ -139,7 +155,6 @@
     {
       "resources": ["src/content/styles.css"],
       "matches": [
-        "https://www.linkedin.com/*",
         "https://www.indeed.com/*",
         "https://www.dice.com/*",
         "https://*.greenhouse.io/*",

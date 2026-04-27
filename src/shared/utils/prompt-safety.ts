@@ -18,13 +18,15 @@ const INJECTION_PATTERNS = [
 ];
 
 /**
- * Sanitize and wrap user-provided content for safe prompt interpolation.
+ * Sanitize user-provided content for safe prompt interpolation.
  *
  * 1. Strips known injection markers (e.g. [SYSTEM], <<SYS>>)
- * 2. Wraps content in XML-style `<label>…</label>` delimiters
+ * 2. Escapes closing XML tags matching the label to prevent delimiter breakout
+ *
+ * Note: Does NOT wrap in XML tags — the caller (templates.ts) handles tagging.
  *
  * @param input  Raw user/page content
- * @param label  Semantic tag name (e.g. "job_description", "resume_text")
+ * @param label  Semantic tag name used by the outer template (e.g. "job_description")
  */
 export function sanitizePromptInput(input: string, label: string): string {
   let sanitized = input;
@@ -37,7 +39,7 @@ export function sanitizePromptInput(input: string, label: string): string {
   const closingTag = `</${label}>`;
   sanitized = sanitized.replaceAll(closingTag, `&lt;/${label}&gt;`);
 
-  return `<${label}>\n${sanitized}\n</${label}>`;
+  return sanitized;
 }
 
 /**

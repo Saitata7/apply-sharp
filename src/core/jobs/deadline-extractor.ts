@@ -34,7 +34,7 @@ const NAMED_DATE = /(\w+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/;
 // Matches "MM/DD/YYYY" or "MM-DD-YYYY"
 const NUMERIC_DATE = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/;
 
-// Deadline context patterns — each captures the date portion after the keyword
+// Deadline context patterns  -  each captures the date portion after the keyword
 const DEADLINE_PATTERNS: RegExp[] = [
   /(?:application\s+)?deadline[:\s]+(.+?)(?:\.|$)/im,
   /apply\s+by\s+(.+?)(?:\.|$)/im,

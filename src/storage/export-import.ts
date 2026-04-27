@@ -245,6 +245,89 @@ export async function exportApplicationsCSV(): Promise<string> {
   return rows.map((row) => row.join(',')).join('\n');
 }
 
+// ── Workstream 10: Contact CSV + vCard export ───────────────────────────
+
+import { contactRepo } from './repositories/contact.repo';
+
+/**
+ * Export the entire contacts CRM as CSV. Prefixed with a UTF-8 BOM
+ * (\uFEFF) so Excel opens non-ASCII characters correctly. Without the
+ * BOM, Excel defaults to ANSI and mangles every accented name.
+ */
+export async function exportContactsCSV(): Promise<string> {
+  const contacts = await contactRepo.getAll();
+  const headers = [
+    'Name',
+    'Title',
+    'Company',
+    'Email',
+    'Email Kind',
+    'Phone',
+    'First Seen',
+    'Last Seen',
+    'Sighting Count',
+    'Source URLs',
+  ];
+  const rows: string[][] = [headers];
+  for (const c of contacts) {
+    if (c.archivedAt) continue;
+    const sightingDates = c.sightings.map((s) => Date.parse(s.capturedAt)).filter((t) => !isNaN(t));
+    const firstSeen = sightingDates.length ? new Date(Math.min(...sightingDates)) : undefined;
+    const lastSeen = sightingDates.length ? new Date(Math.max(...sightingDates)) : undefined;
+    const urls = Array.from(new Set(c.sightings.map((s) => s.sourceUrl).filter(Boolean))).join(
+      '; '
+    );
+    rows.push([
+      escapeCSV(c.canonical.name || ''),
+      escapeCSV(c.canonical.title || ''),
+      escapeCSV(c.canonical.company || ''),
+      escapeCSV(c.canonical.email || ''),
+      escapeCSV(c.canonical.emailKind || ''),
+      escapeCSV(c.canonical.phone || ''),
+      formatCSVDate(firstSeen),
+      formatCSVDate(lastSeen),
+      String(c.sightings.length),
+      escapeCSV(urls),
+    ]);
+  }
+  // BOM prefix so Excel opens UTF-8 correctly
+  return '\uFEFF' + rows.map((row) => row.join(',')).join('\n');
+}
+
+/**
+ * Export the contacts CRM as a vCard 3.0 file. Importable by Apple
+ * Contacts, Google Contacts, and most other address books. ~50 LOC.
+ */
+export async function exportContactsVCard(): Promise<string> {
+  const contacts = await contactRepo.getAll();
+  const blocks: string[] = [];
+  for (const c of contacts) {
+    if (c.archivedAt) continue;
+    if (!c.canonical.name && !c.canonical.email) continue;
+    const lines: string[] = ['BEGIN:VCARD', 'VERSION:3.0'];
+    const name = vcardEscape(c.canonical.name || '');
+    if (name) {
+      const parts = name.split(/\s+/);
+      const last = parts.length > 1 ? parts[parts.length - 1] : '';
+      const first = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0];
+      lines.push(`FN:${name}`);
+      lines.push(`N:${last};${first};;;`);
+    }
+    if (c.canonical.email) lines.push(`EMAIL;TYPE=INTERNET:${vcardEscape(c.canonical.email)}`);
+    if (c.canonical.phone) lines.push(`TEL;TYPE=CELL:${c.canonical.phone}`);
+    if (c.canonical.title) lines.push(`TITLE:${vcardEscape(c.canonical.title)}`);
+    if (c.canonical.company) lines.push(`ORG:${vcardEscape(c.canonical.company)}`);
+    lines.push('END:VCARD');
+    blocks.push(lines.join('\r\n'));
+  }
+  return blocks.join('\r\n');
+}
+
+function vcardEscape(s: string): string {
+  // vCard escaping: backslash, comma, semicolon, newline
+  return s.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
+}
+
 // ── Validation ──────────────────────────────────────────────────────────
 
 export function validateExportData(data: unknown): ValidationResult {
@@ -277,11 +360,37 @@ export function validateExportData(data: unknown): ValidationResult {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Escape a string for safe inclusion in a CSV cell.
+ *
+ * Handles two distinct security concerns:
+ *
+ *   1. CSV escape (RFC 4180): comma, double-quote, newline => quote and
+ *      double the quotes inside.
+ *
+ *   2. CSV formula injection (CWE-1236): a cell whose first character is
+ *      `=`, `+`, `-`, `@`, `\t`, or `\r` is interpreted as a formula by
+ *      Excel / LibreOffice / Google Sheets. A contact captured from a
+ *      hostile careers page (e.g. name = `=HYPERLINK("attacker","x")`)
+ *      would execute the moment the user opens the export. Iter-2 fix per
+ *      WS10 security review.
+ *
+ *      Defense: prefix any such cell with a single apostrophe `'`. The
+ *      apostrophe is interpreted as "this is text, not a formula" by every
+ *      major spreadsheet app and is hidden in the rendered cell.
+ */
 export function escapeCSV(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
+  if (value === undefined || value === null) return '';
+  let v = String(value);
+  // Formula injection neutralization: must run BEFORE quote-wrapping so
+  // the apostrophe is considered the first character.
+  if (v.length > 0 && /^[=+\-@\t\r]/.test(v)) {
+    v = `'${v}`;
   }
-  return value;
+  if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
 }
 
 export function formatCSVDate(date: Date | string | undefined): string {

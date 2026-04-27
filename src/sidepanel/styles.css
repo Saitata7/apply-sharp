@@ -1,0 +1,327 @@
+/**
+ * Side panel scoped styles. NOT shared with options/popup so the side panel
+ * can iterate independently and so the options stylesheet (~130KB) does not
+ * bloat the side panel cold-start.
+ *
+ * Dark mode via prefers-color-scheme is the side panel's distinguishing
+ * a11y feature. Popup and options remain light-only for this PR (intentional
+ * scope decision per WS7 plan).
+ */
+
+:root {
+  --sp-bg: #ffffff;
+  --sp-bg-elevated: #f3f2ef;
+  --sp-bg-soft: #f8f8f6;
+  --sp-border: rgba(0, 0, 0, 0.08);
+  --sp-border-strong: rgba(0, 0, 0, 0.16);
+  --sp-text: rgba(0, 0, 0, 0.9);
+  --sp-text-muted: rgba(0, 0, 0, 0.6);
+  --sp-text-faint: rgba(0, 0, 0, 0.45);
+  --sp-accent: #0a66c2;
+  --sp-accent-hover: #004182;
+  --sp-accent-soft: #e7f3ff;
+  --sp-success: #057642;
+  --sp-success-bg: #e8f6ee;
+  --sp-success-border: #b6e0c4;
+  --sp-warning: #c47d00;
+  --sp-warning-bg: #fff7e6;
+  --sp-warning-border: #f5d895;
+  --sp-danger: #cc1016;
+  --sp-danger-bg: #fdecec;
+  --sp-danger-border: #f4b6b6;
+  --sp-radius: 10px;
+  --sp-radius-sm: 6px;
+  --sp-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sp-bg: #1b1f23;
+    --sp-bg-elevated: #232930;
+    --sp-bg-soft: #2a3038;
+    --sp-border: rgba(255, 255, 255, 0.08);
+    --sp-border-strong: rgba(255, 255, 255, 0.16);
+    --sp-text: #e8ecf4;
+    --sp-text-muted: #94a3b8;
+    --sp-text-faint: #64748b;
+    --sp-accent: #378fe9;
+    --sp-accent-hover: #70b5f9;
+    --sp-accent-soft: rgba(55, 143, 233, 0.14);
+    --sp-success: #34d399;
+    --sp-success-bg: rgba(52, 211, 153, 0.1);
+    --sp-success-border: rgba(52, 211, 153, 0.3);
+    --sp-warning: #fbbf24;
+    --sp-warning-bg: rgba(251, 191, 36, 0.1);
+    --sp-warning-border: rgba(251, 191, 36, 0.3);
+    --sp-danger: #f87171;
+    --sp-danger-bg: rgba(248, 113, 113, 0.1);
+    --sp-danger-border: rgba(248, 113, 113, 0.3);
+    --sp-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--sp-bg);
+  color: var(--sp-text);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+.sp-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sp-border);
+  margin-bottom: 4px;
+}
+
+.sp-brand__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(10, 102, 194, 0.3);
+}
+
+.sp-brand__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sp-text);
+  letter-spacing: -0.01em;
+}
+
+.sp-brand__name strong {
+  color: var(--sp-accent);
+  font-weight: 700;
+}
+
+.sp-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sp-border);
+}
+
+.sp-header__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sp-text);
+  line-height: 1.3;
+  margin: 0;
+  /* Long LinkedIn-style titles ("Senior Staff Software Engineer,
+   * Distributed Systems, Payments Platform - Remote US/CA") would
+   * wrap to 4+ lines and push cards off-screen in the 380px panel.
+   * Cap at 2 lines with ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.sp-header__company {
+  font-size: 13px;
+  color: var(--sp-text-muted);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sp-header__meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--sp-text-faint);
+}
+
+.sp-header__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--sp-bg-elevated);
+  border: 1px solid var(--sp-border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sp-text-muted);
+}
+
+.sp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--sp-bg-elevated);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius);
+  box-shadow: var(--sp-shadow);
+}
+
+.sp-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sp-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sp-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--sp-text);
+  /* Constrain children so a long unbroken URL or code block in a
+   * sanitized HN comment cannot blow out the 380px panel width. */
+  min-width: 0;
+}
+
+/* HN comment body container. dangerouslySetInnerHTML render target.
+ * The sanitized output may contain very long URLs in <a href> or long
+ * code spans in <code>; both must wrap inside the panel. */
+.sp-hn-comment {
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--sp-text);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.sp-hn-comment a,
+.sp-hn-comment code,
+.sp-hn-comment pre {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  max-width: 100%;
+}
+
+.sp-hn-comment pre {
+  white-space: pre-wrap;
+}
+
+.sp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--sp-text-muted);
+}
+
+.sp-empty__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--sp-text-faint);
+}
+
+.sp-empty__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sp-text);
+  margin: 0;
+}
+
+.sp-empty__body {
+  font-size: 13px;
+  margin: 0;
+  max-width: 300px;
+}
+
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--sp-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--sp-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.sp-btn:hover:not(:disabled) {
+  background: var(--sp-accent-hover);
+}
+
+.sp-btn:focus-visible {
+  outline: 2px solid var(--sp-accent);
+  outline-offset: 2px;
+}
+
+.sp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sp-btn--ghost {
+  background: transparent;
+  color: var(--sp-accent);
+  border: 1px solid var(--sp-border);
+}
+
+.sp-btn--ghost:hover:not(:disabled) {
+  background: var(--sp-bg-elevated);
+}
+
+.sp-btn--small {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-btn {
+    transition: none;
+  }
+}

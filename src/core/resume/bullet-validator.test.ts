@@ -271,7 +271,7 @@ describe('validateAllBullets', () => {
         title: 'Y',
         bullets: [
           'Architected platform serving 10M users with 99.99% uptime SLA across three data centers', // good
-          'Helped with stuff', // bad — weak verb + too short
+          'Helped with stuff', // bad  -  weak verb + too short
         ],
       },
     ]);

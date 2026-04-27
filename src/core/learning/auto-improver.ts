@@ -61,15 +61,34 @@ export interface LearningInsights {
 }
 
 const STORAGE_KEY = 'auto_improvements';
+// Unified with the key already written by saveToStorage() so existing
+// users do not lose their last-analysis timestamp on upgrade.
+const LAST_ANALYSIS_KEY = 'auto_improver_last_analysis';
 
 /**
  * Auto-Improver System
+ *
+ * Service worker startup performance fix: previously the constructor awaited
+ * runFullAnalysisInternal() inside initialize() and the lastAnalysis field
+ * was in-memory only. Every SW wake reset lastAnalysis to 0, the staleness
+ * check (now - 0 > 24h) was always true, and the heavy storage I/O blocked
+ * the Dashboard / Analytics pages waiting on GET_IMPROVEMENTS /
+ * GET_LEARNING_INSIGHTS handlers. Two fixes:
+ *
+ *   1. Persist lastAnalysis to chrome.storage so the 24h staleness check
+ *      survives SW restarts.
+ *   2. Make initialize() return as soon as the existing improvements are
+ *      loaded; if a refresh is needed, schedule it via queueMicrotask so
+ *      the constructor unblocks immediately and the message handler queue
+ *      drains for the UI.
  */
 export class AutoImprover {
   private improvements: Map<string, AutoImprovement> = new Map();
   private lastAnalysis: number = 0;
   private analysisInterval = 24 * 60 * 60 * 1000; // Daily
   private initPromise: Promise<void>;
+  /** True while a deferred analysis is running so we do not stack them. */
+  private analysisInFlight = false;
 
   constructor() {
     this.initPromise = this.initialize();
@@ -77,21 +96,46 @@ export class AutoImprover {
 
   private async initialize(): Promise<void> {
     try {
-      // Load saved improvements
-      const saved = await chrome.storage.local.get(STORAGE_KEY);
+      // Load saved improvements + last analysis timestamp in one round-trip
+      const saved = await chrome.storage.local.get([STORAGE_KEY, LAST_ANALYSIS_KEY]);
       if (saved[STORAGE_KEY]) {
         for (const imp of saved[STORAGE_KEY]) {
           this.improvements.set(imp.id, imp);
         }
       }
+      if (typeof saved[LAST_ANALYSIS_KEY] === 'number') {
+        this.lastAnalysis = saved[LAST_ANALYSIS_KEY];
+      }
 
-      // Run analysis if needed (call internal to avoid initPromise deadlock)
+      // Schedule a fresh analysis ONLY if it has been more than 24h since
+      // the last run. Never block the constructor on the analysis - schedule
+      // it via queueMicrotask so initialize() returns immediately and the
+      // SW message handler queue is free to serve UI requests.
       const now = Date.now();
       if (now - this.lastAnalysis > this.analysisInterval) {
-        await this.runFullAnalysisInternal();
+        queueMicrotask(() => {
+          void this.runDeferredAnalysis();
+        });
       }
     } catch (error) {
       console.debug('[AutoImprover] Initialization failed:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Wraps runFullAnalysisInternal with a guard so a deferred analysis
+   * cannot stack on top of an explicit RUN_LEARNING_ANALYSIS call. Errors
+   * are swallowed because this path is fire-and-forget.
+   */
+  private async runDeferredAnalysis(): Promise<void> {
+    if (this.analysisInFlight) return;
+    this.analysisInFlight = true;
+    try {
+      await this.runFullAnalysisInternal();
+    } catch (err) {
+      console.debug('[AutoImprover] Deferred analysis failed:', (err as Error).message);
+    } finally {
+      this.analysisInFlight = false;
     }
   }
 
@@ -475,14 +519,17 @@ export class AutoImprover {
   }
 
   /**
-   * Save to storage
+   * Save to storage. Persists both the improvements map and the
+   * lastAnalysis timestamp under LAST_ANALYSIS_KEY so the constructor
+   * can read it on the next SW wake and skip the daily analysis if it
+   * is still fresh.
    */
   private async saveToStorage(): Promise<void> {
     try {
       const data = Array.from(this.improvements.values());
       await chrome.storage.local.set({
         [STORAGE_KEY]: data,
-        auto_improver_last_analysis: this.lastAnalysis,
+        [LAST_ANALYSIS_KEY]: this.lastAnalysis,
       });
     } catch (error) {
       console.debug('[AutoImprover] Failed to save to storage:', (error as Error).message);

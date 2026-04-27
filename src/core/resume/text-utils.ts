@@ -99,7 +99,7 @@ export function estimateYearsOfExperience(rawText: string): number {
 
   // Pattern 1: "Month YYYY - Month YYYY" or "Month YYYY - Present"
   const monthYearPattern =
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2}))/gi;
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2})\s*[-–\u2014to]+\s*(present|current|now|(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[,.]?\s*((?:19|20)\d{2}))/gi;
 
   for (const match of workText.matchAll(monthYearPattern)) {
     const startMonth = monthMap[match[1].toLowerCase().substring(0, 3)] || 1;
@@ -123,7 +123,7 @@ export function estimateYearsOfExperience(rawText: string): number {
 
   // Pattern 2: "MM/YYYY - MM/YYYY" or "MM/YYYY - Present"
   const numericDatePattern =
-    /\b(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2}))/gi;
+    /\b(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2})\s*[-–\u2014to]+\s*(present|current|now|(\d{1,2})\s*[/\-.]\s*((?:19|20)\d{2}))/gi;
 
   for (const match of workText.matchAll(numericDatePattern)) {
     const startMonth = Math.min(12, Math.max(1, parseInt(match[1], 10)));
@@ -147,7 +147,7 @@ export function estimateYearsOfExperience(rawText: string): number {
 
   // Pattern 3: "YYYY - YYYY" or "YYYY - Present" (fallback for year-only formats)
   const yearOnlyPattern =
-    /\b((?:19|20)\d{2})\s*[-–—to]+\s*(present|current|now|(?:19|20)\d{2})\b/gi;
+    /\b((?:19|20)\d{2})\s*[-–\u2014to]+\s*(present|current|now|(?:19|20)\d{2})\b/gi;
 
   for (const match of workText.matchAll(yearOnlyPattern)) {
     const startYear = parseInt(match[1], 10);
@@ -208,7 +208,7 @@ export function estimateYearsOfExperience(rawText: string): number {
     totalMonths += months;
   }
 
-  // Convert to years — floor to avoid inflating experience
+  // Convert to years  -  floor to avoid inflating experience
   return Math.floor(totalMonths / 12);
 }
 

@@ -8,6 +8,7 @@ import { useProfile } from '../context/ProfileContext';
 import { sendMessage } from '@shared/utils/messaging';
 import BackgroundConfig from '../components/BackgroundConfig';
 import AutofillSettings from '../components/AutofillSettings';
+import CompletenessRing from '../components/profile/CompletenessRing';
 
 type ProfileTab = 'overview' | 'skills' | 'answers' | 'profiles' | 'recommendations' | 'autofill';
 type EditSection = 'personal' | 'links' | 'certifications' | 'experience' | null;
@@ -74,7 +75,7 @@ export default function MyProfile() {
         'What you do (domain/tech/responsibilities)',
       ],
       example:
-        'Software Engineer at Kroger since Jan 2025. Working on Java backend for retail inventory systems. Building APIs for store operations, optimizing database queries for 2000+ stores.',
+        'Software Engineer at Acme Corp since Jan 2025. Working on Java backend for inventory systems. Building APIs and optimizing database queries at scale.',
     },
     timeline: {
       icon: '📅',
@@ -82,7 +83,7 @@ export default function MyProfile() {
       description: 'Add end dates, fix duplicates, correct date issues',
       required: ['Company name', 'What to fix (end date, remove duplicate, correct dates)'],
       example:
-        'TeamCal AI ended Dec 2024 when I joined Kroger. Remove duplicate Kroger entry (keep the one with Jan 2025 start date).',
+        'PreviousCo ended Dec 2024 when I joined CurrentCo. Remove duplicate CurrentCo entry (keep the one with Jan 2025 start date).',
     },
     achievement: {
       icon: '🏆',
@@ -90,7 +91,7 @@ export default function MyProfile() {
       description: 'Add accomplishments to your current or past roles',
       required: ['Which company/role', 'What you achieved', 'Impact or result'],
       example:
-        'At Kroger: Reduced API response time by 60% by implementing Redis caching. Led migration of legacy system serving 500+ stores.',
+        'At CurrentCo: Reduced API response time by 60% by implementing Redis caching. Led migration of legacy system.',
     },
     skills: {
       icon: '🛠️',
@@ -362,6 +363,17 @@ export default function MyProfile() {
   return (
     <div className="page-container">
       <div className="page-header">
+        <div
+          style={{
+            padding: '12px 16px',
+            marginBottom: 16,
+            background: 'var(--sf-overlay)',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+          }}
+        >
+          <CompletenessRing profile={profile} />
+        </div>
         <div className="header-with-actions">
           <div className="header-info">
             <h1>{profile.personal?.fullName || 'Your Profile'}</h1>
@@ -388,7 +400,9 @@ export default function MyProfile() {
                 Last updated:{' '}
                 {(() => {
                   try {
-                    const d = new Date(profile.updatedAt);
+                    const raw = profile.updatedAt ?? profile.createdAt;
+                    if (!raw) return 'Unknown';
+                    const d = new Date(raw);
                     return isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString();
                   } catch {
                     return 'Unknown';
@@ -744,10 +758,10 @@ export default function MyProfile() {
                   style={{
                     padding: '8px 12px',
                     marginBottom: 12,
-                    background: '#3b1219',
+                    background: 'var(--cl-rose-glow)',
                     border: '1px solid #ef4444',
                     borderRadius: 6,
-                    color: '#ef4444',
+                    color: 'var(--cl-rose)',
                     fontSize: 13,
                   }}
                 >
@@ -1050,8 +1064,8 @@ export default function MyProfile() {
                           <span>Required Information:</span>
                         </div>
                         <ul className="required-list">
-                          {updateTypeConfigs[selectedUpdateType].required.map((req, i) => (
-                            <li key={i}>{req}</li>
+                          {updateTypeConfigs[selectedUpdateType].required.map((req) => (
+                            <li key={req}>{req}</li>
                           ))}
                         </ul>
                         <div className="example-box">
@@ -1371,7 +1385,7 @@ function ProfileOverview({
                       style={{
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        border: '1px solid var(--bd-default)',
                         fontSize: '0.9rem',
                         fontWeight: 600,
                       }}
@@ -1384,7 +1398,7 @@ function ProfileOverview({
                       style={{
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        border: '1px solid var(--bd-default)',
                         fontSize: '0.85rem',
                       }}
                     />
@@ -1398,7 +1412,7 @@ function ProfileOverview({
                           flex: 1,
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid var(--bd-default)',
                           fontSize: '0.8rem',
                         }}
                       />
@@ -1411,7 +1425,7 @@ function ProfileOverview({
                           width: '100px',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid var(--bd-default)',
                           fontSize: '0.8rem',
                         }}
                       />
@@ -1427,7 +1441,7 @@ function ProfileOverview({
                           width: '100px',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid var(--bd-default)',
                           fontSize: '0.8rem',
                         }}
                       />
@@ -1438,7 +1452,7 @@ function ProfileOverview({
                         alignItems: 'center',
                         gap: '6px',
                         fontSize: '0.8rem',
-                        color: '#64748b',
+                        color: 'var(--tx-secondary)',
                       }}
                     >
                       <input
@@ -1727,8 +1741,8 @@ function ProfileOverview({
             Top Skills
           </h3>
           <div className="skills-tags">
-            {profile.skills.technical?.slice(0, 12).map((skill, i) => (
-              <span key={i} className="tag skill-tag">
+            {profile.skills.technical?.slice(0, 12).map((skill) => (
+              <span key={skill.name} className="tag skill-tag">
                 {skill.name}
               </span>
             ))}
@@ -1899,10 +1913,10 @@ function ProfileSkills({ profile }: { profile: MasterProfile }) {
         <div className="skills-section">
           <h3>Technical Skills ({sortedTechnical.length})</h3>
           <div className="skills-grid">
-            {sortedTechnical.map((skill, i) => {
+            {sortedTechnical.map((skill) => {
               const count = getSkillCount(skill.name);
               return (
-                <div key={i} className="skill-item">
+                <div key={skill.name} className="skill-item">
                   <div className="skill-header">
                     <span className="skill-name">
                       {skill.name}
@@ -1925,10 +1939,10 @@ function ProfileSkills({ profile }: { profile: MasterProfile }) {
         <div className="skills-section">
           <h3>Frameworks & Libraries ({sortedFrameworks.length})</h3>
           <div className="tags">
-            {sortedFrameworks.map((skill, i) => {
+            {sortedFrameworks.map((skill) => {
               const count = getSkillCount(skill.name);
               return (
-                <span key={i} className="tag skill-tag-with-count">
+                <span key={skill.name} className="tag skill-tag-with-count">
                   {skill.name}
                   <span className="tag-count">({count})</span>
                 </span>
@@ -1942,10 +1956,10 @@ function ProfileSkills({ profile }: { profile: MasterProfile }) {
         <div className="skills-section">
           <h3>Tools ({sortedTools.length})</h3>
           <div className="tags">
-            {sortedTools.map((skill, i) => {
+            {sortedTools.map((skill) => {
               const count = getSkillCount(skill.name);
               return (
-                <span key={i} className="tag tag-outline skill-tag-with-count">
+                <span key={skill.name} className="tag tag-outline skill-tag-with-count">
                   {skill.name}
                   <span className="tag-count">({count})</span>
                 </span>
@@ -1959,15 +1973,15 @@ function ProfileSkills({ profile }: { profile: MasterProfile }) {
         <div className="skills-section">
           <h3>Skill Clusters</h3>
           <div className="clusters-list">
-            {profile.skills.clusters.map((cluster, i) => (
-              <div key={i} className="cluster-card">
+            {profile.skills.clusters.map((cluster) => (
+              <div key={cluster.name} className="cluster-card">
                 <div className="cluster-header">
                   <span className="cluster-name">{cluster.name}</span>
                   <span className="cluster-strength">{cluster.strength}% strength</span>
                 </div>
                 <div className="cluster-skills">
-                  {cluster.skills.map((skill, j) => (
-                    <span key={j} className="tag tag-sm">
+                  {cluster.skills.map((skill) => (
+                    <span key={skill} className="tag tag-sm">
                       {skill}
                     </span>
                   ))}
@@ -2017,9 +2031,9 @@ function ProfileAnswers({ profile }: { profile: MasterProfile }) {
       </p>
 
       <div className="answers-list">
-        {profile.answerBank.commonQuestions.map((qa, i) => (
+        {profile.answerBank.commonQuestions.map((qa) => (
           <div
-            key={i}
+            key={qa.questionType}
             className={`answer-card ${expandedAnswer === qa.questionType ? 'expanded' : ''}`}
             onClick={() =>
               setExpandedAnswer(expandedAnswer === qa.questionType ? null : qa.questionType)
@@ -2126,8 +2140,8 @@ function GeneratedProfiles({ profile }: { profile: MasterProfile }) {
               <div className="detail-section">
                 <h4>Highlighted Skills</h4>
                 <div className="tags">
-                  {selectedProfile.highlightedSkills.map((skill, i) => (
-                    <span key={i} className="tag">
+                  {selectedProfile.highlightedSkills.map((skill) => (
+                    <span key={skill} className="tag">
                       {skill}
                     </span>
                   ))}
@@ -2139,8 +2153,8 @@ function GeneratedProfiles({ profile }: { profile: MasterProfile }) {
               <div className="detail-section">
                 <h4>ATS Keywords</h4>
                 <div className="tags">
-                  {selectedProfile.atsKeywords.map((kw, i) => (
-                    <span key={i} className="tag tag-outline">
+                  {selectedProfile.atsKeywords.map((kw) => (
+                    <span key={kw} className="tag tag-outline">
                       {kw}
                     </span>
                   ))}

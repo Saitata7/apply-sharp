@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Senior AI Engineer - Apply</title>
+  </head>
+  <body>
+    <header>
+      <h1 class="job-title">Senior AI Engineer</h1>
+      <div class="company-name">Acme Corp</div>
+      <div class="job-meta">San Francisco, CA · Full-time</div>
+    </header>
+
+    <section class="job-description">
+      <p>
+        Acme is hiring an AI engineer to build and scale our recommendation pipeline. You will
+        work in TypeScript and Python, build evals from production traffic, and ship to prod
+        weekly.
+      </p>
+    </section>
+
+    <!--
+      Synthesized ATS apply form. Generic enough that the same fixture works for
+      Wellfound, YC Work at a Startup, Greenhouse, Lever, Ashby, SmartRecruiters,
+      Workable, and Workday. Per-platform selector quirks are tested separately
+      in the unit serializer test.
+    -->
+    <main>
+      <div role="dialog" aria-label="Apply for this job">
+        <form id="apply-form">
+          <label for="full-name">Full Name</label>
+          <input id="full-name" name="fullName" type="text" required />
+
+          <label for="email">Email Address</label>
+          <input id="email" name="email" type="email" required />
+
+          <label for="phone">Phone Number</label>
+          <input id="phone" name="phone" type="tel" />
+
+          <label for="linkedin">LinkedIn Profile</label>
+          <input id="linkedin" name="linkedinUrl" type="url" />
+
+          <label for="github">GitHub Profile</label>
+          <input id="github" name="githubUrl" type="url" />
+
+          <fieldset>
+            <legend>Are you authorized to work in the US?</legend>
+            <label><input type="radio" name="workAuth" value="yes" />Yes</label>
+            <label><input type="radio" name="workAuth" value="no" />No</label>
+          </fieldset>
+
+          <label for="years">Years of relevant experience</label>
+          <select id="years" name="yearsExperience">
+            <option value="">Select</option>
+            <option value="0-2">0-2 years</option>
+            <option value="3-5">3-5 years</option>
+            <option value="6-10">6-10 years</option>
+          </select>
+
+          <label for="why-company">Why do you want to work at Acme?</label>
+          <textarea id="why-company" name="whyCompany" rows="4" required maxlength="500"></textarea>
+
+          <label for="why-role">What excites you about this role?</label>
+          <textarea id="why-role" name="whyRole" rows="4" required maxlength="500"></textarea>
+
+          <label>
+            <input type="checkbox" name="agreeTerms" required />
+            I agree to the terms and privacy policy
+          </label>
+
+          <button type="submit">Submit application</button>
+        </form>
+      </div>
+    </main>
+  </body>
+</html>
