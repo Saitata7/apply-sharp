@@ -9,6 +9,8 @@
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)](src/manifest.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
+<img src="demo/hero.svg" alt="ApplySharp sidebar scoring a Senior Backend Engineer role at Anthropic with an 87 percent ATS match, matched keywords, gaps to address, and an H-1B sponsorship indicator" width="960" />
+
 </div>
 
 ---

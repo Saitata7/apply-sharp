@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApplySharp — Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --li-blue: #0a66c2;
+        --li-blue-deep: #004182;
+        --li-blue-soft: #e7f3ff;
+        --li-green: #057642;
+        --li-green-soft: #ddedd9;
+        --li-amber: #b24020;
+        --li-amber-soft: #fde7d3;
+        --surface-page: #f3f2ef;
+        --surface-card: #ffffff;
+        --surface-void: #ebe5df;
+        --border-faint: #e0dfdc;
+        --border-soft: rgba(0, 0, 0, 0.08);
+        --tx-primary: rgba(0, 0, 0, 0.9);
+        --tx-secondary: rgba(0, 0, 0, 0.6);
+        --tx-muted: rgba(0, 0, 0, 0.45);
+        --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+        --shadow-float: 0 14px 40px -8px rgba(0, 50, 100, 0.18),
+          0 2px 8px rgba(0, 0, 0, 0.06);
+        --display: 'Instrument Serif', 'Times New Roman', serif;
+        --body: 'Manrope', system-ui, -apple-system, sans-serif;
+        --mono: 'JetBrains Mono', 'SF Mono', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: #1a1a1a;
+        font-family: var(--body);
+        color: var(--tx-primary);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+
+      .stage {
+        width: 1200px;
+        height: 675px;
+        margin: 0 auto;
+        background: var(--surface-page);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 40px 120px rgba(0, 0, 0, 0.4);
+      }
+
+      @media (max-width: 1240px) {
+        body {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .stage {
+          transform: scale(min(calc(100vw / 1200), calc(100vh / 675)));
+          transform-origin: center;
+        }
+      }
+
+      /* ============================================
+         ANIMATION TIMELINE (18s loop)
+         0.0 - 3.5s   Frame 1: Hero
+         3.5 - 6.5s   Frame 2: LinkedIn page + sidebar enter
+         6.5 - 11s    Frame 3: ATS score
+         11 - 14s     Frame 4: Quick Tailor + download
+         14 - 18s     Frame 5: End card
+         ============================================ */
+
+      .frame {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        animation-duration: 18s;
+        animation-iteration-count: infinite;
+        animation-timing-function: ease-in-out;
+        animation-fill-mode: both;
+      }
+
+      /* Frame 1: hero card */
+      .frame--hero {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+            ellipse at top right,
+            rgba(10, 102, 194, 0.08),
+            transparent 60%
+          ),
+          radial-gradient(ellipse at bottom left, rgba(255, 255, 255, 0.6), transparent 60%),
+          var(--surface-page);
+        animation-name: fadeHero;
+      }
+      @keyframes fadeHero {
+        0%,
+        16% {
+          opacity: 1;
+        }
+        22%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .hero-content {
+        text-align: center;
+        max-width: 720px;
+        padding: 60px;
+      }
+
+      .hero-logo {
+        display: inline-block;
+        margin-bottom: 36px;
+        animation: subtlePulse 3s ease-in-out infinite;
+      }
+
+      @keyframes subtlePulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.03);
+        }
+      }
+
+      .hero-title {
+        font-family: var(--display);
+        font-size: 96px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        font-weight: 400;
+        color: var(--tx-primary);
+        margin-bottom: 20px;
+      }
+
+      .hero-title em {
+        font-style: italic;
+        color: var(--li-blue);
+      }
+
+      .hero-tagline {
+        font-family: var(--body);
+        font-size: 22px;
+        font-weight: 500;
+        color: var(--tx-secondary);
+        letter-spacing: -0.01em;
+        line-height: 1.4;
+      }
+
+      .hero-tagline strong {
+        color: var(--tx-primary);
+        font-weight: 600;
+      }
+
+      .hero-meta {
+        margin-top: 40px;
+        display: inline-flex;
+        gap: 12px;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--tx-muted);
+        letter-spacing: 0.04em;
+      }
+
+      .hero-meta-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--li-green);
+      }
+
+      /* Frames 2-4 share the LinkedIn mock background */
+      .frame--linkedin {
+        animation-name: fadeLinkedIn;
+      }
+      @keyframes fadeLinkedIn {
+        0%,
+        18% {
+          opacity: 0;
+        }
+        22%,
+        76% {
+          opacity: 1;
+        }
+        80%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .li-nav {
+        height: 52px;
+        background: var(--surface-card);
+        border-bottom: 1px solid var(--border-faint);
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        gap: 16px;
+      }
+
+      .li-logo {
+        width: 34px;
+        height: 34px;
+        background: var(--li-blue);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-family: var(--display);
+        font-style: italic;
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .li-search {
+        height: 34px;
+        width: 280px;
+        border-radius: 4px;
+        background: #edf3f8;
+        padding: 0 12px;
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        color: var(--tx-muted);
+      }
+
+      .li-nav-spacer {
+        flex: 1;
+      }
+
+      .li-nav-tabs {
+        display: flex;
+        gap: 28px;
+        font-size: 12px;
+        color: var(--tx-secondary);
+      }
+
+      .li-nav-tabs span:nth-child(2) {
+        color: var(--tx-primary);
+        font-weight: 600;
+        position: relative;
+      }
+      .li-nav-tabs span:nth-child(2)::after {
+        content: '';
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        bottom: -18px;
+        height: 2px;
+        background: #1a1a1a;
+      }
+
+      .li-body {
+        height: calc(100% - 52px);
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 0;
+      }
+
+      .li-side {
+        background: transparent;
+        padding: 24px 16px;
+      }
+
+      .li-side-card {
+        background: var(--surface-card);
+        border: 1px solid var(--border-faint);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 8px;
+      }
+
+      .li-side-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .li-side-sub {
+        font-size: 12px;
+        color: var(--tx-secondary);
+      }
+
+      .li-side-list {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .li-side-item {
+        font-size: 13px;
+        color: var(--tx-primary);
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border-faint);
+      }
+
+      .li-side-item:last-child {
+        border-bottom: none;
+      }
+
+      .li-side-item small {
+        display: block;
+        font-size: 11px;
+        color: var(--tx-muted);
+        margin-top: 2px;
+      }
+
+      .li-main {
+        padding: 24px 36px 24px 16px;
+        overflow: hidden;
+      }
+
+      .li-job-card {
+        background: var(--surface-card);
+        border: 1px solid var(--border-faint);
+        border-radius: 8px;
+        padding: 28px;
+      }
+
+      .li-job-title {
+        font-size: 24px;
+        font-weight: 600;
+        line-height: 1.2;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
+      }
+
+      .li-job-meta {
+        font-size: 14px;
+        color: var(--tx-secondary);
+        margin-bottom: 4px;
+      }
+
+      .li-job-meta strong {
+        color: var(--tx-primary);
+        font-weight: 600;
+      }
+
+      .li-job-sub {
+        font-size: 12px;
+        color: var(--tx-muted);
+        margin-bottom: 18px;
+      }
+
+      .li-apply-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+
+      .li-easy-apply {
+        background: var(--li-blue);
+        color: white;
+        height: 32px;
+        padding: 0 16px;
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .li-save {
+        background: transparent;
+        color: var(--tx-secondary);
+        height: 32px;
+        padding: 0 16px;
+        border: 1px solid var(--tx-secondary);
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+      }
+
+      .li-job-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .li-job-body {
+        font-size: 13px;
+        line-height: 1.55;
+        color: rgba(0, 0, 0, 0.75);
+      }
+
+      .li-job-body p {
+        margin-bottom: 10px;
+      }
+
+      .li-job-body ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .li-job-body li {
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 6px;
+      }
+
+      .li-job-body li::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 8px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--tx-muted);
+      }
+
+      /* ApplySharp sidebar overlay */
+      .as-sidebar {
+        position: absolute;
+        top: 52px;
+        right: 0;
+        bottom: 0;
+        width: 360px;
+        background: var(--surface-card);
+        border-left: 1px solid var(--border-faint);
+        box-shadow: var(--shadow-float);
+        padding: 24px;
+        animation-duration: 18s;
+        animation-iteration-count: infinite;
+        animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+        animation-fill-mode: both;
+      }
+
+      .as-sidebar--enter {
+        animation-name: sidebarEnter;
+      }
+      @keyframes sidebarEnter {
+        0%,
+        18% {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        22% {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        28%,
+        76% {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        80%,
+        100% {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+
+      .as-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-faint);
+      }
+
+      .as-header-name {
+        font-family: var(--display);
+        font-style: italic;
+        font-size: 24px;
+        line-height: 1;
+        color: var(--tx-primary);
+      }
+
+      .as-header-status {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--li-green);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .as-header-status::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--li-green);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      .as-score-block {
+        text-align: center;
+        padding: 12px 0 18px;
+      }
+
+      .as-score-label {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--tx-muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .as-gauge {
+        display: inline-block;
+        position: relative;
+        width: 168px;
+        height: 168px;
+      }
+
+      .as-gauge-svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+      }
+
+      .as-gauge-track {
+        fill: none;
+        stroke: var(--border-faint);
+        stroke-width: 10;
+      }
+
+      .as-gauge-arc {
+        fill: none;
+        stroke: var(--li-blue);
+        stroke-width: 10;
+        stroke-linecap: round;
+        stroke-dasharray: 471.24; /* 2 * pi * 75 */
+        stroke-dashoffset: 471.24;
+        animation: scoreArc 18s ease-out infinite;
+      }
+
+      @keyframes scoreArc {
+        0%,
+        28% {
+          stroke-dashoffset: 471.24;
+          stroke: var(--li-amber);
+        }
+        38% {
+          stroke-dashoffset: 235;
+          stroke: var(--li-amber);
+        }
+        46% {
+          stroke-dashoffset: 90;
+          stroke: var(--li-blue);
+        }
+        50%,
+        76% {
+          stroke-dashoffset: 61.26; /* 87% */
+          stroke: var(--li-blue);
+        }
+        80%,
+        100% {
+          stroke-dashoffset: 471.24;
+          stroke: var(--li-amber);
+        }
+      }
+
+      .as-gauge-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .as-gauge-num {
+        font-family: var(--display);
+        font-size: 64px;
+        line-height: 1;
+        color: var(--tx-primary);
+        font-feature-settings: 'tnum';
+      }
+
+      .as-gauge-num::before {
+        content: var(--score-display, '0');
+        animation: scoreNum 18s ease-out infinite;
+      }
+
+      @keyframes scoreNum {
+        0%,
+        28% {
+          --score-display: '0';
+        }
+        38% {
+          --score-display: '50';
+        }
+        46% {
+          --score-display: '78';
+        }
+        50%,
+        76% {
+          --score-display: '87';
+        }
+        80%,
+        100% {
+          --score-display: '0';
+        }
+      }
+
+      .as-gauge-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--tx-muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+
+      .as-section {
+        margin-top: 20px;
+      }
+
+      .as-section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--tx-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 10px;
+      }
+
+      .as-section-count {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--tx-muted);
+      }
+
+      .as-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .as-chip {
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 500;
+        background: var(--li-green-soft);
+        color: var(--li-green);
+        opacity: 0;
+        animation: chipIn 18s ease-out infinite;
+      }
+
+      .as-chip--miss {
+        background: var(--li-amber-soft);
+        color: var(--li-amber);
+      }
+
+      .as-chip:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .as-chip:nth-child(2) {
+        animation-delay: 0.05s;
+      }
+      .as-chip:nth-child(3) {
+        animation-delay: 0.1s;
+      }
+      .as-chip:nth-child(4) {
+        animation-delay: 0.15s;
+      }
+      .as-chip:nth-child(5) {
+        animation-delay: 0.2s;
+      }
+      .as-chip:nth-child(6) {
+        animation-delay: 0.25s;
+      }
+
+      @keyframes chipIn {
+        0%,
+        50% {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        58%,
+        76% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        80%,
+        100% {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+      }
+
+      .as-tailor-btn {
+        margin-top: 24px;
+        width: 100%;
+        height: 44px;
+        background: var(--li-blue);
+        color: white;
+        border: none;
+        border-radius: 22px;
+        font-family: var(--body);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        position: relative;
+        overflow: hidden;
+        animation: tailorPulse 18s linear infinite;
+      }
+
+      @keyframes tailorPulse {
+        0%,
+        62% {
+          box-shadow: 0 0 0 0 rgba(10, 102, 194, 0);
+        }
+        66% {
+          box-shadow: 0 0 0 8px rgba(10, 102, 194, 0.3);
+        }
+        70% {
+          box-shadow: 0 0 0 14px rgba(10, 102, 194, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(10, 102, 194, 0);
+        }
+      }
+
+      .as-tailor-text::before {
+        content: var(--tailor-text, 'Quick Tailor');
+        animation: tailorText 18s linear infinite;
+      }
+
+      @keyframes tailorText {
+        0%,
+        62% {
+          --tailor-text: 'Quick Tailor';
+        }
+        66%,
+        69% {
+          --tailor-text: 'Tailoring resume...';
+        }
+        72%,
+        76% {
+          --tailor-text: 'Downloaded resume.docx';
+        }
+        80%,
+        100% {
+          --tailor-text: 'Quick Tailor';
+        }
+      }
+
+      /* End card */
+      .frame--end {
+        background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-page) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation-name: fadeEnd;
+      }
+
+      @keyframes fadeEnd {
+        0%,
+        77% {
+          opacity: 0;
+        }
+        82%,
+        96% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .end-content {
+        max-width: 920px;
+        padding: 60px;
+        text-align: center;
+      }
+
+      .end-eyebrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--li-blue);
+        margin-bottom: 18px;
+      }
+
+      .end-title {
+        font-family: var(--display);
+        font-size: 64px;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin-bottom: 14px;
+      }
+
+      .end-title em {
+        font-style: italic;
+        color: var(--li-blue);
+      }
+
+      .end-url {
+        font-family: var(--mono);
+        font-size: 17px;
+        color: var(--tx-secondary);
+        margin-bottom: 44px;
+        padding: 10px 20px;
+        background: var(--surface-page);
+        border-radius: 6px;
+        display: inline-block;
+        border: 1px solid var(--border-faint);
+      }
+
+      .end-pillars {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        text-align: left;
+      }
+
+      .end-pillar {
+        background: var(--surface-card);
+        border: 1px solid var(--border-faint);
+        border-radius: 10px;
+        padding: 22px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .end-pillar::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 28px;
+        height: 3px;
+        background: var(--li-blue);
+      }
+
+      .end-pillar h4 {
+        font-family: var(--display);
+        font-style: italic;
+        font-size: 22px;
+        font-weight: 400;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
+      }
+
+      .end-pillar p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--tx-secondary);
+      }
+
+      .end-pillar code {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--li-blue);
+        background: var(--li-blue-soft);
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+
+      /* Frame indicators (subtle bottom progress) */
+      .progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: rgba(0, 0, 0, 0.04);
+        z-index: 100;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: var(--li-blue);
+        transform-origin: left;
+        animation: progressBar 18s linear infinite;
+      }
+
+      @keyframes progressBar {
+        0% {
+          transform: scaleX(0);
+        }
+        100% {
+          transform: scaleX(1);
+        }
+      }
+
+      /* Subtle decorative circles in hero */
+      .hero-decor {
+        position: absolute;
+        border-radius: 50%;
+        border: 1px solid rgba(10, 102, 194, 0.1);
+        pointer-events: none;
+      }
+
+      .hero-decor-1 {
+        width: 600px;
+        height: 600px;
+        top: -200px;
+        right: -200px;
+      }
+
+      .hero-decor-2 {
+        width: 400px;
+        height: 400px;
+        bottom: -150px;
+        left: -100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage" role="img" aria-label="ApplySharp demo">
+      <!-- ============= FRAME 1: HERO ============= -->
+      <div class="frame frame--hero">
+        <div class="hero-decor hero-decor-1"></div>
+        <div class="hero-decor hero-decor-2"></div>
+        <div class="hero-content">
+          <div class="hero-logo">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 128 128"
+              width="120"
+              height="120"
+              fill="none"
+              role="img"
+              aria-label="ApplySharp"
+            >
+              <defs>
+                <linearGradient id="hero-bg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#0A66C2" />
+                  <stop offset="100%" stop-color="#004182" />
+                </linearGradient>
+                <linearGradient id="hero-arrow" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#FFFFFF" />
+                </linearGradient>
+              </defs>
+              <rect width="128" height="128" rx="28" fill="url(#hero-bg)" />
+              <circle
+                cx="58"
+                cy="70"
+                r="34"
+                stroke="#FFFFFF"
+                stroke-width="6"
+                fill="none"
+                opacity="0.32"
+              />
+              <circle
+                cx="58"
+                cy="70"
+                r="22"
+                stroke="#FFFFFF"
+                stroke-width="6"
+                fill="none"
+                opacity="0.7"
+              />
+              <circle cx="58" cy="70" r="7" fill="#FFFFFF" />
+              <path
+                d="M58 70 L100 28"
+                stroke="url(#hero-arrow)"
+                stroke-width="8"
+                stroke-linecap="round"
+              />
+              <path
+                d="M82 28 L100 28 L100 46"
+                stroke="#FFFFFF"
+                stroke-width="8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                fill="none"
+              />
+            </svg>
+          </div>
+          <h1 class="hero-title">Apply<em>Sharp</em></h1>
+          <p class="hero-tagline">
+            The <strong>local-first</strong> AI job assistant.<br />
+            Your resume never leaves your laptop.
+          </p>
+          <div class="hero-meta">
+            <span>OPEN SOURCE</span>
+            <span class="hero-meta-dot"></span>
+            <span>MIT LICENSED</span>
+            <span class="hero-meta-dot"></span>
+            <span>BYOK AI</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============= FRAMES 2-4: LINKEDIN MOCK ============= -->
+      <div class="frame frame--linkedin">
+        <div class="li-nav">
+          <div class="li-logo">in</div>
+          <div class="li-search">Search</div>
+          <div class="li-nav-spacer"></div>
+          <div class="li-nav-tabs">
+            <span>Home</span>
+            <span>Jobs</span>
+            <span>Network</span>
+            <span>Messages</span>
+          </div>
+        </div>
+        <div class="li-body">
+          <div class="li-side">
+            <div class="li-side-card">
+              <div class="li-side-title">Recommended jobs</div>
+              <div class="li-side-sub">Based on your profile</div>
+              <div class="li-side-list">
+                <div class="li-side-item">
+                  Backend Engineer<small>Anthropic · 2d</small>
+                </div>
+                <div class="li-side-item">
+                  ML Platform Engineer<small>Cohere · 4d</small>
+                </div>
+                <div class="li-side-item">
+                  Senior SWE, Infra<small>Vercel · 1w</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="li-main">
+            <div class="li-job-card">
+              <div class="li-job-title">Senior Backend Engineer, AI Platform</div>
+              <div class="li-job-meta"><strong>Anthropic</strong> · San Francisco, CA</div>
+              <div class="li-job-sub">Posted 2 days ago · 47 applicants · Sponsorship available</div>
+              <div class="li-apply-row">
+                <button class="li-easy-apply">Easy Apply</button>
+                <button class="li-save">Save</button>
+              </div>
+              <div class="li-job-section-title">About the role</div>
+              <div class="li-job-body">
+                <p>
+                  Anthropic is looking for a Senior Backend Engineer to build and scale our AI
+                  platform. You will work on distributed systems serving production LLM
+                  workloads, focusing on reliability, latency, and developer experience.
+                </p>
+                <ul>
+                  <li>5+ years building production backend services</li>
+                  <li>Deep expertise in Python, Go, or Java with distributed systems</li>
+                  <li>Experience with Kubernetes, observability, and SRE practices</li>
+                  <li>Strong product sense and a bias for shipping</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ApplySharp sidebar overlay -->
+        <aside class="as-sidebar as-sidebar--enter">
+          <div class="as-header">
+            <svg viewBox="0 0 128 128" width="28" height="28" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="as-bg-sb" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#0A66C2" />
+                  <stop offset="100%" stop-color="#004182" />
+                </linearGradient>
+              </defs>
+              <rect width="128" height="128" rx="28" fill="url(#as-bg-sb)" />
+              <circle
+                cx="58"
+                cy="70"
+                r="34"
+                stroke="#FFFFFF"
+                stroke-width="6"
+                fill="none"
+                opacity="0.32"
+              />
+              <circle
+                cx="58"
+                cy="70"
+                r="22"
+                stroke="#FFFFFF"
+                stroke-width="6"
+                fill="none"
+                opacity="0.7"
+              />
+              <circle cx="58" cy="70" r="7" fill="#FFFFFF" />
+              <path d="M58 70 L100 28" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" />
+              <path
+                d="M82 28 L100 28 L100 46"
+                stroke="#FFFFFF"
+                stroke-width="8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                fill="none"
+              />
+            </svg>
+            <div class="as-header-name">ApplySharp</div>
+            <div class="as-header-status">Local</div>
+          </div>
+
+          <div class="as-score-block">
+            <div class="as-score-label">ATS match score</div>
+            <div class="as-gauge">
+              <svg class="as-gauge-svg" viewBox="0 0 168 168">
+                <circle cx="84" cy="84" r="75" class="as-gauge-track" />
+                <circle cx="84" cy="84" r="75" class="as-gauge-arc" />
+              </svg>
+              <div class="as-gauge-center">
+                <div class="as-gauge-num"></div>
+                <div class="as-gauge-label">Strong match</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="as-section">
+            <div class="as-section-title">
+              <span>Matched keywords</span><span class="as-section-count">12 / 14</span>
+            </div>
+            <div class="as-chips">
+              <span class="as-chip">Backend</span>
+              <span class="as-chip">Distributed</span>
+              <span class="as-chip">Python</span>
+              <span class="as-chip">Java</span>
+              <span class="as-chip">Kubernetes</span>
+            </div>
+          </div>
+
+          <div class="as-section">
+            <div class="as-section-title">
+              <span>Gaps to address</span><span class="as-section-count">2</span>
+            </div>
+            <div class="as-chips">
+              <span class="as-chip as-chip--miss">SRE practices</span>
+              <span class="as-chip as-chip--miss">Observability</span>
+            </div>
+          </div>
+
+          <button class="as-tailor-btn"><span class="as-tailor-text"></span></button>
+        </aside>
+      </div>
+
+      <!-- ============= FRAME 5: END CARD ============= -->
+      <div class="frame frame--end">
+        <div class="end-content">
+          <div class="end-eyebrow">Open source · v1.0</div>
+          <h2 class="end-title">
+            The job assistant<br />that <em>respects your data.</em>
+          </h2>
+          <div class="end-url">github.com/saitata7/apply-sharp</div>
+          <div class="end-pillars">
+            <div class="end-pillar">
+              <h4>Local-first</h4>
+              <p>
+                Profile, applications, and AI keys stay in
+                <code>chrome.storage.local</code>. Zero telemetry.
+              </p>
+            </div>
+            <div class="end-pillar">
+              <h4>Bring your own AI</h4>
+              <p>
+                Ollama for fully offline, or Claude, OpenAI, Groq. You pick the model and pay
+                the provider directly.
+              </p>
+            </div>
+            <div class="end-pillar">
+              <h4>MIT licensed</h4>
+              <p>
+                Free forever. Fork it, study it, ship it. Built for the
+                <code>job-search</code> community.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress indicator -->
+      <div class="progress"><div class="progress-bar"></div></div>
+    </div>
+  </body>
+</html>
