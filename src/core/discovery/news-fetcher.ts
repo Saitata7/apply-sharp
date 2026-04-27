@@ -3,7 +3,7 @@
  *
  * V1 source choice rationale: hn.algolia.com is already in optional
  * host_permissions for the Workstream 9 hn-whos-hiring fetcher, so v1
- * ships with no new permission ask. The signal is good enough — most
+ * ships with no new permission ask. The signal is good enough, since most
  * Series A+ AI funding rounds and major product launches appear on the
  * HN front page within 24 hours.
  *
@@ -12,7 +12,7 @@
  *   - techcrunch.com/feed (TechCrunch RSS)
  *
  * Returns RawNewsItems for `extractNewsSignals`. The fetcher does not
- * try to extract company names or trigger kinds itself — that lives in
+ * try to extract company names or trigger kinds itself, that lives in
  * the pure parser so it stays testable without network mocks.
  */
 

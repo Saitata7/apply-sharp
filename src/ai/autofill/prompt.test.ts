@@ -107,8 +107,8 @@ describe('buildAutofillPrompt', () => {
 
   it('user prompt includes the profile fields the model needs', () => {
     const built = buildAutofillPrompt(snapshot, profile, jd, research);
-    expect(built.user).toContain('Sai Tata');
-    expect(built.user).toContain('sai@example.com');
+    expect(built.user).toContain('Jane Doe');
+    expect(built.user).toContain('jane@example.com');
     expect(built.user).toContain('Senior Backend Engineer');
     expect(built.user).toContain('Cut p99');
     expect(built.user).toContain('US Citizen');

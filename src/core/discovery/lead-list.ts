@@ -12,12 +12,12 @@
  * The sponsor index is OPTIONAL. When the user has not yet run the python
  * processor (or the index is empty), every news signal still surfaces;
  * the leads just lack the visa-friendly badge. The lead-list never blocks
- * on missing sponsor data — it degrades to "all leads, no visa filter".
+ * on missing sponsor data, it degrades to "all leads, no visa filter".
  *
  * Keyword filter: callers pass an optional list of role keywords
  * ("ai engineer", "ml engineer", "llm"). When supplied, leads whose
  * sponsor-index titles do NOT include any of those keywords get a soft
- * penalty rather than being excluded — companies with strong recent
+ * penalty rather than being excluded. Companies with strong recent
  * sponsorship history but in adjacent roles are still worth considering.
  */
 

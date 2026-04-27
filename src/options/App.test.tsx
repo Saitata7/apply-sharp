@@ -104,19 +104,20 @@ describe('App optionsTab handoff cycle', () => {
     });
   });
 
-  it('navigates to the contacts tab when optionsTab="contacts" is staged', async () => {
+  // Contacts and Outreach pages are gated behind v1.1 feature flags
+  // (pages.contactsCrm, pages.outreachComposer) and not in NAV_ITEMS by default.
+  // These handoff tests will re-enable when the flags flip to default-on at v1.1.
+  it.skip('navigates to the contacts tab when optionsTab="contacts" is staged (v1.1)', async () => {
     fake.store.optionsTab = 'contacts';
     render(<App />);
     await waitFor(() => {
       expect(screen.getByText('STUB:contacts')).toBeInTheDocument();
     });
-    // Cycle close: the key MUST be removed so a future "open options"
-    // does not get stuck on the contacts tab.
     expect(fake.remove).toHaveBeenCalledWith('optionsTab');
     expect(fake.store.optionsTab).toBeUndefined();
   });
 
-  it('navigates to the outreach tab when optionsTab="outreach" is staged', async () => {
+  it.skip('navigates to the outreach tab when optionsTab="outreach" is staged (v1.1)', async () => {
     fake.store.optionsTab = 'outreach';
     render(<App />);
     await waitFor(() => {
